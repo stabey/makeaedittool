@@ -1,0 +1,49 @@
+{
+  "scenario": "Large-file native paged virtualization and navigation",
+  "files": [
+    {
+      "name": "sixtyfour.log",
+      "allocated_bytes": 68728872960,
+      "allocation_mode": "NON-SPARSE (deterministic write_all + sync_all)",
+      "indexing_mode": "sparse line indexer (background thread)",
+      "evidence_image": "docs/evidence/native-largefile-sixtyfour.png",
+      "observed_viewport": "Bytes 0..65536 / 64.00 GiB · Sparse Index 0% (504124+ lines scanned) · gen 1",
+      "observed_rss_mib": 131.125
+    },
+    {
+      "name": "line.log",
+      "allocated_bytes": 134217728,
+      "allocation_mode": "NON-SPARSE single line without newlines",
+      "evidence_image": "docs/evidence/native-largefile-line.png",
+      "observed_viewport": "Bytes 0..65536 / 128.0 MiB · Sparse Index 39% (1+ lines scanned) · gen 2 Long-Line Slice",
+      "observed_rss_mib": 132.265625
+    },
+    {
+      "name": "dense.log",
+      "allocated_bytes": 536870912,
+      "allocation_mode": "NON-SPARSE newline each byte",
+      "evidence_image": "docs/evidence/native-largefile-dense.png",
+      "observed_viewport": "Bytes 0..65536 / 512.0 MiB · Sparse Index 12% (69206017+ lines scanned) · gen 3",
+      "observed_rss_mib": 121.34375
+    }
+  ],
+  "measurement_methods_and_notes": {
+    "initial_window_launch": {
+      "command": "target/release/editor --data-dir .smoke-data/native-largefile sixtyfour.log line.log dense.log",
+      "measured_elapsed_ms": 306.48,
+      "initial_active_tab": "dense.log (CLI file order opens each tab sequentially, leaving the final file active)",
+      "sixtyfour_first_paint_status": "UNMEASURED_ISOLATED (306.5 ms was the total time to first interactive window displaying dense.log with all 3 tabs registered; sixtyfour.log was viewed after Ctrl+Tab switch)"
+    },
+    "tab_switching_timing": {
+      "measurement_method": "Scripted sendKey(Ctrl+Tab) with explicit usleep(500_000) settling sleep before screen capture",
+      "script_elapsed_switch_to_sixtyfour_ms": 600.75,
+      "script_elapsed_switch_to_line_ms": 595.07,
+      "classification": "AUTOMATION_UPPER_BOUND (dominated by 500 ms script wait; does NOT reflect true visual-ready rendering latency)"
+    },
+    "process_rss": {
+      "measurement_method": "macOS /bin/ps -o rss= -p <PID>",
+      "range_mib": "121.3 - 132.3 MiB across all 3 open large files (paging cache reported in UI: 192 KiB)",
+      "clean_quit_observed": true
+    }
+  }
+}

@@ -1,0 +1,143 @@
+   Compiling editor v0.1.0 (/Volumes/macport/makeaedittool/apps/editor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.78s
+     Running unittests src/lib.rs (target/debug/deps/editor-ecaa95bbae526fbc)
+
+running 38 tests
+test app::tests::close_lifecycle_gen_advances_only_on_discard ... ok
+test app::tests::quit_commit_predicate_skips_closing_already_durable_and_oversized_buffers ... ok
+test app::tests::clean_untitled_stub_reconstitutes_without_recovery_db_query ... ok
+test budget::tests::untouched_pathless_untitled_tabs_are_not_counted_reclaimable_past_hard_cap ... ok
+test cli::tests::parses_usability_smoke_mode ... ok
+test cli::tests::rejects_zero_admission_budget ... ok
+test budget::tests::reclaims_clean_unedited_lru_tabs_past_soft_target_preserving_edited_tabs ... ok
+test budget::tests::admits_100_edited_small_tabs_without_evicting_dirty_or_undo_history ... ok
+test budget::tests::rejects_over_256mib_when_dirty_tabs_hold_budget ... ok
+test cli::tests::parses_isolated_data_dir_smoke_and_files ... ok
+test editor_adapter::tests::format_change_classification_separates_0byte_untitled_from_tracked_buffers ... ok
+test editor_adapter::tests::rejects_overlapping_and_duplicate_same_offset_insertions ... ok
+test editor_adapter::tests::rejects_stale_revision_utf8_mid_char_and_crlf_split ... ok
+test language::tests::comment_prefix_known_languages_and_unsupported_formats ... ok
+test language::tests::resolve_language_honors_override_and_auto_detect_fallback ... ok
+test editor_adapter::tests::identity_and_cancelling_edits_plan_as_noop_while_preserving_boundary_validation ... ok
+test editor_adapter::tests::plans_multi_identical_and_distinct_spliced_span_correctly ... ok
+test editor_adapter::tests::dirty_tracker_handles_save_during_typing_and_undo_to_savepoint_without_ui_hashing ... ok
+test editor_adapter::tests::expected_programmatic_event_matches_immutable_clone_across_chained_cow_mutations ... ok
+test editor_adapter::tests::format_dirty_predicate_flip_back_legacy_baseline_and_save_during_format_change ... ok
+test line_ops::tests::duplicate_line_handles_lf_crlf_eof_without_newline_and_next_line_col0 ... ok
+test line_ops::tests::delete_line_handles_first_middle_and_eof_with_and_without_newline_crlf ... ok
+test line_ops::tests::move_line_up_and_down_preserve_crlf_and_eof_boundaries ... ok
+test line_ops::tests::toggle_comment_supports_rust_python_sql_indented_blocks_and_rejects_json_or_multicursor ... ok
+test search_bar::tests::extended_search_honors_cancellation_and_edit_invalidation ... ok
+test paged_view::tests::parses_64bit_byte_offsets_above_4gib ... ok
+test paged_view::tests::segments_long_single_line_without_advancing_logical_line_number ... ok
+test shell::tests::merge_loaded_shell_preserves_early_overrides_cli_theme_and_mru_order ... ok
+test paged_view::tests::lossy_viewport_slice_never_claims_exact_row_file_offsets ... ok
+test shell::tests::merge_loaded_without_early_mutations_never_requests_startup_write ... ok
+test shell::tests::unhydrated_badge_is_honest_about_saved_checkpoint_vs_metadata_dirty ... ok
+test shell::tests::palette_query_switches_to_commands_on_gt_prefix_and_matches_multi_token ... ok
+test shell::tests::disambiguate_paths_distinguishes_same_filename_without_disk_io ... ok
+test search_bar::tests::regex_zero_length_matches_and_0based_line_numbers_are_exact ... ok
+test search_bar::tests::regex_capture_replacement_expands_groups_cleanly ... ok
+test paged_view::tests::segments_dense_64kib_short_lines_without_allocating_strings ... ok
+test editor_adapter::tests::budgets_distinct_bounding_span_at_4mib_while_allowing_wide_identical_replacements ... ok
+test line_ops::tests::enforces_4mib_and_line_count_caps_before_materialization ... ok
+
+test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/main.rs (target/debug/deps/editor-7e63a9599cb9dea9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/editor_services-5e09865528cf40e2)
+
+running 19 tests
+test paging::tests::index_buffers_and_open_permits_are_bounded_and_reusable ... ok
+test paging::tests::mid_read_eof_trips_generation_and_evicts_cached_data ... ok
+test paging::tests::sparse_index_uses_available_budget_beyond_1024_checkpoints ... ok
+test recovery::metadata_order_tests::metadata_refs_balance_on_coalescing_admission_failure_and_terminal_errors ... ok
+test recovery::metadata_order_tests::failed_layout_transaction_does_not_advance_metadata_stamp ... ok
+test ui_shell::tests::defaults_and_mru_order_dedup_and_cap_need_no_target_access ... ok
+test ui_shell::tests::flush_admission_is_bounded_and_shutdown_has_its_own_slot ... ok
+test ui_shell::tests::opening_missing_settings_and_empty_barriers_do_not_write ... ok
+test recovery::metadata_order_tests::superseded_inflight_failure_releases_only_its_own_source ... ok
+test ui_shell::tests::loading_invalid_preferences_and_history_warns_without_rewriting ... ok
+test recovery::metadata_order_tests::missing_row_save_acknowledgement_uses_captured_current_format ... ok
+test recovery::metadata_order_tests::close_does_not_release_queued_sources_or_stamp_rejected_layouts ... ok
+test ui_shell::tests::oversized_or_invalid_queued_snapshot_never_replaces_valid_state ... ok
+test recovery::metadata_order_tests::retry_keeps_original_stamp_and_newer_layout_survives ... ok
+test recovery::metadata_order_tests::applied_stamp_never_regresses_across_three_out_of_order_sources ... ok
+test ui_shell::tests::publication_failure_preserves_old_file_cleans_temp_and_remains_visible ... ok
+test ui_shell::tests::coalescing_is_latest_wins_and_shutdown_acknowledges_final_publication ... ok
+test recovery::metadata_order_tests::newest_admitted_metadata_wins_in_both_worker_orders_with_saved_baseline ... ok
+test ui_shell::tests::corrupt_and_oversized_input_is_retained_then_backed_up_once_per_store ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running unittests src/bin/editor-services.rs (target/debug/deps/editor_services-d82eae2e8cf19308)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/services.rs (target/debug/deps/services-cd0247ea24e19e30)
+
+running 35 tests
+test clean_identity_ignores_revision_and_handles_undo_back_to_savepoint ... ok
+test empty_pattern_and_cap_are_not_false_complete_counts ... ok
+test generations_are_unique_per_open_and_advance_on_invalidation ... ok
+test capped_search_reports_scanned_cursor_and_read_bytes_separately ... ok
+test generated_search_cases_match_single_slice_reference ... ok
+test invalid_unicode_delta_does_not_advance_durable_revision ... ok
+test discard_tombstone_rejects_late_snapshots_and_close_keeps_recent_draft ... ok
+test all_documents_share_cache_and_dense_index_budgets ... ok
+test cancellation_exits_with_a_full_abandoned_result_queue ... ok
+test literal_search_is_differentially_correct_at_every_small_boundary ... ok
+test lossy_viewport_remains_bounded_and_reports_consumed_raw_bytes ... ok
+test durable_head_without_saved_layout_is_visible_after_restart ... ok
+test lossy_decoding_preserves_crlf_and_exact_requested_binary_anchor ... ok
+test paged_view_never_splits_utf8_or_crlf_and_long_lines_stay_bounded ... ok
+test legacy_metadata_and_save_intents_keep_unknown_format_baselines ... ok
+test query_limit_and_unsupported_encoding_are_explicit ... ok
+test malformed_metadata_and_view_are_isolated_with_visible_manifest_warnings ... ok
+test captured_save_normalizes_eol_preserves_bom_and_rescues_without_database ... ok
+test recovery_baseline_deltas_gap_compaction_and_external_source_loss ... ok
+test concurrent_open_and_index_requests_retry_without_exceeding_global_quotas ... ok
+test rapid_search_supersession_keeps_latest_query_in_one_bounded_slot ... ok
+test saved_association_survives_later_commit_with_captured_old_metadata ... ok
+test every_prepublication_save_fault_preserves_original_and_cleans_temp ... ok
+test real_save_intent_captures_request_format_without_reverting_newer_metadata ... ok
+test source_identity_invalidates_replacement_truncation_append_and_rewrite ... ok
+test ordinary_open_preserves_bom_and_classifies_mixed_or_unsupported ... ok
+test valid_but_inaccurate_equal_length_deltas_checkpoint_the_captured_rope ... ok
+test publication_and_recovery_warning_are_not_reported_as_no_file_saved ... ok
+test ordinary_open_handles_utf8_crossing_scan_blocks ... ok
+test save_detects_conflicts_and_preserves_symlink_target_and_permissions ... ok
+test opening_keeps_binary_priority_and_equal_lf_crlf_long_line_thresholds ... ok
+test unmodified_supported_files_save_byte_identically ... ok
+test session_manifest_is_metadata_only_and_corrupt_draft_is_isolated ... ok
+durable_revision=1 next_revision=2 exit_stage=RecoveryBeforeCommit expected_exit=86
+save_process_exit stage=SaveBeforeWrite expected_exit=86 target=/Volumes/macport/Caches/tmp/.tmpEHUXWc/crash-save.txt
+crash_recovery_passed durable_revision=1 text=durable baseline 中文🙂
+test process_exit_before_sqlite_commit_recovers_only_prior_complete_revision ... ok
+save_process_exit stage=SaveAfterTempSync expected_exit=86 target=/Volumes/macport/Caches/tmp/.tmp0iCGMS/crash-save.txt
+save_process_exit stage=SaveBeforeRename expected_exit=86 target=/Volumes/macport/Caches/tmp/.tmpX7eXqs/crash-save.txt
+save_process_exit stage=SaveAfterRename expected_exit=86 target=/Volumes/macport/Caches/tmp/.tmpotPpeK/crash-save.txt
+save_process_exit stage=SaveBeforeRecoveryAck expected_exit=86 target=/Volumes/macport/Caches/tmp/.tmp89PAGY/crash-save.txt
+test save_process_exit_stages_keep_either_complete_old_or_complete_new_file ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+   Doc-tests editor
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests editor_services
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

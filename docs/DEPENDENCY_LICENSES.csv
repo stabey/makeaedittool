@@ -1,0 +1,527 @@
+package,version,license_expression,repository,source
+accesskit,0.24.1,MIT OR Apache-2.0,https://github.com/AccessKit/accesskit,registry+https://github.com/rust-lang/crates.io-index
+accesskit_consumer,0.38.0,MIT OR Apache-2.0,https://github.com/AccessKit/accesskit,registry+https://github.com/rust-lang/crates.io-index
+accesskit_macos,0.26.3,MIT OR Apache-2.0,https://github.com/AccessKit/accesskit,registry+https://github.com/rust-lang/crates.io-index
+addr2line,0.27.1,Apache-2.0 OR MIT,https://github.com/gimli-rs/addr2line,registry+https://github.com/rust-lang/crates.io-index
+adler2,2.0.1,0BSD OR MIT OR Apache-2.0,https://github.com/oyvindln/adler2,registry+https://github.com/rust-lang/crates.io-index
+aho-corasick,1.1.5,Unlicense OR MIT,https://github.com/BurntSushi/aho-corasick,registry+https://github.com/rust-lang/crates.io-index
+aligned,0.4.3,MIT OR Apache-2.0,https://github.com/rust-embedded-community/aligned,registry+https://github.com/rust-lang/crates.io-index
+aligned-vec,0.6.4,MIT,https://github.com/sarah-ek/aligned-vec/,registry+https://github.com/rust-lang/crates.io-index
+alloca,0.4.0,MIT,https://github.com/playXE/alloca-rs,registry+https://github.com/rust-lang/crates.io-index
+allocator-api2,0.2.21,MIT OR Apache-2.0,https://github.com/zakarumych/allocator-api2,registry+https://github.com/rust-lang/crates.io-index
+anes,0.1.6,MIT OR Apache-2.0,https://github.com/zrzka/anes-rs,registry+https://github.com/rust-lang/crates.io-index
+annotate-snippets,0.12.17,MIT OR Apache-2.0,https://github.com/rust-lang/annotate-snippets-rs,registry+https://github.com/rust-lang/crates.io-index
+anstyle,1.0.14,MIT OR Apache-2.0,https://github.com/rust-cli/anstyle.git,registry+https://github.com/rust-lang/crates.io-index
+anyhow,1.0.104,MIT OR Apache-2.0,https://github.com/dtolnay/anyhow,registry+https://github.com/rust-lang/crates.io-index
+arc-swap,1.9.3,MIT OR Apache-2.0,https://github.com/vorner/arc-swap,registry+https://github.com/rust-lang/crates.io-index
+arg_enum_proc_macro,0.3.4,MIT,https://github.com/lu-zero/arg_enum_proc_macro,registry+https://github.com/rust-lang/crates.io-index
+arraydeque,0.5.1,MIT/Apache-2.0,https://github.com/andylokandy/arraydeque,registry+https://github.com/rust-lang/crates.io-index
+arrayref,0.3.9,BSD-2-Clause,https://github.com/droundy/arrayref,registry+https://github.com/rust-lang/crates.io-index
+arrayvec,0.7.8,MIT OR Apache-2.0,https://github.com/bluss/arrayvec,registry+https://github.com/rust-lang/crates.io-index
+as-slice,0.2.1,MIT OR Apache-2.0,https://github.com/japaric/as-slice,registry+https://github.com/rust-lang/crates.io-index
+async-channel,2.5.0,Apache-2.0 OR MIT,https://github.com/smol-rs/async-channel,registry+https://github.com/rust-lang/crates.io-index
+async-executor,1.14.1,Apache-2.0 OR MIT,https://github.com/smol-rs/async-executor,registry+https://github.com/rust-lang/crates.io-index
+async-fs,2.2.0,Apache-2.0 OR MIT,https://github.com/smol-rs/async-fs,registry+https://github.com/rust-lang/crates.io-index
+async-io,2.6.0,Apache-2.0 OR MIT,https://github.com/smol-rs/async-io,registry+https://github.com/rust-lang/crates.io-index
+async-lock,3.5.0,Apache-2.0 OR MIT,https://github.com/smol-rs/async-lock,registry+https://github.com/rust-lang/crates.io-index
+async-net,2.0.0,Apache-2.0 OR MIT,https://github.com/smol-rs/async-net,registry+https://github.com/rust-lang/crates.io-index
+async-process,2.5.0,Apache-2.0 OR MIT,https://github.com/smol-rs/async-process,registry+https://github.com/rust-lang/crates.io-index
+async-signal,0.2.14,Apache-2.0 OR MIT,https://github.com/smol-rs/async-signal,registry+https://github.com/rust-lang/crates.io-index
+async-task,4.7.1,Apache-2.0 OR MIT,https://github.com/smol-rs/async-task,registry+https://github.com/rust-lang/crates.io-index
+atomic,0.5.3,Apache-2.0/MIT,https://github.com/Amanieu/atomic-rs,registry+https://github.com/rust-lang/crates.io-index
+atomic-waker,1.1.2,Apache-2.0 OR MIT,https://github.com/smol-rs/atomic-waker,registry+https://github.com/rust-lang/crates.io-index
+autocfg,1.5.1,Apache-2.0 OR MIT,https://github.com/cuviper/autocfg,registry+https://github.com/rust-lang/crates.io-index
+av-scenechange,0.14.1,MIT,https://github.com/rust-av/av-scenechange,registry+https://github.com/rust-lang/crates.io-index
+av1-grain,0.2.5,BSD-2-Clause,https://github.com/rust-av/av1-grain,registry+https://github.com/rust-lang/crates.io-index
+avif-serialize,0.8.9,BSD-3-Clause,https://github.com/kornelski/avif-serialize,registry+https://github.com/rust-lang/crates.io-index
+backtrace,0.3.77,MIT OR Apache-2.0,https://github.com/rust-lang/backtrace-rs,registry+https://github.com/rust-lang/crates.io-index
+base62,2.2.6,MIT,https://github.com/fbernier/base62,registry+https://github.com/rust-lang/crates.io-index
+base64,0.22.1,MIT OR Apache-2.0,https://github.com/marshallpierce/rust-base64,registry+https://github.com/rust-lang/crates.io-index
+base64,0.23.1,MIT OR Apache-2.0,https://github.com/marshallpierce/rust-base64,registry+https://github.com/rust-lang/crates.io-index
+bincode,1.3.3,MIT,https://github.com/servo/bincode,registry+https://github.com/rust-lang/crates.io-index
+bit-set,0.11.1,Apache-2.0 OR MIT,https://github.com/contain-rs/bit-vec,registry+https://github.com/rust-lang/crates.io-index
+bit-set,0.8.0,Apache-2.0 OR MIT,https://github.com/contain-rs/bit-set,registry+https://github.com/rust-lang/crates.io-index
+bit-vec,0.10.1,Apache-2.0 OR MIT,https://github.com/contain-rs/bit-vec,registry+https://github.com/rust-lang/crates.io-index
+bit-vec,0.8.0,Apache-2.0 OR MIT,https://github.com/contain-rs/bit-vec,registry+https://github.com/rust-lang/crates.io-index
+bit_field,0.10.3,Apache-2.0/MIT,https://github.com/phil-opp/rust-bit-field,registry+https://github.com/rust-lang/crates.io-index
+bitflags,1.3.2,MIT/Apache-2.0,https://github.com/bitflags/bitflags,registry+https://github.com/rust-lang/crates.io-index
+bitflags,2.13.2,MIT OR Apache-2.0,https://github.com/bitflags/bitflags,registry+https://github.com/rust-lang/crates.io-index
+bitstream-io,4.10.0,MIT/Apache-2.0,https://github.com/tuffy/bitstream-io,registry+https://github.com/rust-lang/crates.io-index
+blake3,1.8.7,CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception,https://github.com/BLAKE3-team/BLAKE3,registry+https://github.com/rust-lang/crates.io-index
+block-buffer,0.12.1,MIT OR Apache-2.0,https://github.com/RustCrypto/utils,registry+https://github.com/rust-lang/crates.io-index
+block2,0.5.1,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+block2,0.6.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+blocking,1.7.0,Apache-2.0 OR MIT,https://github.com/smol-rs/blocking,registry+https://github.com/rust-lang/crates.io-index
+borsh,1.8.1,MIT OR Apache-2.0,https://github.com/near/borsh-rs,registry+https://github.com/rust-lang/crates.io-index
+borsh-derive,1.8.1,Apache-2.0,https://github.com/near/borsh-rs,registry+https://github.com/rust-lang/crates.io-index
+bstr,1.13.1,MIT OR Apache-2.0,https://github.com/BurntSushi/bstr,registry+https://github.com/rust-lang/crates.io-index
+built,0.8.1,MIT,https://github.com/lukaslueg/built,registry+https://github.com/rust-lang/crates.io-index
+bumpalo,3.20.3,MIT OR Apache-2.0,https://github.com/fitzgen/bumpalo,registry+https://github.com/rust-lang/crates.io-index
+bytemuck,1.25.2,Zlib OR Apache-2.0 OR MIT,https://github.com/Lokathor/bytemuck,registry+https://github.com/rust-lang/crates.io-index
+bytemuck_derive,1.12.1,Zlib OR Apache-2.0 OR MIT,https://github.com/Lokathor/bytemuck,registry+https://github.com/rust-lang/crates.io-index
+byteorder,1.5.0,Unlicense OR MIT,https://github.com/BurntSushi/byteorder,registry+https://github.com/rust-lang/crates.io-index
+byteorder-lite,0.1.0,Unlicense OR MIT,https://github.com/image-rs/byteorder-lite,registry+https://github.com/rust-lang/crates.io-index
+bytes,1.12.1,MIT,https://github.com/tokio-rs/bytes,registry+https://github.com/rust-lang/crates.io-index
+cast,0.3.0,MIT OR Apache-2.0,https://github.com/japaric/cast.rs,registry+https://github.com/rust-lang/crates.io-index
+cbindgen,0.28.0,MPL-2.0,https://github.com/mozilla/cbindgen,registry+https://github.com/rust-lang/crates.io-index
+cc,1.11.0,MIT OR Apache-2.0,https://github.com/rust-lang/cc-rs,registry+https://github.com/rust-lang/crates.io-index
+cfg-if,1.0.5,MIT OR Apache-2.0,https://github.com/rust-lang/cfg-if,registry+https://github.com/rust-lang/crates.io-index
+cfg_aliases,0.2.2,MIT,https://github.com/katharostech/cfg_aliases,registry+https://github.com/rust-lang/crates.io-index
+chacha20,0.10.2,MIT OR Apache-2.0,https://github.com/RustCrypto/stream-ciphers,registry+https://github.com/rust-lang/crates.io-index
+chrono,0.4.45,MIT OR Apache-2.0,https://github.com/chronotope/chrono,registry+https://github.com/rust-lang/crates.io-index
+ciborium,0.2.2,Apache-2.0,https://github.com/enarx/ciborium,registry+https://github.com/rust-lang/crates.io-index
+ciborium-io,0.2.2,Apache-2.0,https://github.com/enarx/ciborium,registry+https://github.com/rust-lang/crates.io-index
+ciborium-ll,0.2.2,Apache-2.0,https://github.com/enarx/ciborium,registry+https://github.com/rust-lang/crates.io-index
+clap,4.6.7,MIT OR Apache-2.0,https://github.com/clap-rs/clap,registry+https://github.com/rust-lang/crates.io-index
+clap_builder,4.6.7,MIT OR Apache-2.0,https://github.com/clap-rs/clap,registry+https://github.com/rust-lang/crates.io-index
+clap_lex,1.1.1,MIT OR Apache-2.0,https://github.com/clap-rs/clap,registry+https://github.com/rust-lang/crates.io-index
+color_quant,1.1.0,MIT,https://github.com/image-rs/color_quant.git,registry+https://github.com/rust-lang/crates.io-index
+concurrent-queue,2.5.0,Apache-2.0 OR MIT,https://github.com/smol-rs/concurrent-queue,registry+https://github.com/rust-lang/crates.io-index
+const-oid,0.10.2,Apache-2.0 OR MIT,https://github.com/RustCrypto/formats,registry+https://github.com/rust-lang/crates.io-index
+constant_time_eq,0.4.2,CC0-1.0 OR MIT-0 OR Apache-2.0,https://github.com/cesarb/constant_time_eq,registry+https://github.com/rust-lang/crates.io-index
+convert_case,0.10.0,MIT,https://github.com/rutrum/convert-case,registry+https://github.com/rust-lang/crates.io-index
+convert_case,0.11.0,MIT,https://github.com/rutrum/convert-case,registry+https://github.com/rust-lang/crates.io-index
+core-foundation,0.10.1,MIT OR Apache-2.0,https://github.com/servo/core-foundation-rs,registry+https://github.com/rust-lang/crates.io-index
+core-foundation-sys,0.8.7,MIT OR Apache-2.0,https://github.com/servo/core-foundation-rs,registry+https://github.com/rust-lang/crates.io-index
+core-graphics,0.24.0,MIT OR Apache-2.0,https://github.com/servo/core-foundation-rs,registry+https://github.com/rust-lang/crates.io-index
+core-graphics-types,0.2.0,MIT OR Apache-2.0,https://github.com/servo/core-foundation-rs,registry+https://github.com/rust-lang/crates.io-index
+core-text,21.0.0,MIT OR Apache-2.0,https://github.com/servo/core-foundation-rs,registry+https://github.com/rust-lang/crates.io-index
+core_detect,1.0.0,MIT/Apache-2.0,https://github.com/thomcc/core_detect,registry+https://github.com/rust-lang/crates.io-index
+core_maths,0.1.1,MIT,https://github.com/robertbastian/core_maths,registry+https://github.com/rust-lang/crates.io-index
+cpufeatures,0.3.1,MIT OR Apache-2.0,https://github.com/RustCrypto/utils,registry+https://github.com/rust-lang/crates.io-index
+crc32fast,1.5.4,MIT OR Apache-2.0,https://github.com/srijs/rust-crc32fast,registry+https://github.com/rust-lang/crates.io-index
+criterion,0.8.2,Apache-2.0 OR MIT,https://github.com/criterion-rs/criterion.rs,registry+https://github.com/rust-lang/crates.io-index
+criterion-plot,0.8.2,Apache-2.0 OR MIT,https://github.com/criterion-rs/criterion.rs,registry+https://github.com/rust-lang/crates.io-index
+crossbeam-channel,0.5.17,MIT OR Apache-2.0,https://github.com/crossbeam-rs/crossbeam,registry+https://github.com/rust-lang/crates.io-index
+crossbeam-deque,0.8.8,MIT OR Apache-2.0,https://github.com/crossbeam-rs/crossbeam,registry+https://github.com/rust-lang/crates.io-index
+crossbeam-epoch,0.9.21,MIT OR Apache-2.0,https://github.com/crossbeam-rs/crossbeam,registry+https://github.com/rust-lang/crates.io-index
+crossbeam-queue,0.3.14,MIT OR Apache-2.0,https://github.com/crossbeam-rs/crossbeam,registry+https://github.com/rust-lang/crates.io-index
+crossbeam-utils,0.8.23,MIT OR Apache-2.0,https://github.com/crossbeam-rs/crossbeam,registry+https://github.com/rust-lang/crates.io-index
+crypto-common,0.2.2,MIT OR Apache-2.0,https://github.com/RustCrypto/traits,registry+https://github.com/rust-lang/crates.io-index
+ctor,1.0.13,Apache-2.0 OR MIT,https://github.com/mmastrac/linktime,registry+https://github.com/rust-lang/crates.io-index
+data-url,0.3.2,MIT OR Apache-2.0,https://github.com/servo/rust-url,registry+https://github.com/rust-lang/crates.io-index
+derive_more,2.1.1,MIT,https://github.com/JelteF/derive_more,registry+https://github.com/rust-lang/crates.io-index
+derive_more-impl,2.1.1,MIT,https://github.com/JelteF/derive_more,registry+https://github.com/rust-lang/crates.io-index
+digest,0.11.3,MIT OR Apache-2.0,https://github.com/RustCrypto/traits,registry+https://github.com/rust-lang/crates.io-index
+dirs,5.0.1,MIT OR Apache-2.0,https://github.com/soc/dirs-rs,registry+https://github.com/rust-lang/crates.io-index
+dirs,6.0.0,MIT OR Apache-2.0,https://github.com/soc/dirs-rs,registry+https://github.com/rust-lang/crates.io-index
+dirs-sys,0.4.1,MIT OR Apache-2.0,https://github.com/dirs-dev/dirs-sys-rs,registry+https://github.com/rust-lang/crates.io-index
+dirs-sys,0.5.0,MIT OR Apache-2.0,https://github.com/dirs-dev/dirs-sys-rs,registry+https://github.com/rust-lang/crates.io-index
+dispatch2,0.3.1,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+displaydoc,0.2.7,MIT OR Apache-2.0,https://github.com/yaahc/displaydoc,registry+https://github.com/rust-lang/crates.io-index
+dyn-clone,1.0.20,MIT OR Apache-2.0,https://github.com/dtolnay/dyn-clone,registry+https://github.com/rust-lang/crates.io-index
+editor,0.1.0,Apache-2.0,,workspace
+editor-services,0.1.0,Apache-2.0,,workspace
+either,1.19.0,MIT OR Apache-2.0,https://github.com/rayon-rs/either,registry+https://github.com/rust-lang/crates.io-index
+embed-resource,3.0.12,MIT,https://github.com/nabijaczleweli/rust-embed-resource,registry+https://github.com/rust-lang/crates.io-index
+encoding_rs,0.8.44,(Apache-2.0 OR MIT) AND BSD-3-Clause,https://github.com/hsivonen/encoding_rs,registry+https://github.com/rust-lang/crates.io-index
+encoding_rs_io,0.1.8,MIT OR Apache-2.0,https://github.com/BurntSushi/encoding_rs_io,registry+https://github.com/rust-lang/crates.io-index
+enum-iterator,2.3.0,0BSD,https://github.com/stephaneyfx/enum-iterator.git,registry+https://github.com/rust-lang/crates.io-index
+enum-iterator-derive,1.5.0,0BSD,https://github.com/stephaneyfx/enum-iterator.git,registry+https://github.com/rust-lang/crates.io-index
+enumn,0.1.14,MIT OR Apache-2.0,https://github.com/dtolnay/enumn,registry+https://github.com/rust-lang/crates.io-index
+equator,0.4.2,MIT,https://github.com/sarah-ek/equator/,registry+https://github.com/rust-lang/crates.io-index
+equator-macro,0.4.2,MIT,https://github.com/sarah-ek/equator/,registry+https://github.com/rust-lang/crates.io-index
+equivalent,1.0.3,Apache-2.0 OR MIT,https://github.com/indexmap-rs/equivalent,registry+https://github.com/rust-lang/crates.io-index
+errno,0.3.14,MIT OR Apache-2.0,https://github.com/lambda-fairy/rust-errno,registry+https://github.com/rust-lang/crates.io-index
+etagere,0.2.15,MIT/Apache-2.0,https://github.com/nical/etagere,registry+https://github.com/rust-lang/crates.io-index
+euclid,0.22.14,MIT OR Apache-2.0,https://github.com/servo/euclid,registry+https://github.com/rust-lang/crates.io-index
+event-listener,5.4.2,Apache-2.0 OR MIT,https://github.com/smol-rs/event-listener,registry+https://github.com/rust-lang/crates.io-index
+event-listener-strategy,0.5.4,Apache-2.0 OR MIT,https://github.com/smol-rs/event-listener-strategy,registry+https://github.com/rust-lang/crates.io-index
+exr,1.74.2,BSD-3-Clause,https://github.com/johannesvollmer/exrs,registry+https://github.com/rust-lang/crates.io-index
+fallible-iterator,0.3.0,MIT/Apache-2.0,https://github.com/sfackler/rust-fallible-iterator,registry+https://github.com/rust-lang/crates.io-index
+fallible-streaming-iterator,0.1.9,MIT/Apache-2.0,https://github.com/sfackler/fallible-streaming-iterator,registry+https://github.com/rust-lang/crates.io-index
+fancy-regex,0.16.2,MIT,https://github.com/fancy-regex/fancy-regex,registry+https://github.com/rust-lang/crates.io-index
+fastrand,2.5.0,Apache-2.0 OR MIT,https://github.com/smol-rs/fastrand,registry+https://github.com/rust-lang/crates.io-index
+fax,0.2.7,MIT,https://github.com/pdf-rs/fax,registry+https://github.com/rust-lang/crates.io-index
+fdeflate,0.3.7,MIT OR Apache-2.0,https://github.com/image-rs/fdeflate,registry+https://github.com/rust-lang/crates.io-index
+find-msvc-tools,0.1.15,MIT OR Apache-2.0,https://github.com/rust-lang/cc-rs,registry+https://github.com/rust-lang/crates.io-index
+fixedbitset,0.5.7,MIT OR Apache-2.0,https://github.com/petgraph/fixedbitset,registry+https://github.com/rust-lang/crates.io-index
+flate2,1.1.10,MIT OR Apache-2.0,https://github.com/rust-lang/flate2-rs,registry+https://github.com/rust-lang/crates.io-index
+float-cmp,0.9.0,MIT,https://github.com/mikedilger/float-cmp,registry+https://github.com/rust-lang/crates.io-index
+float-ord,0.3.2,MIT / Apache-2.0,https://github.com/notriddle/rust-float-ord,registry+https://github.com/rust-lang/crates.io-index
+float_next_after,1.0.0,MIT,https://gitlab.com/bronsonbdevost/next_afterf,registry+https://github.com/rust-lang/crates.io-index
+fluent-uri,0.1.4,MIT,https://github.com/yescallop/fluent-uri-rs,registry+https://github.com/rust-lang/crates.io-index
+flume,0.12.0,Apache-2.0/MIT,https://github.com/zesterer/flume,registry+https://github.com/rust-lang/crates.io-index
+fnv,1.0.7,Apache-2.0 / MIT,https://github.com/servo/rust-fnv,registry+https://github.com/rust-lang/crates.io-index
+foldhash,0.2.0,Zlib,https://github.com/orlp/foldhash,registry+https://github.com/rust-lang/crates.io-index
+fontdb,0.23.0,MIT,https://github.com/RazrFalcon/fontdb,registry+https://github.com/rust-lang/crates.io-index
+foreign-types,0.5.0,MIT/Apache-2.0,https://github.com/sfackler/foreign-types,registry+https://github.com/rust-lang/crates.io-index
+foreign-types-macros,0.2.4,MIT/Apache-2.0,https://github.com/sfackler/foreign-types,registry+https://github.com/rust-lang/crates.io-index
+foreign-types-shared,0.3.1,MIT/Apache-2.0,https://github.com/sfackler/foreign-types,registry+https://github.com/rust-lang/crates.io-index
+form_urlencoded,1.2.2,MIT OR Apache-2.0,https://github.com/servo/rust-url,registry+https://github.com/rust-lang/crates.io-index
+futf,0.1.5,MIT / Apache-2.0,https://github.com/servo/futf,registry+https://github.com/rust-lang/crates.io-index
+futures,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-channel,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-concurrency,7.7.1,MIT OR Apache-2.0,https://github.com/yoshuawuyts/futures-concurrency,registry+https://github.com/rust-lang/crates.io-index
+futures-core,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-executor,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-io,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-lite,2.6.1,Apache-2.0 OR MIT,https://github.com/smol-rs/futures-lite,registry+https://github.com/rust-lang/crates.io-index
+futures-macro,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-sink,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-task,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+futures-util,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/futures-rs,registry+https://github.com/rust-lang/crates.io-index
+getrandom,0.2.17,MIT OR Apache-2.0,https://github.com/rust-random/getrandom,registry+https://github.com/rust-lang/crates.io-index
+getrandom,0.3.4,MIT OR Apache-2.0,https://github.com/rust-random/getrandom,registry+https://github.com/rust-lang/crates.io-index
+getrandom,0.4.3,MIT OR Apache-2.0,https://github.com/rust-random/getrandom,registry+https://github.com/rust-lang/crates.io-index
+gif,0.14.2,MIT OR Apache-2.0,https://github.com/image-rs/image-gif,registry+https://github.com/rust-lang/crates.io-index
+gimli,0.34.0,MIT OR Apache-2.0,https://github.com/gimli-rs/gimli,registry+https://github.com/rust-lang/crates.io-index
+glob,0.3.4,MIT OR Apache-2.0,https://github.com/rust-lang/glob,registry+https://github.com/rust-lang/crates.io-index
+globset,0.4.21,Unlicense OR MIT,https://github.com/BurntSushi/ripgrep/tree/master/crates/globset,registry+https://github.com/rust-lang/crates.io-index
+globwalk,0.8.1,MIT,https://github.com/gilnaa/globwalk,registry+https://github.com/rust-lang/crates.io-index
+gpui-base,0.9.0,Apache-2.0,https://github.com/longbridge/gpui-kit,registry+https://github.com/rust-lang/crates.io-index
+gpui-component,0.9.0,Apache-2.0,https://github.com/longbridge/gpui-kit,registry+https://github.com/rust-lang/crates.io-index
+gpui-component-macros,0.9.0,Apache-2.0,,registry+https://github.com/rust-lang/crates.io-index
+gpui-fast,0.1.13,Apache-2.0,https://github.com/longbridge/gpui-fast,registry+https://github.com/rust-lang/crates.io-index
+gpui-fast-apple,0.1.13,Apache-2.0,https://github.com/longbridge/gpui-fast,registry+https://github.com/rust-lang/crates.io-index
+gpui-fast-macos,0.1.13,Apache-2.0,https://github.com/longbridge/gpui-fast,registry+https://github.com/rust-lang/crates.io-index
+gpui-fast-macros,0.1.13,Apache-2.0,https://github.com/longbridge/gpui-fast,registry+https://github.com/rust-lang/crates.io-index
+gpui-fast-platform,0.1.13,Apache-2.0,https://github.com/longbridge/gpui-fast,registry+https://github.com/rust-lang/crates.io-index
+gpui-kit,0.9.0,Apache-2.0,https://github.com/longbridge/gpui-kit,registry+https://github.com/rust-lang/crates.io-index
+gpui-kit-assets,0.9.0,Apache-2.0,https://github.com/longbridge/gpui-kit,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-apple,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-bench-metrics,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-collections,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-derive-refineable,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-http-client,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-macos,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-macros,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-platform,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-refineable,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-scheduler,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-shared-string,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-sum-tree,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-util,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-ztracing,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+gpui-pre-ztracing-macro,0.3.11,Apache-2.0,https://github.com/zed-industries/zed,registry+https://github.com/rust-lang/crates.io-index
+granit-parser,1.3.0,MIT OR Apache-2.0,https://github.com/bourumir-wyngs/granit-parser,registry+https://github.com/rust-lang/crates.io-index
+half,2.7.1,MIT OR Apache-2.0,https://github.com/VoidStarKat/half-rs,registry+https://github.com/rust-lang/crates.io-index
+hash32,0.3.1,MIT OR Apache-2.0,https://github.com/japaric/hash32,registry+https://github.com/rust-lang/crates.io-index
+hashbrown,0.16.1,MIT OR Apache-2.0,https://github.com/rust-lang/hashbrown,registry+https://github.com/rust-lang/crates.io-index
+hashbrown,0.17.1,MIT OR Apache-2.0,https://github.com/rust-lang/hashbrown,registry+https://github.com/rust-lang/crates.io-index
+hashlink,0.12.2,MIT OR Apache-2.0,https://github.com/djc/hashlink,registry+https://github.com/rust-lang/crates.io-index
+heapless,0.9.3,MIT OR Apache-2.0,https://github.com/rust-embedded/heapless,registry+https://github.com/rust-lang/crates.io-index
+heck,0.4.1,MIT OR Apache-2.0,https://github.com/withoutboats/heck,registry+https://github.com/rust-lang/crates.io-index
+heck,0.5.0,MIT OR Apache-2.0,https://github.com/withoutboats/heck,registry+https://github.com/rust-lang/crates.io-index
+html5ever,0.27.0,MIT OR Apache-2.0,https://github.com/servo/html5ever,registry+https://github.com/rust-lang/crates.io-index
+http,1.5.0,MIT OR Apache-2.0,https://github.com/hyperium/http,registry+https://github.com/rust-lang/crates.io-index
+http-body,1.1.0,MIT,https://github.com/hyperium/http-body,registry+https://github.com/rust-lang/crates.io-index
+hybrid-array,0.4.15,MIT OR Apache-2.0,https://github.com/RustCrypto/hybrid-array,registry+https://github.com/rust-lang/crates.io-index
+iana-time-zone,0.1.65,MIT OR Apache-2.0,https://github.com/strawlab/iana-time-zone,registry+https://github.com/rust-lang/crates.io-index
+icu_collections,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_locale_core,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_locale_fallback,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_locale_fallback_data,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_normalizer,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_normalizer_data,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_properties,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_properties_data,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_provider,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_segmenter,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+icu_segmenter_data,2.4.0,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+idna,1.1.0,MIT OR Apache-2.0,https://github.com/servo/rust-url/,registry+https://github.com/rust-lang/crates.io-index
+idna_adapter,1.2.2,Apache-2.0 OR MIT,https://github.com/hsivonen/idna_adapter,registry+https://github.com/rust-lang/crates.io-index
+ignore,0.4.34,Unlicense OR MIT,https://github.com/BurntSushi/ripgrep/tree/master/crates/ignore,registry+https://github.com/rust-lang/crates.io-index
+image,0.25.10,MIT OR Apache-2.0,https://github.com/image-rs/image,registry+https://github.com/rust-lang/crates.io-index
+image-webp,0.2.4,MIT OR Apache-2.0,https://github.com/image-rs/image-webp,registry+https://github.com/rust-lang/crates.io-index
+imagesize,0.14.0,MIT,https://github.com/Roughsketch/imagesize,registry+https://github.com/rust-lang/crates.io-index
+imgref,1.12.3,CC0-1.0 OR Apache-2.0,https://github.com/kornelski/imgref,registry+https://github.com/rust-lang/crates.io-index
+indexmap,2.14.2,Apache-2.0 OR MIT,https://github.com/indexmap-rs/indexmap,registry+https://github.com/rust-lang/crates.io-index
+instant,0.1.13,BSD-3-Clause,https://github.com/sebcrozet/instant,registry+https://github.com/rust-lang/crates.io-index
+inventory,0.3.25,MIT OR Apache-2.0,https://github.com/dtolnay/inventory,registry+https://github.com/rust-lang/crates.io-index
+itertools,0.11.0,MIT OR Apache-2.0,https://github.com/rust-itertools/itertools,registry+https://github.com/rust-lang/crates.io-index
+itertools,0.13.0,MIT OR Apache-2.0,https://github.com/rust-itertools/itertools,registry+https://github.com/rust-lang/crates.io-index
+itertools,0.14.0,MIT OR Apache-2.0,https://github.com/rust-itertools/itertools,registry+https://github.com/rust-lang/crates.io-index
+itoa,1.0.18,MIT OR Apache-2.0,https://github.com/dtolnay/itoa,registry+https://github.com/rust-lang/crates.io-index
+jobserver,0.1.35,MIT OR Apache-2.0,https://github.com/rust-lang/jobserver-rs,registry+https://github.com/rust-lang/crates.io-index
+kurbo,0.13.1,Apache-2.0 OR MIT,https://github.com/linebender/kurbo,registry+https://github.com/rust-lang/crates.io-index
+lazy_static,1.5.1,MIT OR Apache-2.0,https://github.com/rust-lang-nursery/lazy-static.rs,registry+https://github.com/rust-lang/crates.io-index
+lebe,0.5.3,BSD-3-Clause,https://github.com/johannesvollmer/lebe,registry+https://github.com/rust-lang/crates.io-index
+libc,0.2.189,MIT OR Apache-2.0,https://github.com/rust-lang/libc,registry+https://github.com/rust-lang/crates.io-index
+libm,0.2.16,MIT,https://github.com/rust-lang/compiler-builtins,registry+https://github.com/rust-lang/crates.io-index
+libsqlite3-sys,0.39.1,MIT,https://github.com/rusqlite/rusqlite,registry+https://github.com/rust-lang/crates.io-index
+link-section,0.19.3,Apache-2.0 OR MIT,https://github.com/mmastrac/linktime,registry+https://github.com/rust-lang/crates.io-index
+linktime-proc-macro,0.2.3,Apache-2.0 OR MIT,https://github.com/mmastrac/linktime,registry+https://github.com/rust-lang/crates.io-index
+litemap,0.8.3,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+lock_api,0.4.14,MIT OR Apache-2.0,https://github.com/Amanieu/parking_lot,registry+https://github.com/rust-lang/crates.io-index
+log,0.4.35,MIT OR Apache-2.0,https://github.com/rust-lang/log,registry+https://github.com/rust-lang/crates.io-index
+loop9,0.1.5,MIT,https://gitlab.com/kornelski/loop9.git,registry+https://github.com/rust-lang/crates.io-index
+lsp-types,0.97.0,MIT,https://github.com/gluon-lang/lsp-types,registry+https://github.com/rust-lang/crates.io-index
+lyon,1.0.19,MIT OR Apache-2.0,https://github.com/nical/lyon,registry+https://github.com/rust-lang/crates.io-index
+lyon_algorithms,1.0.22,MIT OR Apache-2.0,https://github.com/nical/lyon,registry+https://github.com/rust-lang/crates.io-index
+lyon_geom,1.0.20,MIT OR Apache-2.0,https://github.com/nical/lyon,registry+https://github.com/rust-lang/crates.io-index
+lyon_path,1.0.19,MIT OR Apache-2.0,https://github.com/nical/lyon,registry+https://github.com/rust-lang/crates.io-index
+lyon_tessellation,1.0.23,MIT OR Apache-2.0,https://github.com/nical/lyon,registry+https://github.com/rust-lang/crates.io-index
+mac,0.1.1,MIT/Apache-2.0,https://github.com/reem/rust-mac.git,registry+https://github.com/rust-lang/crates.io-index
+mach2,0.6.0,BSD-2-Clause OR MIT OR Apache-2.0,https://github.com/JohnTitor/mach2,registry+https://github.com/rust-lang/crates.io-index
+markdown,1.0.0,MIT,https://github.com/wooorm/markdown-rs,registry+https://github.com/rust-lang/crates.io-index
+markup5ever,0.12.1,MIT OR Apache-2.0,https://github.com/servo/html5ever,registry+https://github.com/rust-lang/crates.io-index
+markup5ever_rcdom,0.3.0,MIT OR Apache-2.0,https://github.com/servo/html5ever,registry+https://github.com/rust-lang/crates.io-index
+maybe-rayon,0.1.1,MIT,https://github.com/shssoichiro/maybe-rayon,registry+https://github.com/rust-lang/crates.io-index
+memchr,2.8.3,Unlicense OR MIT,https://github.com/BurntSushi/memchr,registry+https://github.com/rust-lang/crates.io-index
+memmap2,0.9.12,MIT OR Apache-2.0,https://github.com/RazrFalcon/memmap2-rs,registry+https://github.com/rust-lang/crates.io-index
+mime,0.3.18,MIT OR Apache-2.0,https://github.com/hyperium/mime,registry+https://github.com/rust-lang/crates.io-index
+mime_guess,2.0.5,MIT,https://github.com/abonander/mime_guess,registry+https://github.com/rust-lang/crates.io-index
+miniz_oxide,0.8.9,MIT OR Zlib OR Apache-2.0,https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide,registry+https://github.com/rust-lang/crates.io-index
+miniz_oxide,0.9.1,MIT OR Zlib OR Apache-2.0,https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide,registry+https://github.com/rust-lang/crates.io-index
+moxcms,0.8.1,BSD-3-Clause OR Apache-2.0,https://github.com/awxkee/moxcms.git,registry+https://github.com/rust-lang/crates.io-index
+multiversion_no_op,1.0.0,Apache-2.0 OR MIT,https://github.com/hsivonen/multiversion_no_op,registry+https://github.com/rust-lang/crates.io-index
+new_debug_unreachable,1.0.6,MIT,https://github.com/mbrubeck/rust-debug-unreachable,registry+https://github.com/rust-lang/crates.io-index
+no_std_io2,0.9.4,Apache-2.0 OR MIT,https://github.com/wcampbell0x2a/no-std-io2,registry+https://github.com/rust-lang/crates.io-index
+nohash-hasher,0.2.0,Apache-2.0 OR MIT,https://github.com/paritytech/nohash-hasher,registry+https://github.com/rust-lang/crates.io-index
+nom,8.0.0,MIT,https://github.com/rust-bakery/nom,registry+https://github.com/rust-lang/crates.io-index
+noop_proc_macro,0.3.0,MIT,https://github.com/lu-zero/noop_proc_macro,registry+https://github.com/rust-lang/crates.io-index
+normpath,1.5.2,MIT OR Apache-2.0,https://github.com/dylni/normpath,registry+https://github.com/rust-lang/crates.io-index
+notify,8.2.1,CC0-1.0,https://github.com/notify-rs/notify.git,registry+https://github.com/rust-lang/crates.io-index
+notify-types,2.2.0,MIT OR Apache-2.0,https://github.com/notify-rs/notify.git,registry+https://github.com/rust-lang/crates.io-index
+num-bigint,0.4.8,MIT OR Apache-2.0,https://github.com/rust-num/num-bigint,registry+https://github.com/rust-lang/crates.io-index
+num-complex,0.4.6,MIT OR Apache-2.0,https://github.com/rust-num/num-complex,registry+https://github.com/rust-lang/crates.io-index
+num-derive,0.4.2,MIT OR Apache-2.0,https://github.com/rust-num/num-derive,registry+https://github.com/rust-lang/crates.io-index
+num-integer,0.1.47,MIT OR Apache-2.0,https://github.com/rust-num/num-integer,registry+https://github.com/rust-lang/crates.io-index
+num-rational,0.4.2,MIT OR Apache-2.0,https://github.com/rust-num/num-rational,registry+https://github.com/rust-lang/crates.io-index
+num-traits,0.2.19,MIT OR Apache-2.0,https://github.com/rust-num/num-traits,registry+https://github.com/rust-lang/crates.io-index
+num_cpus,1.17.0,MIT OR Apache-2.0,https://github.com/seanmonstar/num_cpus,registry+https://github.com/rust-lang/crates.io-index
+objc-sys,0.3.5,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2,0.5.3,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2,0.6.5,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-app-kit,0.2.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-app-kit,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-cloud-kit,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-data,0.2.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-data,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-foundation,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-graphics,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-image,0.2.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-image,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-services,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-text,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-core-video,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-encode,4.1.0,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-foundation,0.2.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-foundation,0.3.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-io-surface,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-metal,0.2.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-metal,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-quartz-core,0.2.2,MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-quartz-core,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-security,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-uniform-type-identifiers,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+objc2-user-notifications,0.3.2,Zlib OR Apache-2.0 OR MIT,https://github.com/madsmtm/objc2,registry+https://github.com/rust-lang/crates.io-index
+object,0.40.0,Apache-2.0 OR MIT,https://github.com/gimli-rs/object,registry+https://github.com/rust-lang/crates.io-index
+once_cell,1.21.4,MIT OR Apache-2.0,https://github.com/matklad/once_cell,registry+https://github.com/rust-lang/crates.io-index
+oorandom,11.1.5,MIT,https://hg.sr.ht/~icefox/oorandom,registry+https://github.com/rust-lang/crates.io-index
+option-ext,0.2.0,MPL-2.0,https://github.com/soc/option-ext.git,registry+https://github.com/rust-lang/crates.io-index
+page_size,0.6.0,MIT/Apache-2.0,https://github.com/Elzair/page_size_rs,registry+https://github.com/rust-lang/crates.io-index
+parking,2.2.1,Apache-2.0 OR MIT,https://github.com/smol-rs/parking,registry+https://github.com/rust-lang/crates.io-index
+parking_lot,0.12.5,MIT OR Apache-2.0,https://github.com/Amanieu/parking_lot,registry+https://github.com/rust-lang/crates.io-index
+parking_lot_core,0.9.12,MIT OR Apache-2.0,https://github.com/Amanieu/parking_lot,registry+https://github.com/rust-lang/crates.io-index
+paste,1.0.15,MIT OR Apache-2.0,https://github.com/dtolnay/paste,registry+https://github.com/rust-lang/crates.io-index
+pastey,0.1.1,MIT OR Apache-2.0,https://github.com/as1100k/pastey,registry+https://github.com/rust-lang/crates.io-index
+pathfinder_geometry,0.5.1,MIT/Apache-2.0,https://github.com/servo/pathfinder,registry+https://github.com/rust-lang/crates.io-index
+pathfinder_simd,0.5.6,MIT OR Apache-2.0,https://github.com/servo/pathfinder,registry+https://github.com/rust-lang/crates.io-index
+percent-encoding,2.3.2,MIT OR Apache-2.0,https://github.com/servo/rust-url/,registry+https://github.com/rust-lang/crates.io-index
+phf,0.11.3,MIT,https://github.com/rust-phf/rust-phf,registry+https://github.com/rust-lang/crates.io-index
+phf_codegen,0.11.3,MIT,https://github.com/rust-phf/rust-phf,registry+https://github.com/rust-lang/crates.io-index
+phf_generator,0.11.3,MIT,https://github.com/rust-phf/rust-phf,registry+https://github.com/rust-lang/crates.io-index
+phf_shared,0.11.3,MIT,https://github.com/rust-phf/rust-phf,registry+https://github.com/rust-lang/crates.io-index
+pico-args,0.5.0,MIT,https://github.com/RazrFalcon/pico-args,registry+https://github.com/rust-lang/crates.io-index
+pin-project,1.1.13,Apache-2.0 OR MIT,https://github.com/taiki-e/pin-project,registry+https://github.com/rust-lang/crates.io-index
+pin-project-internal,1.1.13,Apache-2.0 OR MIT,https://github.com/taiki-e/pin-project,registry+https://github.com/rust-lang/crates.io-index
+pin-project-lite,0.2.17,Apache-2.0 OR MIT,https://github.com/taiki-e/pin-project-lite,registry+https://github.com/rust-lang/crates.io-index
+piper,0.2.5,MIT OR Apache-2.0,https://github.com/smol-rs/piper,registry+https://github.com/rust-lang/crates.io-index
+pkg-config,0.3.34,MIT OR Apache-2.0,https://github.com/rust-lang/pkg-config-rs,registry+https://github.com/rust-lang/crates.io-index
+plotters,0.3.7,MIT,https://github.com/plotters-rs/plotters,registry+https://github.com/rust-lang/crates.io-index
+plotters-backend,0.3.7,MIT,https://github.com/plotters-rs/plotters,registry+https://github.com/rust-lang/crates.io-index
+plotters-svg,0.3.7,MIT,https://github.com/plotters-rs/plotters.git,registry+https://github.com/rust-lang/crates.io-index
+png,0.17.16,MIT OR Apache-2.0,https://github.com/image-rs/image-png,registry+https://github.com/rust-lang/crates.io-index
+png,0.18.1,MIT OR Apache-2.0,https://github.com/image-rs/image-png,registry+https://github.com/rust-lang/crates.io-index
+polling,3.11.0,Apache-2.0 OR MIT,https://github.com/smol-rs/polling,registry+https://github.com/rust-lang/crates.io-index
+pollster,0.2.5,Apache-2.0/MIT,https://github.com/zesterer/pollster,registry+https://github.com/rust-lang/crates.io-index
+pollster,0.4.0,Apache-2.0/MIT,https://github.com/zesterer/pollster,registry+https://github.com/rust-lang/crates.io-index
+polycool,0.4.0,MIT OR Apache-2.0,https://github.com/linebender/kurbo,registry+https://github.com/rust-lang/crates.io-index
+postage,0.5.0,MIT,https://github.com/austinjones/postage-rs,registry+https://github.com/rust-lang/crates.io-index
+potential_utf,0.1.6,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+ppv-lite86,0.2.21,MIT OR Apache-2.0,https://github.com/cryptocorrosion/cryptocorrosion,registry+https://github.com/rust-lang/crates.io-index
+precomputed-hash,0.1.1,MIT,https://github.com/emilio/precomputed-hash,registry+https://github.com/rust-lang/crates.io-index
+proc-macro-crate,3.5.0,MIT OR Apache-2.0,https://github.com/bkchr/proc-macro-crate,registry+https://github.com/rust-lang/crates.io-index
+proc-macro2,1.0.107,MIT OR Apache-2.0,https://github.com/dtolnay/proc-macro2,registry+https://github.com/rust-lang/crates.io-index
+profiling,1.0.18,MIT OR Apache-2.0,https://github.com/aclysma/profiling,registry+https://github.com/rust-lang/crates.io-index
+profiling-procmacros,1.0.18,MIT OR Apache-2.0,https://github.com/aclysma/profiling,registry+https://github.com/rust-lang/crates.io-index
+proptest,1.12.0,MIT OR Apache-2.0,https://github.com/proptest-rs/proptest,registry+https://github.com/rust-lang/crates.io-index
+proptest-macro,0.6.0,MIT OR Apache-2.0,https://github.com/proptest-rs/proptest,registry+https://github.com/rust-lang/crates.io-index
+pulp,0.22.3,MIT,https://github.com/sarah-quinones/pulp/,registry+https://github.com/rust-lang/crates.io-index
+pulp-wasm-simd-flag,0.1.1,MIT,https://github.com/sarah-quinones/pulp/,registry+https://github.com/rust-lang/crates.io-index
+pxfm,0.1.30,BSD-3-Clause OR Apache-2.0,https://github.com/awxkee/pxfm,registry+https://github.com/rust-lang/crates.io-index
+qoi,0.4.1,MIT/Apache-2.0,https://github.com/aldanor/qoi-rust,registry+https://github.com/rust-lang/crates.io-index
+quick-error,1.2.3,MIT/Apache-2.0,http://github.com/tailhook/quick-error,registry+https://github.com/rust-lang/crates.io-index
+quick-error,2.0.1,MIT/Apache-2.0,http://github.com/tailhook/quick-error,registry+https://github.com/rust-lang/crates.io-index
+quote,1.0.47,MIT OR Apache-2.0,https://github.com/dtolnay/quote,registry+https://github.com/rust-lang/crates.io-index
+rand,0.10.3,MIT OR Apache-2.0,https://github.com/rust-random/rand,registry+https://github.com/rust-lang/crates.io-index
+rand,0.8.8,MIT OR Apache-2.0,https://github.com/rust-random/rand,registry+https://github.com/rust-lang/crates.io-index
+rand,0.9.5,MIT OR Apache-2.0,https://github.com/rust-random/rand,registry+https://github.com/rust-lang/crates.io-index
+rand_chacha,0.3.1,MIT OR Apache-2.0,https://github.com/rust-random/rand,registry+https://github.com/rust-lang/crates.io-index
+rand_chacha,0.9.0,MIT OR Apache-2.0,https://github.com/rust-random/rand,registry+https://github.com/rust-lang/crates.io-index
+rand_core,0.10.1,MIT OR Apache-2.0,https://github.com/rust-random/rand_core,registry+https://github.com/rust-lang/crates.io-index
+rand_core,0.6.4,MIT OR Apache-2.0,https://github.com/rust-random/rand,registry+https://github.com/rust-lang/crates.io-index
+rand_core,0.9.5,MIT OR Apache-2.0,https://github.com/rust-random/rand,registry+https://github.com/rust-lang/crates.io-index
+rand_xorshift,0.5.0,MIT OR Apache-2.0,https://github.com/rust-random/rngs,registry+https://github.com/rust-lang/crates.io-index
+rav1e,0.8.1,BSD-2-Clause,https://github.com/xiph/rav1e/,registry+https://github.com/rust-lang/crates.io-index
+ravif,0.13.0,BSD-3-Clause,https://github.com/kornelski/cavif-rs,registry+https://github.com/rust-lang/crates.io-index
+raw-window-handle,0.6.2,MIT OR Apache-2.0 OR Zlib,https://github.com/rust-windowing/raw-window-handle,registry+https://github.com/rust-lang/crates.io-index
+rayon,1.12.0,MIT OR Apache-2.0,https://github.com/rayon-rs/rayon,registry+https://github.com/rust-lang/crates.io-index
+rayon-core,1.13.0,MIT OR Apache-2.0,https://github.com/rayon-rs/rayon,registry+https://github.com/rust-lang/crates.io-index
+reborrow,0.5.5,MIT,https://github.com/sarah-ek/reborrow/,registry+https://github.com/rust-lang/crates.io-index
+ref-cast,1.0.27,MIT OR Apache-2.0,https://github.com/dtolnay/ref-cast,registry+https://github.com/rust-lang/crates.io-index
+ref-cast-impl,1.0.27,MIT OR Apache-2.0,https://github.com/dtolnay/ref-cast,registry+https://github.com/rust-lang/crates.io-index
+regex,1.13.1,MIT OR Apache-2.0,https://github.com/rust-lang/regex,registry+https://github.com/rust-lang/crates.io-index
+regex-automata,0.4.18,MIT OR Apache-2.0,https://github.com/rust-lang/regex,registry+https://github.com/rust-lang/crates.io-index
+regex-syntax,0.8.11,MIT OR Apache-2.0,https://github.com/rust-lang/regex,registry+https://github.com/rust-lang/crates.io-index
+resvg,0.46.0,Apache-2.0 OR MIT,https://github.com/linebender/resvg,registry+https://github.com/rust-lang/crates.io-index
+rgb,0.8.53,MIT,https://github.com/kornelski/rust-rgb,registry+https://github.com/rust-lang/crates.io-index
+ropey,2.0.0-beta.1,MIT OR Apache-2.0,https://github.com/cessen/ropey,registry+https://github.com/rust-lang/crates.io-index
+roxmltree,0.21.2,MIT OR Apache-2.0,https://github.com/RazrFalcon/roxmltree,registry+https://github.com/rust-lang/crates.io-index
+rusqlite,0.41.1,MIT,https://github.com/rusqlite/rusqlite,registry+https://github.com/rust-lang/crates.io-index
+rust-embed,8.13.0,MIT,https://pyrossh.dev/repos/rust-embed,registry+https://github.com/rust-lang/crates.io-index
+rust-embed-impl,8.13.0,MIT,https://pyrossh.dev/repos/rust-embed,registry+https://github.com/rust-lang/crates.io-index
+rust-embed-utils,8.13.0,MIT,https://pyrossh.dev/repos/rust-embed,registry+https://github.com/rust-lang/crates.io-index
+rust-i18n,4.2.4,MIT,https://github.com/longbridge/rust-i18n,registry+https://github.com/rust-lang/crates.io-index
+rust-i18n-macro,4.2.4,MIT,https://github.com/longbridge/rust-i18n,registry+https://github.com/rust-lang/crates.io-index
+rust-i18n-support,4.2.4,MIT,https://github.com/longbridge/rust-i18n,registry+https://github.com/rust-lang/crates.io-index
+rustc-demangle,0.1.28,MIT/Apache-2.0,https://github.com/rust-lang/rustc-demangle,registry+https://github.com/rust-lang/crates.io-index
+rustc-hash,2.1.3,Apache-2.0 OR MIT,https://github.com/rust-lang/rustc-hash,registry+https://github.com/rust-lang/crates.io-index
+rustc_version,0.4.1,MIT OR Apache-2.0,https://github.com/djc/rustc-version-rs,registry+https://github.com/rust-lang/crates.io-index
+rustix,1.1.6,Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT,https://github.com/bytecodealliance/rustix,registry+https://github.com/rust-lang/crates.io-index
+rustversion,1.0.23,MIT OR Apache-2.0,https://github.com/dtolnay/rustversion,registry+https://github.com/rust-lang/crates.io-index
+rusty-fork,0.3.1,MIT/Apache-2.0,https://github.com/altsysrq/rusty-fork,registry+https://github.com/rust-lang/crates.io-index
+rustybuzz,0.20.1,MIT,https://github.com/harfbuzz/rustybuzz,registry+https://github.com/rust-lang/crates.io-index
+ryu,1.0.23,Apache-2.0 OR BSL-1.0,https://github.com/dtolnay/ryu,registry+https://github.com/rust-lang/crates.io-index
+same-file,1.0.6,Unlicense/MIT,https://github.com/BurntSushi/same-file,registry+https://github.com/rust-lang/crates.io-index
+schemars,1.2.3,MIT,https://github.com/GREsau/schemars,registry+https://github.com/rust-lang/crates.io-index
+schemars_derive,1.2.3,MIT,https://github.com/GREsau/schemars,registry+https://github.com/rust-lang/crates.io-index
+scopeguard,1.2.0,MIT OR Apache-2.0,https://github.com/bluss/scopeguard,registry+https://github.com/rust-lang/crates.io-index
+seahash,4.1.0,MIT,https://gitlab.redox-os.org/redox-os/seahash,registry+https://github.com/rust-lang/crates.io-index
+semver,1.0.28,MIT OR Apache-2.0,https://github.com/dtolnay/semver,registry+https://github.com/rust-lang/crates.io-index
+serde,1.0.229,MIT OR Apache-2.0,https://github.com/serde-rs/serde,registry+https://github.com/rust-lang/crates.io-index
+serde-saphyr,1.3.0,MIT OR Apache-2.0,https://github.com/bourumir-wyngs/serde-saphyr,registry+https://github.com/rust-lang/crates.io-index
+serde_core,1.0.229,MIT OR Apache-2.0,https://github.com/serde-rs/serde,registry+https://github.com/rust-lang/crates.io-index
+serde_derive,1.0.229,MIT OR Apache-2.0,https://github.com/serde-rs/serde,registry+https://github.com/rust-lang/crates.io-index
+serde_derive_internals,0.30.0,MIT OR Apache-2.0,https://github.com/serde-rs/serde,registry+https://github.com/rust-lang/crates.io-index
+serde_json,1.0.151,MIT OR Apache-2.0,https://github.com/serde-rs/json,registry+https://github.com/rust-lang/crates.io-index
+serde_repr,0.1.21,MIT OR Apache-2.0,https://github.com/dtolnay/serde-repr,registry+https://github.com/rust-lang/crates.io-index
+serde_spanned,0.6.9,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+serde_spanned,1.1.2,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+serde_urlencoded,0.7.1,MIT/Apache-2.0,https://github.com/nox/serde_urlencoded,registry+https://github.com/rust-lang/crates.io-index
+sha1_smol,1.0.1,BSD-3-Clause,https://github.com/mitsuhiko/sha1-smol,registry+https://github.com/rust-lang/crates.io-index
+sha2,0.11.1,MIT OR Apache-2.0,https://github.com/RustCrypto/hashes,registry+https://github.com/rust-lang/crates.io-index
+shellexpand,3.1.2,MIT/Apache-2.0,https://gitlab.com/ijackson/rust-shellexpand,registry+https://github.com/rust-lang/crates.io-index
+shlex,2.0.1,MIT OR Apache-2.0,https://github.com/comex/rust-shlex,registry+https://github.com/rust-lang/crates.io-index
+signal-hook-registry,1.4.8,MIT OR Apache-2.0,https://github.com/vorner/signal-hook,registry+https://github.com/rust-lang/crates.io-index
+simd-adler32,0.3.10,MIT,https://github.com/mcountryman/simd-adler32,registry+https://github.com/rust-lang/crates.io-index
+simd_helpers,0.1.0,MIT,https://github.com/lu-zero/simd_helpers,registry+https://github.com/rust-lang/crates.io-index
+simdutf8,0.1.5,MIT OR Apache-2.0,https://github.com/rusticstuff/simdutf8,registry+https://github.com/rust-lang/crates.io-index
+similar,2.7.0,Apache-2.0,https://github.com/mitsuhiko/similar,registry+https://github.com/rust-lang/crates.io-index
+simplecss,0.2.2,Apache-2.0 OR MIT,https://github.com/linebender/simplecss,registry+https://github.com/rust-lang/crates.io-index
+siphasher,1.0.4,MIT OR Apache-2.0,https://github.com/jedisct1/rust-siphash,registry+https://github.com/rust-lang/crates.io-index
+slab,0.4.12,MIT,https://github.com/tokio-rs/slab,registry+https://github.com/rust-lang/crates.io-index
+slotmap,1.1.1,Zlib,https://github.com/orlp/slotmap,registry+https://github.com/rust-lang/crates.io-index
+smallvec,1.16.4,MIT OR Apache-2.0,https://github.com/servo/rust-smallvec,registry+https://github.com/rust-lang/crates.io-index
+smol,2.0.2,Apache-2.0 OR MIT,https://github.com/smol-rs/smol,registry+https://github.com/rust-lang/crates.io-index
+smol_str,0.3.7,MIT OR Apache-2.0,https://github.com/rust-lang/rust-analyzer/tree/master/lib/smol_str,registry+https://github.com/rust-lang/crates.io-index
+spin,0.10.1,MIT,https://github.com/mvdnes/spin-rs.git,registry+https://github.com/rust-lang/crates.io-index
+spin,0.9.9,MIT,https://github.com/mvdnes/spin-rs.git,registry+https://github.com/rust-lang/crates.io-index
+stable_deref_trait,1.2.1,MIT OR Apache-2.0,https://github.com/storyyeller/stable_deref_trait,registry+https://github.com/rust-lang/crates.io-index
+static_assertions,1.1.0,MIT OR Apache-2.0,https://github.com/nvzqz/static-assertions-rs,registry+https://github.com/rust-lang/crates.io-index
+str_indices,0.4.4,MIT OR Apache-2.0,https://github.com/cessen/str_indices,registry+https://github.com/rust-lang/crates.io-index
+strict-num,0.1.1,MIT,https://github.com/RazrFalcon/strict-num,registry+https://github.com/rust-lang/crates.io-index
+string_cache,0.8.9,MIT OR Apache-2.0,https://github.com/servo/string-cache,registry+https://github.com/rust-lang/crates.io-index
+string_cache_codegen,0.5.4,MIT OR Apache-2.0,https://github.com/servo/string-cache,registry+https://github.com/rust-lang/crates.io-index
+strum,0.28.0,MIT,https://github.com/Peternator7/strum,registry+https://github.com/rust-lang/crates.io-index
+strum_macros,0.28.0,MIT,https://github.com/Peternator7/strum,registry+https://github.com/rust-lang/crates.io-index
+svg_fmt,0.4.5,MIT/Apache-2.0,https://github.com/nical/rust_debug,registry+https://github.com/rust-lang/crates.io-index
+svgtypes,0.16.2,Apache-2.0 OR MIT,https://github.com/linebender/svgtypes,registry+https://github.com/rust-lang/crates.io-index
+syn,2.0.119,MIT OR Apache-2.0,https://github.com/dtolnay/syn,registry+https://github.com/rust-lang/crates.io-index
+syn,3.0.9,MIT OR Apache-2.0,https://github.com/dtolnay/syn,registry+https://github.com/rust-lang/crates.io-index
+synstructure,0.14.0,MIT,https://github.com/mystor/synstructure,registry+https://github.com/rust-lang/crates.io-index
+syntect,5.3.0,MIT,https://github.com/trishume/syntect,registry+https://github.com/rust-lang/crates.io-index
+taffy,0.15.0,MIT,https://github.com/DioxusLabs/taffy,registry+https://github.com/rust-lang/crates.io-index
+tempfile,3.27.0,MIT OR Apache-2.0,https://github.com/Stebalien/tempfile,registry+https://github.com/rust-lang/crates.io-index
+tendril,0.4.3,MIT/Apache-2.0,https://github.com/servo/tendril,registry+https://github.com/rust-lang/crates.io-index
+thiserror,1.0.69,MIT OR Apache-2.0,https://github.com/dtolnay/thiserror,registry+https://github.com/rust-lang/crates.io-index
+thiserror,2.0.21,MIT OR Apache-2.0,https://github.com/dtolnay/thiserror,registry+https://github.com/rust-lang/crates.io-index
+thiserror-impl,1.0.69,MIT OR Apache-2.0,https://github.com/dtolnay/thiserror,registry+https://github.com/rust-lang/crates.io-index
+thiserror-impl,2.0.21,MIT OR Apache-2.0,https://github.com/dtolnay/thiserror,registry+https://github.com/rust-lang/crates.io-index
+tiff,0.11.3,MIT,https://github.com/image-rs/image-tiff,registry+https://github.com/rust-lang/crates.io-index
+tiny-skia,0.11.4,BSD-3-Clause,https://github.com/RazrFalcon/tiny-skia,registry+https://github.com/rust-lang/crates.io-index
+tiny-skia-path,0.11.4,BSD-3-Clause,https://github.com/RazrFalcon/tiny-skia/tree/master/path,registry+https://github.com/rust-lang/crates.io-index
+tinystr,0.8.5,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+tinytemplate,1.2.1,Apache-2.0 OR MIT,https://github.com/bheisler/TinyTemplate,registry+https://github.com/rust-lang/crates.io-index
+tinyvec,1.13.3,Zlib OR Apache-2.0 OR MIT,https://github.com/Lokathor/tinyvec,registry+https://github.com/rust-lang/crates.io-index
+toml,0.8.23,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml,1.2.0+spec-1.1.0,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml_datetime,0.6.11,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml_datetime,1.1.2+spec-1.1.0,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml_edit,0.22.27,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml_edit,0.25.18+spec-1.1.0,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml_parser,1.1.5+spec-1.1.0,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml_write,0.1.2,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+toml_writer,1.2.0+spec-1.1.0,MIT OR Apache-2.0,https://github.com/toml-rs/toml,registry+https://github.com/rust-lang/crates.io-index
+tracing,0.1.44,MIT,https://github.com/tokio-rs/tracing,registry+https://github.com/rust-lang/crates.io-index
+tracing-attributes,0.1.31,MIT,https://github.com/tokio-rs/tracing,registry+https://github.com/rust-lang/crates.io-index
+tracing-core,0.1.36,MIT,https://github.com/tokio-rs/tracing,registry+https://github.com/rust-lang/crates.io-index
+triomphe,0.1.17,MIT OR Apache-2.0,https://github.com/Manishearth/triomphe,registry+https://github.com/rust-lang/crates.io-index
+ttf-parser,0.25.1,MIT OR Apache-2.0,https://github.com/harfbuzz/ttf-parser,registry+https://github.com/rust-lang/crates.io-index
+two-face,0.4.5,MIT OR Apache-2.0,https://github.com/CosmicHorrorDev/two-face,registry+https://github.com/rust-lang/crates.io-index
+typenum,1.20.1,MIT OR Apache-2.0,https://github.com/paholg/typenum,registry+https://github.com/rust-lang/crates.io-index
+unarray,0.1.4,MIT OR Apache-2.0,https://github.com/cameron1024/unarray,registry+https://github.com/rust-lang/crates.io-index
+unicase,2.10.0,MIT OR Apache-2.0,https://github.com/seanmonstar/unicase,registry+https://github.com/rust-lang/crates.io-index
+unicode-bidi,0.3.18,MIT OR Apache-2.0,https://github.com/servo/unicode-bidi,registry+https://github.com/rust-lang/crates.io-index
+unicode-bidi-mirroring,0.4.0,MIT/Apache-2.0,https://github.com/RazrFalcon/unicode-bidi-mirroring,registry+https://github.com/rust-lang/crates.io-index
+unicode-ccc,0.4.0,MIT/Apache-2.0,https://github.com/RazrFalcon/unicode-ccc,registry+https://github.com/rust-lang/crates.io-index
+unicode-id,0.3.7,MIT OR Apache-2.0,https://github.com/Boshen/unicode-id,registry+https://github.com/rust-lang/crates.io-index
+unicode-ident,1.0.27,(MIT OR Apache-2.0) AND Unicode-3.0,https://github.com/dtolnay/unicode-ident,registry+https://github.com/rust-lang/crates.io-index
+unicode-linebreak,0.1.5,Apache-2.0,https://github.com/axelf4/unicode-linebreak,registry+https://github.com/rust-lang/crates.io-index
+unicode-properties,0.1.3,MIT/Apache-2.0,https://github.com/unicode-rs/unicode-properties,registry+https://github.com/rust-lang/crates.io-index
+unicode-script,0.5.9,MIT OR Apache-2.0,https://github.com/unicode-rs/unicode-script,registry+https://github.com/rust-lang/crates.io-index
+unicode-segmentation,1.13.3,MIT OR Apache-2.0,https://github.com/unicode-rs/unicode-segmentation,registry+https://github.com/rust-lang/crates.io-index
+unicode-vo,0.1.0,MIT/Apache-2.0,https://github.com/RazrFalcon/unicode-vo,registry+https://github.com/rust-lang/crates.io-index
+unicode-width,0.2.3,MIT OR Apache-2.0,https://github.com/unicode-rs/unicode-width,registry+https://github.com/rust-lang/crates.io-index
+url,2.5.8,MIT OR Apache-2.0,https://github.com/servo/rust-url,registry+https://github.com/rust-lang/crates.io-index
+usvg,0.46.0,Apache-2.0 OR MIT,https://github.com/linebender/resvg,registry+https://github.com/rust-lang/crates.io-index
+utf-8,0.7.6,MIT OR Apache-2.0,https://github.com/SimonSapin/rust-utf8,registry+https://github.com/rust-lang/crates.io-index
+utf8_iter,1.1.0,Apache-2.0 OR MIT,https://github.com/hsivonen/utf8_iter,registry+https://github.com/rust-lang/crates.io-index
+utf_types,1.0.0,Apache-2.0 OR MIT,https://github.com/hsivonen/utf_types,registry+https://github.com/rust-lang/crates.io-index
+uuid,1.26.1,Apache-2.0 OR MIT,https://github.com/uuid-rs/uuid,registry+https://github.com/rust-lang/crates.io-index
+v_frame,0.3.9,BSD-2-Clause,https://github.com/rust-av/v_frame,registry+https://github.com/rust-lang/crates.io-index
+vcpkg,0.2.15,MIT/Apache-2.0,https://github.com/mcgoo/vcpkg-rs,registry+https://github.com/rust-lang/crates.io-index
+version_check,0.9.5,MIT/Apache-2.0,https://github.com/SergioBenitez/version_check,registry+https://github.com/rust-lang/crates.io-index
+wait-timeout,0.2.1,MIT/Apache-2.0,https://github.com/alexcrichton/wait-timeout,registry+https://github.com/rust-lang/crates.io-index
+waker-fn,1.2.0,Apache-2.0 OR MIT,https://github.com/smol-rs/waker-fn,registry+https://github.com/rust-lang/crates.io-index
+walkdir,2.5.0,Unlicense/MIT,https://github.com/BurntSushi/walkdir,registry+https://github.com/rust-lang/crates.io-index
+wasm-bindgen,0.2.130,MIT OR Apache-2.0,https://github.com/wasm-bindgen/wasm-bindgen,registry+https://github.com/rust-lang/crates.io-index
+wasm-bindgen-macro,0.2.130,MIT OR Apache-2.0,https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/macro,registry+https://github.com/rust-lang/crates.io-index
+wasm-bindgen-macro-support,0.2.130,MIT OR Apache-2.0,https://github.com/wasm-bindgen/wasm-bindgen/tree/main/crates/macro-support,registry+https://github.com/rust-lang/crates.io-index
+wasm-bindgen-shared,0.2.130,MIT OR Apache-2.0,https://github.com/wasm-bindgen/wasm-bindgen/tree/master/crates/shared,registry+https://github.com/rust-lang/crates.io-index
+web-time,1.1.0,MIT OR Apache-2.0,https://github.com/daxpedda/web-time,registry+https://github.com/rust-lang/crates.io-index
+weezl,0.1.12,MIT OR Apache-2.0,https://github.com/image-rs/weezl,registry+https://github.com/rust-lang/crates.io-index
+winnow,0.7.15,MIT,https://github.com/winnow-rs/winnow,registry+https://github.com/rust-lang/crates.io-index
+winnow,1.0.5,MIT,https://github.com/winnow-rs/winnow,registry+https://github.com/rust-lang/crates.io-index
+writeable,0.6.4,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+xml5ever,0.18.1,MIT OR Apache-2.0,https://github.com/servo/html5ever,registry+https://github.com/rust-lang/crates.io-index
+xmlwriter,0.1.0,MIT,https://github.com/RazrFalcon/xmlwriter,registry+https://github.com/rust-lang/crates.io-index
+y4m,0.8.0,MIT,https://github.com/image-rs/y4m.git,registry+https://github.com/rust-lang/crates.io-index
+yoke,0.8.4,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+yoke-derive,0.8.4,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+zed-font-kit,0.14.1-zed,MIT OR Apache-2.0,https://github.com/servo/font-kit,registry+https://github.com/rust-lang/crates.io-index
+zerocopy,0.8.63,BSD-2-Clause OR Apache-2.0 OR MIT,https://github.com/google/zerocopy,registry+https://github.com/rust-lang/crates.io-index
+zerocopy-derive,0.8.63,BSD-2-Clause OR Apache-2.0 OR MIT,https://github.com/google/zerocopy,registry+https://github.com/rust-lang/crates.io-index
+zerofrom,0.1.8,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+zerofrom-derive,0.1.8,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+zerotrie,0.2.5,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+zerovec,0.11.9,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+zerovec-derive,0.11.7,Unicode-3.0,https://github.com/unicode-org/icu4x,registry+https://github.com/rust-lang/crates.io-index
+zlib-rs,0.6.8,Zlib,https://github.com/trifectatechfoundation/zlib-rs,registry+https://github.com/rust-lang/crates.io-index
+zmij,1.0.23,MIT,https://github.com/dtolnay/zmij,registry+https://github.com/rust-lang/crates.io-index
+zune-core,0.5.3,MIT OR Apache-2.0 OR Zlib,https://github.com/etemesi254/zune-image,registry+https://github.com/rust-lang/crates.io-index
+zune-inflate,0.2.54,MIT OR Apache-2.0 OR Zlib,,registry+https://github.com/rust-lang/crates.io-index
+zune-jpeg,0.5.15,MIT OR Apache-2.0 OR Zlib,https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg,registry+https://github.com/rust-lang/crates.io-index

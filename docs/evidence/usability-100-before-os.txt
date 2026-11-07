@@ -1,0 +1,57 @@
+SMOKE_REPORT_JSON:{"scenario":"startup","in_app_checks_passed":true,"clean_shutdown_requested":true,"shutdown_durable_ack_observed":true,"passed":true,"failure_reason":null,"process_to_window_ms":242.167958,"first_interactive_ms":244.549208,"recovery_manifest_ms":325.1545,"total_elapsed_ms":389.70074999999997,"final_tab_count":100,"hydrated_editor_count":1,"hydrated_content_bytes":69632,"paged_tab_count":0,"committed_revisions_observed":[],"typing_latency_label":"submission-only, not screen latency","typing_doc_bytes":0,"typing_sample_count":0,"typing_submit_p50_ms":0.0,"typing_submit_p95_ms":0.0,"typing_submit_max_ms":0.0,"large_paste_64k_submit_ms":null,"atomic_batch_single_undo_verified":false,"stale_revision_rejected":false,"chained_programmatic_edits_verified":false,"pending_native_edit_guard_verified":false,"replace_preserves_done_search_verified":false,"unicode_search_verified":false,"crlf_bom_roundtrip_verified":false,"reopen_closed_tab_verified":false,"discard_reload_durable_verified":false,"post_shutdown_manifest_verified":false,"clean_untitled_restart_verified":false,"paged_streaming_search_matches":0,"kernel_parity_verified":false}
+        0.41 real         0.12 user         0.05 sys
+           119373824  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                7575  page reclaims
+                 695  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                 137  voluntary context switches
+                3248  involuntary context switches
+          2012274629  instructions retired
+           726947135  cycles elapsed
+           116573240  peak memory footprint
+SMOKE_REPORT_JSON:{"scenario":"startup","in_app_checks_passed":true,"clean_shutdown_requested":true,"shutdown_durable_ack_observed":true,"passed":true,"failure_reason":null,"process_to_window_ms":173.657125,"first_interactive_ms":173.968334,"recovery_manifest_ms":197.127292,"total_elapsed_ms":275.75575000000003,"final_tab_count":100,"hydrated_editor_count":1,"hydrated_content_bytes":69632,"paged_tab_count":0,"committed_revisions_observed":[],"typing_latency_label":"submission-only, not screen latency","typing_doc_bytes":0,"typing_sample_count":0,"typing_submit_p50_ms":0.0,"typing_submit_p95_ms":0.0,"typing_submit_max_ms":0.0,"large_paste_64k_submit_ms":null,"atomic_batch_single_undo_verified":false,"stale_revision_rejected":false,"chained_programmatic_edits_verified":false,"pending_native_edit_guard_verified":false,"replace_preserves_done_search_verified":false,"unicode_search_verified":false,"crlf_bom_roundtrip_verified":false,"reopen_closed_tab_verified":false,"discard_reload_durable_verified":false,"post_shutdown_manifest_verified":false,"clean_untitled_restart_verified":false,"paged_streaming_search_matches":0,"kernel_parity_verified":false}
+        0.28 real         0.12 user         0.03 sys
+           118964224  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                8225  page reclaims
+                  13  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   8  voluntary context switches
+                2144  involuntary context switches
+          1905633328  instructions retired
+           614421944  cycles elapsed
+           116180000  peak memory footprint
+SMOKE_REPORT_JSON:{"scenario":"startup","in_app_checks_passed":true,"clean_shutdown_requested":true,"shutdown_durable_ack_observed":true,"passed":true,"failure_reason":null,"process_to_window_ms":176.670583,"first_interactive_ms":177.004541,"recovery_manifest_ms":199.765166,"total_elapsed_ms":278.062375,"final_tab_count":100,"hydrated_editor_count":1,"hydrated_content_bytes":69632,"paged_tab_count":0,"committed_revisions_observed":[],"typing_latency_label":"submission-only, not screen latency","typing_doc_bytes":0,"typing_sample_count":0,"typing_submit_p50_ms":0.0,"typing_submit_p95_ms":0.0,"typing_submit_max_ms":0.0,"large_paste_64k_submit_ms":null,"atomic_batch_single_undo_verified":false,"stale_revision_rejected":false,"chained_programmatic_edits_verified":false,"pending_native_edit_guard_verified":false,"replace_preserves_done_search_verified":false,"unicode_search_verified":false,"crlf_bom_roundtrip_verified":false,"reopen_closed_tab_verified":false,"discard_reload_durable_verified":false,"post_shutdown_manifest_verified":false,"clean_untitled_restart_verified":false,"paged_streaming_search_matches":0,"kernel_parity_verified":false}
+        0.28 real         0.12 user         0.03 sys
+           119406592  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                8263  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   7  voluntary context switches
+                2141  involuntary context switches
+          1906933131  instructions retired
+           615299423  cycles elapsed
+           116655184  peak memory footprint

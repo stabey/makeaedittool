@@ -1,0 +1,2 @@
+b8e6f545606fa603a3fa698db10fb5bbc9d84a4ed4ecacdcaf603c13f66245f7  target/release/editor
+8c27047cb035d99910d7d3baaf109ab692ae4997ad31ec6eac6ed538a9ebcf43  Cargo.lock

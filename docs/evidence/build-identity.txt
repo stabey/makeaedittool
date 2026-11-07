@@ -1,0 +1,4 @@
+# Historical baseline before the usability changes; current editor identity is in usability-build-identity.txt.
+6c6b84f3f0b8775d3c5a2dfc7e185816580f9da5e746df5ba89434529fa1c208  target/release/editor
+779973e990befd8ac20f42961f266c3128357c40bd1a365e10232cd70b5e06a8  target/release/editor-services
+8c27047cb035d99910d7d3baaf109ab692ae4997ad31ec6eac6ed538a9ebcf43  Cargo.lock

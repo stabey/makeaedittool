@@ -1,0 +1,11 @@
+Command family: target/release/editor-services generate PATH SIZE MODE
+Environment: native macOS 27.2 / Apple M4 / 32 GiB; external APFS USB SSD.
+All data generated with write_all + sync_all, not set_len/sparse allocation.
+
+path=.bench-data/one.log mode=log logical_bytes=1073741824 allocated_bytes=1085231104 seconds=1.072715
+path=.bench-data/ten.log mode=log logical_bytes=10737418240 allocated_bytes=10752053248 seconds=10.579258
+path=.bench-data/line.log mode=long-line logical_bytes=134217728 allocated_bytes=134217728 seconds=0.137211
+path=.bench-data/dense.log mode=dense logical_bytes=536870912 allocated_bytes=536870912 seconds=0.536142
+path=.bench-data/sixtyfour.log mode=log logical_bytes=68719476736 allocated_bytes=68728872960 seconds=67.758398
+
+64 GiB exceeds the machine's 32 GiB physical RAM. Generation elapsed times are not application save latency or cold-storage throughput claims.

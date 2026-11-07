@@ -1,0 +1,34 @@
+{
+  "scenario": "full",
+  "command": "target/release/editor --data-dir .smoke-data/native-full --smoke=full --smoke-report docs/evidence/native-full.json",
+  "exit_code": 0,
+  "elapsed_seconds": 3.16,
+  "report_file_emitted": false,
+  "stdout_bytes": 0,
+  "stderr_bytes": 0,
+  "observed_facts": {
+    "sqlite_path": ".smoke-data/native-full/recovery.sqlite3",
+    "documents_count": 1,
+    "documents_row": "b7552c8dc55d4e3bbca7feef54285b03|1|0|{\"title\":\"untitled-1\",\"path\":null,\"encoding\":\"Utf8\",\"line_ending\":\"Lf\",\"origin_fingerprint\":null,\"saved_identity\":null,\"readonly_reason\":null,\"paged\":false}|-1|",
+    "recovery_heads_count": 0,
+    "edit_transactions_count": 0,
+    "checkpoint_chunks_count": 0,
+    "smoke_artifacts_dir_exists": true,
+    "smoke_artifacts_file_count": 0,
+    "missing_expected_artifact_files": [
+      "saved_roundtrip.rs",
+      "ordinary_1mib_bench.rs",
+      "paged_stream.log"
+    ]
+  },
+  "static_analysis_and_hypotheses": {
+    "report_emission_omission": {
+      "classification": "STATIC_CODE_ANALYSIS",
+      "detail": "apps/editor/src/lib.rs places emit_smoke_report after gpui_kit::application().run(...). In gpui-pre-macos-0.3.11/src/platform.rs:591, cx.quit() invokes [NSApplication terminate:nil], which calls libc::exit(0) and does not unwind or return to the run() callsite. Post-run code in lib.rs cannot execute on macOS."
+    },
+    "step_failure_hypothesis": {
+      "classification": "INFERENCE",
+      "detail": "Because smoke_artifacts was created at step 1 but saved_roundtrip.rs at step 4 was never created, execution stopped between step 1 and step 4. In step 2 (smoke.rs:212-255), replace_text_in_range is called while workspace is borrowed mutably. Subscribed events are deferred in GPUI, and sleep_ms(30) awaits on background_executor().timer without pumping foreground AppKit dispatch. If line 242 returned Err due to visible_revision remaining 0, report.in_app_checks_passed was set to false and force_without_recovery initiated uncommitted quit. The exact in-memory error string is unobserved because the report was not written before process exit."
+    }
+  }
+}

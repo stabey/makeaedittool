@@ -1,0 +1,20 @@
+[package]
+name = "editor-services"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+ropey.workspace = true
+memchr = "=2.8.3"
+blake3 = "=1.8.7"
+crossbeam-channel = "=0.5.17"
+rusqlite = { version = "=0.41.1", features = ["bundled"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+uuid = { version = "=1.26.1", features = ["v4"] }
+libc = "=0.2.189"
+
+[dev-dependencies]
+tempfile = "=3.27.0"

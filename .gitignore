@@ -1,0 +1,11 @@
+# Local omp provider/model routing and installation metadata.
+/.omp/config.yml
+/.omp/agent-architect.json
+/target/
+/spikes/nsh-eval/target/
+/.bench-data/
+/.smoke-data/
+*.sqlite-wal
+*.sqlite-shm
+# Workstation-only capture, not editor verification evidence.
+/docs/evidence/test-window-front.png

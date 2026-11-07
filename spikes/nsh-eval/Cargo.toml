@@ -1,0 +1,38 @@
+[package]
+name = "nsh-eval"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[features]
+panel = ["dep:gpui-kit", "dep:nsh-platform-gpui", "dep:nsh-base", "dep:nsh-bundler"]
+[dependencies]
+nsh-engine = { version = "=0.4.0", default-features = false, features = ["js-core"] }
+nsh-core = "=0.4.0"
+serde_json = "=1.0.154"
+gpui-kit = { version = "=0.9.0", features = ["gpui-fast"], optional = true }
+nsh-platform-gpui = { version = "=0.4.0", default-features = false, features = ["js"], optional = true }
+
+nsh-base = { version = "=0.4.0", optional = true }
+
+[build-dependencies]
+nsh-bundler = { version = "=0.4.0", features = ["bundle"], optional = true }
+nsh-base = { version = "=0.4.0", optional = true }
+nsh-core = "=0.4.0"
+
+[[bin]]
+name = "nsh-panel-eval"
+path = "src/panel.rs"
+required-features = ["panel"]
+
+[[bin]]
+name = "nsh-eval"
+path = "src/main.rs"
+
+[profile.release]
+lto = "thin"
+
+[patch.crates-io]
+nsh-platform-gpui = { path = "vendor/nsh-platform-gpui" }

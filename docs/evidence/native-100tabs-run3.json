@@ -1,0 +1,21 @@
+{
+  "run": 3,
+  "command": "/usr/bin/time -l target/release/editor --data-dir .smoke-data/native-100tabs --smoke=startup --smoke-report docs/evidence/native-100tabs-run3.json",
+  "measurement_method": "OS process telemetry via /usr/bin/time -l",
+  "real_sec": 0.33,
+  "user_sec": 0.13,
+  "sys_sec": 0.03,
+  "max_rss_bytes": 119980032,
+  "max_rss_mib": 114.421875,
+  "peak_footprint_bytes": 138560568,
+  "peak_footprint_mib": 132.1416,
+  "instructions_retired": 1915400459,
+  "cycles_elapsed": 629853622,
+  "page_reclaims": 8310,
+  "page_faults": 0,
+  "voluntary_context_switches": 8,
+  "involuntary_context_switches": 2206,
+  "persisted_manifest_tabs_in_db": 100,
+  "in_app_hydrated_editor_count": "UNVERIFIED (in-app smoke report missing; cannot be confirmed by OS RSS alone)",
+  "report_emitted_by_app": false
+}

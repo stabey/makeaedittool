@@ -1,0 +1,116 @@
+{
+  "text": "bg_19 [bash] — completed — Measuring multifile and lazy session behavior — /usr/bin/time -l target/release/editor-services cache-bench .bench-data/cache 16 && target/release/editor-services in...\nenvironment os=macos arch=aarch64 profile=release path=.bench-data/cache os_cache=unspecified_or_warm\nsw_vers: ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B123\nsysctl: Mac16,10\n34359738368\nApple M4\nstorage=record_actual_volume_interface_for_this_path no_cold_cache_or_NVMe_claim=true\ngenerated path=.bench-data/cache/cache-000.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.025723\ngenerated path=.bench-data/cache/cache-001.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015920\ngenerated path=.bench-data/cache/cache-002.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.027842\ngenerated path=.bench-data/cache/cache-003.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.017154\ngenerated path=.bench-data/cache/cache-004.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015269\ngenerated path=.bench-data/cache/cache-005.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016860\ngenerated path=.bench-data/cache/cache-006.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015861\ngenerated path=.bench-data/cache/cache-007.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015412\ngenerated path=.bench-data/cache/cache-008.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016111\ngenerated path=.bench-data/cache/cache-009.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015610\ngenerated path=.bench-data/cache/cache-010.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.017363\ngenerated path=.bench-data/cache/cache-011.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016858\ngenerated path=.bench-data/cache/cache-012.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015931\ngenerated path=.bench-data/cache/cache-013.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.033471\ngenerated path=.bench-data/cache/cache-014.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.014979\ngenerated path=.bench-data/cache/cache-015.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015844\nmetric=multifile_storage_viewport_with_indexers files=16 samples=2048 p50_us=22.833 p95_us=49.209 total_seconds=0.057992500 decoded_GiB_per_sec=2.155439 peak_cached_bytes=67108864 stats=CacheStats { cached_bytes: 67108864, cache_budget: 67108864, index_bytes: 32768, index_budget: 16777216, pages: 1024, sources: 16, active_index_jobs: 0, peak_index_jobs: 2, active_open_jobs: 0, peak_open_jobs: 0 }\nmetric=multifile_sequential_read_at repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.007748875 GiB_per_sec=16.131374 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_MemchrBaseline_worker_limit4 repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.006807000 GiB_per_sec=18.363449 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_ByteScanExperiment_worker_limit4 repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.029581584 GiB_per_sec=4.225602 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_after_close stats=CacheStats { cached_bytes: 0, cache_budget: 67108864, index_bytes: 0, index_budget: 16777216, pages: 0, sources: 0, active_index_jobs: 0, peak_index_jobs: 2, active_open_jobs: 0, peak_open_jobs: 0 }\n        0.41 real         0.11 user         0.10 sys\n            79331328  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                5384  page reclaims\n                  19  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                 217  voluntary context switches\n                 728  involuntary context switches\n          2454154384  instructions retired\n           800201072  cycles elapsed\n            78102984  peak memory footprint\nmetric=line_index bytes=536870912 lines=536870913 seconds=0.586508625 stats=CacheStats { cached_bytes: 0, cache_budget: 67108864, index_bytes: 131072, index_budget: 16777216, pages: 0, sources: 1, active_index_jobs: 0, peak_index_jobs: 1, active_open_jobs: 0, peak_open_jobs: 0 }\nmetric=lazy_session tabs=100 metadata_us=185 active_hydrate_us=221 hydrated_documents=1 active_bytes=69632 inactive_hydrated=0\nkind=ram_snapshot_pipeline includes=bounded_block_copy,kernel no_disk=true bytes=67108864\nmetric=ram_MemchrBaseline repeat=0 block_bytes=65536 bytes_scanned=67108864 bytes_read=67108864 seconds=0.006814458 GiB_per_sec=9.171676 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=262144 bytes_scanned=67108864 bytes_read=67108864 seconds=0.005662208 GiB_per_sec=11.038097 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=1048576 bytes_scanned=67108864 bytes_read=67108864 seconds=0.005188917 GiB_per_sec=12.044903 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=4194304 bytes_scanned=67108864 bytes_read=67108864 seconds=0.006733417 GiB_per_sec=9.282063 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=65536 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038361209 GiB_per_sec=1.629250 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=262144 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038409167 GiB_per_sec=1.627216 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=1048576 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038370083 GiB_per_sec=1.628873 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=4194304 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038742833 GiB_per_sec=1.613202 matches=0 truncated=false complete_throughput_valid=true\n68719476673..68719476694 \"56Z INFO request=8f4a message=中文🙂 payload=abcdefghijklmn\\n__EDITOR_END_MARKER__\\n                                         \"\nDone { query_id: QueryId(1), total_emitted: 1, truncated: false, count_exact: true, elapsed_ns: 75110978291, bytes_scanned: 68719476736, bytes_read: 68719476736 }\n\n\nWall time: 76.53 seconds",
+  "details": {
+    "contentType": "text/plain",
+    "proc": {
+      "job": {
+        "id": "bg_19",
+        "type": "bash",
+        "status": "completed",
+        "label": "/usr/bin/time -l target/release/editor-services cache-bench .bench-data/cache 16 && target/release/editor-services in...",
+        "intent": "Measuring multifile and lazy session behavior",
+        "durationMs": 76526,
+        "widget": {
+          "title": "Measuring multifile and lazy session behavior",
+          "stage": "Done { query_id: QueryId(1), total_emitted: 1, truncated: false, count_exact: true, elapsed_ns: 75110978291, bytes_scanned: 68719476736, bytes_read: 68719476736 }",
+          "blocks": [
+            {
+              "kind": "stat",
+              "items": [
+                {
+                  "label": "lines",
+                  "text": "60"
+                },
+                {
+                  "label": "lines/s",
+                  "text": "0.03"
+                }
+              ]
+            }
+          ],
+          "state": "authoring",
+          "updatedAt": 1793907317856
+        }
+      },
+      "log": "environment os=macos arch=aarch64 profile=release path=.bench-data/cache os_cache=unspecified_or_warm\nsw_vers: ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B123\nsysctl: Mac16,10\n34359738368\nApple M4\nstorage=record_actual_volume_interface_for_this_path no_cold_cache_or_NVMe_claim=true\ngenerated path=.bench-data/cache/cache-000.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.025723\ngenerated path=.bench-data/cache/cache-001.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015920\ngenerated path=.bench-data/cache/cache-002.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.027842\ngenerated path=.bench-data/cache/cache-003.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.017154\ngenerated path=.bench-data/cache/cache-004.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015269\ngenerated path=.bench-data/cache/cache-005.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016860\ngenerated path=.bench-data/cache/cache-006.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015861\ngenerated path=.bench-data/cache/cache-007.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015412\ngenerated path=.bench-data/cache/cache-008.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016111\ngenerated path=.bench-data/cache/cache-009.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015610\ngenerated path=.bench-data/cache/cache-010.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.017363\ngenerated path=.bench-data/cache/cache-011.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016858\ngenerated path=.bench-data/cache/cache-012.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015931\ngenerated path=.bench-data/cache/cache-013.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.033471\ngenerated path=.bench-data/cache/cache-014.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.014979\ngenerated path=.bench-data/cache/cache-015.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015844\nmetric=multifile_storage_viewport_with_indexers files=16 samples=2048 p50_us=22.833 p95_us=49.209 total_seconds=0.057992500 decoded_GiB_per_sec=2.155439 peak_cached_bytes=67108864 stats=CacheStats { cached_bytes: 67108864, cache_budget: 67108864, index_bytes: 32768, index_budget: 16777216, pages: 1024, sources: 16, active_index_jobs: 0, peak_index_jobs: 2, active_open_jobs: 0, peak_open_jobs: 0 }\nmetric=multifile_sequential_read_at repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.007748875 GiB_per_sec=16.131374 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_MemchrBaseline_worker_limit4 repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.006807000 GiB_per_sec=18.363449 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_ByteScanExperiment_worker_limit4 repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.029581584 GiB_per_sec=4.225602 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_after_close stats=CacheStats { cached_bytes: 0, cache_budget: 67108864, index_bytes: 0, index_budget: 16777216, pages: 0, sources: 0, active_index_jobs: 0, peak_index_jobs: 2, active_open_jobs: 0, peak_open_jobs: 0 }\n        0.41 real         0.11 user         0.10 sys\n            79331328  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                5384  page reclaims\n                  19  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                 217  voluntary context switches\n                 728  involuntary context switches\n          2454154384  instructions retired\n           800201072  cycles elapsed\n            78102984  peak memory footprint\nmetric=line_index bytes=536870912 lines=536870913 seconds=0.586508625 stats=CacheStats { cached_bytes: 0, cache_budget: 67108864, index_bytes: 131072, index_budget: 16777216, pages: 0, sources: 1, active_index_jobs: 0, peak_index_jobs: 1, active_open_jobs: 0, peak_open_jobs: 0 }\nmetric=lazy_session tabs=100 metadata_us=185 active_hydrate_us=221 hydrated_documents=1 active_bytes=69632 inactive_hydrated=0\nkind=ram_snapshot_pipeline includes=bounded_block_copy,kernel no_disk=true bytes=67108864\nmetric=ram_MemchrBaseline repeat=0 block_bytes=65536 bytes_scanned=67108864 bytes_read=67108864 seconds=0.006814458 GiB_per_sec=9.171676 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=262144 bytes_scanned=67108864 bytes_read=67108864 seconds=0.005662208 GiB_per_sec=11.038097 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=1048576 bytes_scanned=67108864 bytes_read=67108864 seconds=0.005188917 GiB_per_sec=12.044903 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=4194304 bytes_scanned=67108864 bytes_read=67108864 seconds=0.006733417 GiB_per_sec=9.282063 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=65536 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038361209 GiB_per_sec=1.629250 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=262144 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038409167 GiB_per_sec=1.627216 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=1048576 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038370083 GiB_per_sec=1.628873 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=4194304 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038742833 GiB_per_sec=1.613202 matches=0 truncated=false complete_throughput_valid=true\n68719476673..68719476694 \"56Z INFO request=8f4a message=中文🙂 payload=abcdefghijklmn\\n__EDITOR_END_MARKER__\\n                                         \"\nDone { query_id: QueryId(1), total_emitted: 1, truncated: false, count_exact: true, elapsed_ns: 75110978291, bytes_scanned: 68719476736, bytes_read: 68719476736 }\n\n\nWall time: 76.53 seconds"
+    },
+    "totalLines": 64,
+    "rowPrefixes": false,
+    "displayContent": {
+      "text": "bg_19 [bash] — completed — Measuring multifile and lazy session behavior — /usr/bin/time -l target/release/editor-services cache-bench .bench-data/cache 16 && target/release/editor-services in...\nenvironment os=macos arch=aarch64 profile=release path=.bench-data/cache os_cache=unspecified_or_warm\nsw_vers: ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B123\nsysctl: Mac16,10\n34359738368\nApple M4\nstorage=record_actual_volume_interface_for_this_path no_cold_cache_or_NVMe_claim=true\ngenerated path=.bench-data/cache/cache-000.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.025723\ngenerated path=.bench-data/cache/cache-001.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015920\ngenerated path=.bench-data/cache/cache-002.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.027842\ngenerated path=.bench-data/cache/cache-003.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.017154\ngenerated path=.bench-data/cache/cache-004.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015269\ngenerated path=.bench-data/cache/cache-005.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016860\ngenerated path=.bench-data/cache/cache-006.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015861\ngenerated path=.bench-data/cache/cache-007.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015412\ngenerated path=.bench-data/cache/cache-008.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016111\ngenerated path=.bench-data/cache/cache-009.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015610\ngenerated path=.bench-data/cache/cache-010.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.017363\ngenerated path=.bench-data/cache/cache-011.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.016858\ngenerated path=.bench-data/cache/cache-012.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015931\ngenerated path=.bench-data/cache/cache-013.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.033471\ngenerated path=.bench-data/cache/cache-014.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.014979\ngenerated path=.bench-data/cache/cache-015.log mode=log logical_bytes=8388608 allocated_bytes=8388608 seconds=0.015844\nmetric=multifile_storage_viewport_with_indexers files=16 samples=2048 p50_us=22.833 p95_us=49.209 total_seconds=0.057992500 decoded_GiB_per_sec=2.155439 peak_cached_bytes=67108864 stats=CacheStats { cached_bytes: 67108864, cache_budget: 67108864, index_bytes: 32768, index_budget: 16777216, pages: 1024, sources: 16, active_index_jobs: 0, peak_index_jobs: 2, active_open_jobs: 0, peak_open_jobs: 0 }\nmetric=multifile_sequential_read_at repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.007748875 GiB_per_sec=16.131374 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_MemchrBaseline_worker_limit4 repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.006807000 GiB_per_sec=18.363449 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_ByteScanExperiment_worker_limit4 repeat=0 block_bytes=1048576 bytes_scanned=134217728 bytes_read=134217728 seconds=0.029581584 GiB_per_sec=4.225602 matches=0 truncated=false complete_throughput_valid=true\nmetric=multifile_after_close stats=CacheStats { cached_bytes: 0, cache_budget: 67108864, index_bytes: 0, index_budget: 16777216, pages: 0, sources: 0, active_index_jobs: 0, peak_index_jobs: 2, active_open_jobs: 0, peak_open_jobs: 0 }\n        0.41 real         0.11 user         0.10 sys\n            79331328  maximum resident set size\n                   0  average shared memory size\n                   0  average unshared data size\n                   0  average unshared stack size\n                5384  page reclaims\n                  19  page faults\n                   0  swaps\n                   0  block input operations\n                   0  block output operations\n                   0  messages sent\n                   0  messages received\n                   0  signals received\n                 217  voluntary context switches\n                 728  involuntary context switches\n          2454154384  instructions retired\n           800201072  cycles elapsed\n            78102984  peak memory footprint\nmetric=line_index bytes=536870912 lines=536870913 seconds=0.586508625 stats=CacheStats { cached_bytes: 0, cache_budget: 67108864, index_bytes: 131072, index_budget: 16777216, pages: 0, sources: 1, active_index_jobs: 0, peak_index_jobs: 1, active_open_jobs: 0, peak_open_jobs: 0 }\nmetric=lazy_session tabs=100 metadata_us=185 active_hydrate_us=221 hydrated_documents=1 active_bytes=69632 inactive_hydrated=0\nkind=ram_snapshot_pipeline includes=bounded_block_copy,kernel no_disk=true bytes=67108864\nmetric=ram_MemchrBaseline repeat=0 block_bytes=65536 bytes_scanned=67108864 bytes_read=67108864 seconds=0.006814458 GiB_per_sec=9.171676 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=262144 bytes_scanned=67108864 bytes_read=67108864 seconds=0.005662208 GiB_per_sec=11.038097 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=1048576 bytes_scanned=67108864 bytes_read=67108864 seconds=0.005188917 GiB_per_sec=12.044903 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_MemchrBaseline repeat=0 block_bytes=4194304 bytes_scanned=67108864 bytes_read=67108864 seconds=0.006733417 GiB_per_sec=9.282063 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=65536 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038361209 GiB_per_sec=1.629250 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=262144 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038409167 GiB_per_sec=1.627216 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=1048576 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038370083 GiB_per_sec=1.628873 matches=0 truncated=false complete_throughput_valid=true\nmetric=ram_ByteScanExperiment repeat=0 block_bytes=4194304 bytes_scanned=67108864 bytes_read=67108864 seconds=0.038742833 GiB_per_sec=1.613202 matches=0 truncated=false complete_throughput_valid=true\n68719476673..68719476694 \"56Z INFO request=8f4a message=中文🙂 payload=abcdefghijklmn\\n__EDITOR_END_MARKER__\\n                                         \"\nDone { query_id: QueryId(1), total_emitted: 1, truncated: false, count_exact: true, elapsed_ns: 75110978291, bytes_scanned: 68719476736, bytes_read: 68719476736 }\n\n\nWall time: 76.53 seconds",
+      "startLine": 1,
+      "lineNumbers": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64
+      ]
+    },
+    "meta": {
+      "source": {
+        "type": "internal",
+        "value": "proc://bg_19"
+      }
+    }
+  }
+}

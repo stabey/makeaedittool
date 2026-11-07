@@ -1,0 +1,17 @@
+{
+  "scenario": "100-tab lazy startup DB recovery",
+  "db_path": ".smoke-data/native-100tabs/recovery.sqlite3",
+  "measurement_method": "Sequential process execution measured with macOS /usr/bin/time -l; SQLite database state verified via sqlite3 CLI",
+  "total_persisted_tabs_in_sqlite": 100,
+  "in_app_hydrated_editors_count": "UNVERIFIED (internal heap state unobserved because in-app smoke report was not emitted before process exit; OS RSS alone cannot confirm exactly 1 hydrated editor or per-tab costs)",
+  "sample_count": 3,
+  "note": "Three independent timed measurements recorded. Do not fabricate p95 from N=3.",
+  "measurements": [
+    { "run": 1, "real_sec": 0.33, "max_rss_mib": 113.91, "peak_footprint_mib": 131.61 },
+    { "run": 2, "real_sec": 0.33, "max_rss_mib": 115.44, "peak_footprint_mib": 149.47 },
+    { "run": 3, "real_sec": 0.33, "max_rss_mib": 114.42, "peak_footprint_mib": 132.14 }
+  ],
+  "mean_real_sec": 0.33,
+  "mean_max_rss_mib": 114.59,
+  "mean_peak_footprint_mib": 137.74
+}

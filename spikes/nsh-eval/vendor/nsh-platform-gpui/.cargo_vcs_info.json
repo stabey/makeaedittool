@@ -1,0 +1,6 @@
+{
+  "git": {
+    "sha1": "e626a8dd8f8d8b277b9507cfd5ac74d0e67020f3"
+  },
+  "path_in_vcs": "crates/gpui/nsh-platform-gpui"
+}
