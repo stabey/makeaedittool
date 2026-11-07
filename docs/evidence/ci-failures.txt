@@ -1,0 +1,170 @@
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	﻿2026-11-07T17:57:33.5687297Z ##[group]Run python scripts/ci/package_artifact.py --target x86_64-pc-windows-msvc
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5688077Z ^[[36;1mpython scripts/ci/package_artifact.py --target x86_64-pc-windows-msvc^[[0m
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5762355Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5762798Z env:
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5763042Z   CARGO_BUILD_JOBS: 2
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5763311Z   CARGO_INCREMENTAL: 0
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5763578Z   CARGO_PROFILE_DEV_DEBUG: 0
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5763890Z   CARGO_PROFILE_TEST_DEBUG: 0
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5764171Z   CARGO_TERM_COLOR: always
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5764442Z   PYTHONUTF8: 1
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5764758Z   BUILD_COMMIT: caaf38fa994e7409ff940223bb56dffe46a75eb0
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5765287Z   CI_RUN_URL: https://github.com/stabey/makeaedittool/actions/runs/42397473795
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5765790Z   RUSTUP_TOOLCHAIN: 1.99.1-x86_64-pc-windows-msvc
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5766263Z   GPUI_FXC_PATH: C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\fxc.exe
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5766880Z   CI_SMOKE_REPORT: D:\a\_temp/native-smoke-x86_64-pc-windows-msvc.json
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5767297Z   CI_TEST_STATUS: success
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5767570Z   CI_BUILD_STATUS: success
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.5767839Z ##[endgroup]
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:33.9469534Z free_disk_bytes_before_packaging=156006051840
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8099943Z Traceback (most recent call last):
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8100665Z   File "D:\a\makeaedittool\makeaedittool\scripts\ci\package_artifact.py", line 285, in <module>
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8102607Z     main()
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8157886Z   File "D:\a\makeaedittool\makeaedittool\scripts\ci\package_artifact.py", line 270, in main
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8159890Z     bundle.write(path, arcname=name)
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8160661Z   File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\zipfile\__init__.py", line 1854, in write
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8281234Z     zinfo = ZipInfo.from_file(filename, arcname,
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8334358Z             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8335399Z   File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\zipfile\__init__.py", line 573, in from_file
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8337160Z     zinfo = cls(arcname, date_time)
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8337621Z             ^^^^^^^^^^^^^^^^^^^^^^^
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8338116Z   File "C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\zipfile\__init__.py", line 398, in __init__
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8340263Z     raise ValueError('ZIP does not support timestamps before 1980')
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.8340801Z ValueError: ZIP does not support timestamps before 1980
+x86_64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:57:36.9575877Z ##[error]Process completed with exit code 1.
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	﻿2026-11-07T17:54:21.5452613Z ##[group]Run python3 scripts/ci/package_artifact.py --target x86_64-unknown-linux-gnu
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5453262Z ^[[36;1mpython3 scripts/ci/package_artifact.py --target x86_64-unknown-linux-gnu^[[0m
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5466692Z shell: /usr/bin/bash -e {0}
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5466971Z env:
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5467170Z   CARGO_BUILD_JOBS: 2
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5467387Z   CARGO_INCREMENTAL: 0
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5467615Z   CARGO_PROFILE_DEV_DEBUG: 0
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5467855Z   CARGO_PROFILE_TEST_DEBUG: 0
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5468122Z   CARGO_TERM_COLOR: always
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5468355Z   PYTHONUTF8: 1
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5468616Z   BUILD_COMMIT: caaf38fa994e7409ff940223bb56dffe46a75eb0
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5469244Z   CI_RUN_URL: https://github.com/stabey/makeaedittool/actions/runs/42397473795
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5469699Z   RUSTUP_TOOLCHAIN: 1.99.1-x86_64-unknown-linux-gnu
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5470130Z   CI_SMOKE_REPORT: /home/runner/work/_temp/native-smoke-x86_64-unknown-linux-gnu.json
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5470600Z   CI_TEST_STATUS: success
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5470827Z   CI_BUILD_STATUS: success
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5471053Z ##[endgroup]
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:21.5954020Z free_disk_bytes_before_packaging=88572903424
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3810300Z Traceback (most recent call last):
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3811617Z   File "/home/runner/work/makeaedittool/makeaedittool/scripts/ci/package_artifact.py", line 285, in <module>
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3812679Z     main()
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3813520Z   File "/home/runner/work/makeaedittool/makeaedittool/scripts/ci/package_artifact.py", line 270, in main
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3814630Z     bundle.write(path, arcname=name)
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3815312Z   File "/usr/lib/python3.12/zipfile/__init__.py", line 1854, in write
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3821117Z     zinfo = ZipInfo.from_file(filename, arcname,
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3821775Z             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3822527Z   File "/usr/lib/python3.12/zipfile/__init__.py", line 589, in from_file
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3823317Z     zinfo = cls(arcname, date_time)
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3823862Z             ^^^^^^^^^^^^^^^^^^^^^^^
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3824563Z   File "/usr/lib/python3.12/zipfile/__init__.py", line 414, in __init__
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3825483Z     raise ValueError('ZIP does not support timestamps before 1980')
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.3826342Z ValueError: ZIP does not support timestamps before 1980
+x86_64-unknown-linux-gnu	Check machine headers and package notices with SHA integrity	2026-11-07T17:54:24.4212031Z ##[error]Process completed with exit code 1.
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	﻿2026-11-07T17:52:48.0870310Z ##[group]Run python3 scripts/ci/package_artifact.py --target aarch64-apple-darwin
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0870840Z ^[[36;1mpython3 scripts/ci/package_artifact.py --target aarch64-apple-darwin^[[0m
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0903310Z shell: /bin/bash -e {0}
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0903580Z env:
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0903840Z   CARGO_BUILD_JOBS: 2
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0904560Z   CARGO_INCREMENTAL: 0
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0904850Z   CARGO_PROFILE_DEV_DEBUG: 0
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0905170Z   CARGO_PROFILE_TEST_DEBUG: 0
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0905550Z   CARGO_TERM_COLOR: always
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0905770Z   PYTHONUTF8: 1
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0906090Z   BUILD_COMMIT: caaf38fa994e7409ff940223bb56dffe46a75eb0
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0906520Z   CI_RUN_URL: https://github.com/stabey/makeaedittool/actions/runs/42397473795
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0906980Z   RUSTUP_TOOLCHAIN: 1.99.1-aarch64-apple-darwin
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0907540Z   CI_SMOKE_REPORT: /Users/runner/work/_temp/native-smoke-aarch64-apple-darwin.json
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0907940Z   CI_TEST_STATUS: success
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0908390Z   CI_BUILD_STATUS: success
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.0908740Z ##[endgroup]
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:48.2145590Z free_disk_bytes_before_packaging=46433529856
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5628210Z Traceback (most recent call last):
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5634540Z   File "/Users/runner/work/makeaedittool/makeaedittool/scripts/ci/package_artifact.py", line 285, in <module>
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5635410Z     main()
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5635880Z     ~~~~^^
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5636730Z   File "/Users/runner/work/makeaedittool/makeaedittool/scripts/ci/package_artifact.py", line 270, in main
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5637540Z     bundle.write(path, arcname=name)
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5639620Z     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5640180Z   File "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/zipfile/__init__.py", line 2012, in write
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5640750Z     zinfo = ZipInfo.from_file(filename, arcname,
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5641060Z                               strict_timestamps=self._strict_timestamps)
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5641870Z   File "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/zipfile/__init__.py", line 652, in from_file
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5657930Z     zinfo = cls(arcname, date_time)
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5658890Z   File "/opt/homebrew/Cellar/python@3.15/3.15.2/Frameworks/Python.framework/Versions/3.15/lib/python3.15/zipfile/__init__.py", line 461, in __init__
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5659610Z     raise ValueError('ZIP does not support timestamps before 1980')
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5660050Z ValueError: ZIP does not support timestamps before 1980
+aarch64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T17:52:50.5831080Z ##[error]Process completed with exit code 1.
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	﻿2026-11-07T18:02:32.5838560Z ##[group]Run python3 scripts/ci/package_artifact.py --target x86_64-apple-darwin
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5839830Z ^[[36;1mpython3 scripts/ci/package_artifact.py --target x86_64-apple-darwin^[[0m
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5902970Z shell: /bin/bash -e {0}
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5903850Z env:
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5904280Z   CARGO_BUILD_JOBS: 2
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5904800Z   CARGO_INCREMENTAL: 0
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5906460Z   CARGO_PROFILE_DEV_DEBUG: 0
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5907790Z   CARGO_PROFILE_TEST_DEBUG: 0
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5908350Z   CARGO_TERM_COLOR: always
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5908870Z   PYTHONUTF8: 1
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5909440Z   BUILD_COMMIT: caaf38fa994e7409ff940223bb56dffe46a75eb0
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5910420Z   CI_RUN_URL: https://github.com/stabey/makeaedittool/actions/runs/42397473795
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5911350Z   RUSTUP_TOOLCHAIN: 1.99.1-x86_64-apple-darwin
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5912270Z   CI_SMOKE_REPORT: /Users/runner/work/_temp/native-smoke-x86_64-apple-darwin.json
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5913210Z   CI_TEST_STATUS: success
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5913800Z   CI_BUILD_STATUS: success
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.5914310Z ##[endgroup]
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:32.7406000Z free_disk_bytes_before_packaging=113565388800
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3591610Z Traceback (most recent call last):
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3600100Z   File "/Users/runner/work/makeaedittool/makeaedittool/scripts/ci/package_artifact.py", line 285, in <module>
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3601460Z     main()
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3601860Z     ~~~~^^
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3602730Z   File "/Users/runner/work/makeaedittool/makeaedittool/scripts/ci/package_artifact.py", line 270, in main
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3603830Z     bundle.write(path, arcname=name)
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3604360Z     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3605600Z   File "/usr/local/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/zipfile/__init__.py", line 1987, in write
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3606960Z     zinfo = ZipInfo.from_file(filename, arcname,
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3607780Z                               strict_timestamps=self._strict_timestamps)
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3609300Z   File "/usr/local/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/zipfile/__init__.py", line 652, in from_file
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3610650Z     zinfo = cls(arcname, date_time)
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3611910Z   File "/usr/local/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/zipfile/__init__.py", line 461, in __init__
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3613410Z     raise ValueError('ZIP does not support timestamps before 1980')
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3614290Z ValueError: ZIP does not support timestamps before 1980
+x86_64-apple-darwin	Check machine headers and package notices with SHA integrity	2026-11-07T18:02:35.3897900Z ##[error]Process completed with exit code 1.
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	﻿2026-11-07T17:58:40.6838057Z ##[group]Run python scripts/ci/package_artifact.py --target aarch64-pc-windows-msvc
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6838764Z ^[[36;1mpython scripts/ci/package_artifact.py --target aarch64-pc-windows-msvc^[[0m
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6890438Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6890765Z env:
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6891096Z   CARGO_BUILD_JOBS: 2
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6891282Z   CARGO_INCREMENTAL: 0
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6891478Z   CARGO_PROFILE_DEV_DEBUG: 0
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6891689Z   CARGO_PROFILE_TEST_DEBUG: 0
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6891901Z   CARGO_TERM_COLOR: always
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6901314Z   PYTHONUTF8: 1
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6901585Z   BUILD_COMMIT: caaf38fa994e7409ff940223bb56dffe46a75eb0
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6901996Z   CI_RUN_URL: https://github.com/stabey/makeaedittool/actions/runs/42397473795
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6902381Z   RUSTUP_TOOLCHAIN: 1.99.1-aarch64-pc-windows-msvc
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6902785Z   GPUI_FXC_PATH: C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\arm64\fxc.exe
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6903286Z   CI_SMOKE_REPORT: C:\a\_temp/native-smoke-aarch64-pc-windows-msvc.json
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6903852Z   CI_TEST_STATUS: success
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6904079Z   CI_BUILD_STATUS: success
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:40.6904270Z ##[endgroup]
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:41.0727827Z free_disk_bytes_before_packaging=130536169472
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3062863Z Traceback (most recent call last):
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3134607Z   File "C:\a\makeaedittool\makeaedittool\scripts\ci\package_artifact.py", line 285, in <module>
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3135064Z     main()
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3135215Z     ~~~~^^
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3135527Z   File "C:\a\makeaedittool\makeaedittool\scripts\ci\package_artifact.py", line 270, in main
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3135935Z     bundle.write(path, arcname=name)
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3136162Z     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3136559Z   File "C:\hostedtoolcache\windows\Python\3.13.17\arm64\Lib\zipfile\__init__.py", line 1943, in write
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3137057Z     zinfo = ZipInfo.from_file(filename, arcname,
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3137366Z                               strict_timestamps=self._strict_timestamps)
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3137840Z   File "C:\hostedtoolcache\windows\Python\3.13.17\arm64\Lib\zipfile\__init__.py", line 617, in from_file
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3138293Z     zinfo = cls(arcname, date_time)
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3138697Z   File "C:\hostedtoolcache\windows\Python\3.13.17\arm64\Lib\zipfile\__init__.py", line 428, in __init__
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3139332Z     raise ValueError('ZIP does not support timestamps before 1980')
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.3139718Z ValueError: ZIP does not support timestamps before 1980
+aarch64-pc-windows-msvc	Check machine headers and package notices with SHA integrity	2026-11-07T17:58:43.4580616Z ##[error]Process completed with exit code 1.

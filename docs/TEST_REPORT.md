@@ -124,3 +124,13 @@ target/release/editor --data-dir .smoke-data/native-full-atomic --smoke=full --s
 审查边界：UI实现及格式/恢复排序经`design-review`复审通过。独立偏好存储的`adversarial-check`两次因模型服务网络/流停顿失败，未产生结论，不能记为独立对抗审查通过；主协调者检查了有界队列、flush/shutdown及原子发布路径，现有存储故障测试和原生重启验证通过。
 
 按键派发回归加入后，最终`cargo fmt --all -- --check && cargo test --locked --workspace`仍通过（92测试）：[最终检查输出](evidence/usability-final-checks.txt)。本轮临时会话、夹具、Swift脚本及无效截图已清理；保留原始报告、有效前后截图与release二进制。
+
+## 公开仓库与五目标CI
+
+公开仓库已建立：[stabey/makeaedittool](https://github.com/stabey/makeaedittool)，初始审计提交`1af1247`。发布前移除了测试日志中的本地会话标识，排除了无关桌面截图；保留实际测量与资源归属声明，补齐Apache-2.0根许可证。
+
+CI设计与实现经`CiDesignReview`评审。`actionlint 1.7.12`发现并修复了job级`runner.temp`上下文错误；随后删除不必要的输出目录环境设置。首个运行`42397198407`被新推送自动取消，不将取消记作平台功能失败。
+
+[首轮完整托管运行42397473795](https://github.com/stabey/makeaedittool/actions/runs/42397473795)在五个原生目标上均完成workspace测试、release构建及无窗口CLI验证：macOS ARM64/Intel各92测试，Windows x64/ARM64及Linux x64各85测试。差异来自已有macOS保存测试条件，不是通过临时跳过失败测试获得。CI不运行原生GUI smoke。
+
+该轮最终失败于打包，而非编译：Cargo源包的部分许可文件时间戳早于1980年，Python ZIP默认严格时间戳检查拒绝写入，故**没有上传任何产物**。失败证据：[ci-first-failure.json](evidence/ci-first-failure.json)、[原始日志](evidence/ci-failures.txt)。修复只将ZIP不可表示的时间戳钳制到格式边界，不改变文件字节或权限；新增真实ZIP回归验证1970年许可文件的字节与模式保留，本地7个打包测试、actionlint与Rust格式检查通过。

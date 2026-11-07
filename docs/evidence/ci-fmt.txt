@@ -1,0 +1,229 @@
+fmt	Set up job	﻿2026-11-07T17:41:00.0142080Z Current runner version: '2.338.2'
+fmt	Set up job	2026-11-07T17:41:00.0165820Z ##[group]Runner Image Provisioner
+fmt	Set up job	2026-11-07T17:41:00.0166754Z Hosted Compute Agent
+fmt	Set up job	2026-11-07T17:41:00.0167350Z Version: 20261028.624
+fmt	Set up job	2026-11-07T17:41:00.0167973Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+fmt	Set up job	2026-11-07T17:41:00.0168789Z Build Date: 2026-10-28T21:51:42Z
+fmt	Set up job	2026-11-07T17:41:00.0169457Z Worker ID: {4cd5d131-0f35-462b-8bfc-15ceff947668}
+fmt	Set up job	2026-11-07T17:41:00.0170227Z Region: westus3
+fmt	Set up job	2026-11-07T17:41:00.0170778Z Cloud: Azure
+fmt	Set up job	2026-11-07T17:41:00.0171311Z ##[endgroup]
+fmt	Set up job	2026-11-07T17:41:00.0172516Z ##[group]Operating System
+fmt	Set up job	2026-11-07T17:41:00.0173107Z Ubuntu
+fmt	Set up job	2026-11-07T17:41:00.0174044Z 24.04.5
+fmt	Set up job	2026-11-07T17:41:00.0174627Z LTS
+fmt	Set up job	2026-11-07T17:41:00.0175140Z ##[endgroup]
+fmt	Set up job	2026-11-07T17:41:00.0175757Z ##[group]Runner Image
+fmt	Set up job	2026-11-07T17:41:00.0176341Z Image: ubuntu-24.04
+fmt	Set up job	2026-11-07T17:41:00.0176875Z Version: 20261101.360.1
+fmt	Set up job	2026-11-07T17:41:00.0177931Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261101.360/images/ubuntu/Ubuntu2404-Readme.md
+fmt	Set up job	2026-11-07T17:41:00.0179655Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261101.360
+fmt	Set up job	2026-11-07T17:41:00.0180586Z ##[endgroup]
+fmt	Set up job	2026-11-07T17:41:00.0181638Z ##[group]GITHUB_TOKEN Permissions
+fmt	Set up job	2026-11-07T17:41:00.0184001Z Contents: read
+fmt	Set up job	2026-11-07T17:41:00.0184548Z Metadata: read
+fmt	Set up job	2026-11-07T17:41:00.0185601Z ##[endgroup]
+fmt	Set up job	2026-11-07T17:41:00.0187605Z Secret source: Actions
+fmt	Set up job	2026-11-07T17:41:00.0188596Z Cache mode: write
+fmt	Set up job	2026-11-07T17:41:00.0189275Z Prepare workflow directory
+fmt	Set up job	2026-11-07T17:41:00.0556838Z Prepare all required actions
+fmt	Set up job	2026-11-07T17:41:00.0606175Z Getting action download info
+fmt	Set up job	2026-11-07T17:41:00.3573132Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+fmt	Set up job	2026-11-07T17:41:00.5510918Z Complete job name: fmt
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	﻿2026-11-07T17:41:00.6279232Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6280303Z with:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6280863Z   persist-credentials: false
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6281509Z   repository: stabey/makeaedittool
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6285698Z   token: ***
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6286241Z   ssh-strict: true
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6286929Z   ssh-user: git
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6287438Z   clean: true
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6287994Z   sparse-checkout-cone-mode: true
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6288593Z   fetch-depth: 1
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6289086Z   fetch-tags: false
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6289673Z   show-progress: true
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6290197Z   lfs: false
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6290695Z   submodules: false
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6291277Z   set-safe-directory: true
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6291852Z   allow-unsafe-pr-checkout: false
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6292729Z env:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6293215Z   CARGO_BUILD_JOBS: 2
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6293950Z   CARGO_INCREMENTAL: 0
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6294522Z   CARGO_PROFILE_DEV_DEBUG: 0
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6295238Z   CARGO_PROFILE_TEST_DEBUG: 0
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6295819Z   CARGO_TERM_COLOR: always
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6296376Z   PYTHONUTF8: 1
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.6296892Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8822433Z Syncing repository: stabey/makeaedittool
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8825426Z ##[group]Getting Git version info
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8826729Z Working directory is '/home/runner/work/makeaedittool/makeaedittool'
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8828451Z [command]/usr/bin/git version
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8890255Z git version 2.56.0
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8932727Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8947887Z Temporarily overriding HOME='/home/runner/work/_temp/04d20578-d819-4eab-874c-84b501aca3c2' before making global git config changes
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8950161Z Adding repository directory to the temporary git global config as a safe directory
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8951838Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/makeaedittool/makeaedittool
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8971048Z Deleting the contents of '/home/runner/work/makeaedittool/makeaedittool'
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8974821Z ##[group]Determining repository object format
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8976687Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8977936Z ##[group]Initializing the repository
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.8980890Z [command]/usr/bin/git init /home/runner/work/makeaedittool/makeaedittool
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9095801Z hint: Using 'master' as the name for the initial branch. This default branch name
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9097842Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9099535Z hint: to use in all of your new repositories, which will suppress this warning,
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9101000Z hint: call:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9102003Z hint:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9103116Z hint: 	git config --global init.defaultBranch <name>
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9104463Z hint:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9105604Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9107298Z hint: 'development'. The just-created branch can be renamed via this command:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9108707Z hint:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9109481Z hint: 	git branch -m <name>
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9111709Z hint:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9112934Z hint: Disable this message with "git config set advice.defaultBranchName false"
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9115197Z Initialized empty Git repository in /home/runner/work/makeaedittool/makeaedittool/.git/
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9119340Z [command]/usr/bin/git remote add origin https://github.com/stabey/makeaedittool
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9160712Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9162006Z ##[group]Disabling automatic garbage collection
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9165070Z [command]/usr/bin/git config --local gc.auto 0
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9195297Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9196919Z ##[group]Setting up auth
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9197927Z Removing SSH command configuration
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9199659Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9231090Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9570160Z Removing HTTP extra header
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9574851Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9608783Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9854808Z Removing includeIf entries pointing to credentials config files
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9856743Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:00.9893084Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0085426Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0119658Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git.path /home/runner/work/_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0150104Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0180786Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0211745Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0239894Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0241193Z ##[group]Fetching the repository
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.0247675Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +caaf38fa994e7409ff940223bb56dffe46a75eb0:refs/remotes/origin/main
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9029882Z From https://github.com/stabey/makeaedittool
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9031736Z  * [new ref]         caaf38fa994e7409ff940223bb56dffe46a75eb0 -> origin/main
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9040464Z [command]/usr/bin/git branch --list --remote origin/main
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9067029Z   origin/main
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9085399Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9101446Z caaf38fa994e7409ff940223bb56dffe46a75eb0
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9106123Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9108148Z ##[group]Determining the checkout info
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9110324Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9111863Z [command]/usr/bin/git sparse-checkout disable
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9165386Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9195725Z ##[group]Checking out the ref
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9200410Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9976258Z Switched to a new branch 'main'
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9978735Z branch 'main' set up to track 'origin/main'.
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:01.9987511Z ##[endgroup]
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0025849Z [command]/usr/bin/git log -1 --format=%H
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0050176Z caaf38fa994e7409ff940223bb56dffe46a75eb0
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0059504Z ##[group]Removing auth
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0061102Z Removing SSH command configuration
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0063225Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0094033Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0281041Z Removing HTTP extra header
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0284447Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0314906Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0498218Z Removing includeIf entries pointing to credentials config files
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0501206Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0527717Z includeif.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0530924Z includeif.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git/worktrees/*.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0533713Z includeif.gitdir:/github/workspace/.git.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0536190Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0541332Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0557665Z /home/runner/work/_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0569014Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-44698476\-d0ba\-4102\-be9b\-4213357d80e4\.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0605581Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git/worktrees/*.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0629622Z /home/runner/work/_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0640227Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/makeaedittool/makeaedittool/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-44698476\-d0ba\-4102\-be9b\-4213357d80e4\.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0672373Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0698501Z /github/runner_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0707872Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-44698476\-d0ba\-4102\-be9b\-4213357d80e4\.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0737701Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0759357Z /github/runner_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0766763Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-44698476\-d0ba\-4102\-be9b\-4213357d80e4\.config
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0797402Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0985786Z Removing credentials config '/home/runner/work/_temp/git-credentials-44698476-d0ba-4102-be9b-4213357d80e4.config'
+fmt	Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:02.0993966Z ##[endgroup]
+fmt	Check packaging edge cases	﻿2026-11-07T17:41:02.1220748Z ##[group]Run python3 -B -m unittest discover -s scripts/ci -p test_package_artifact.py -v
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1223308Z ^[[36;1mpython3 -B -m unittest discover -s scripts/ci -p test_package_artifact.py -v^[[0m
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1243773Z shell: /usr/bin/bash -e {0}
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1245033Z env:
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1246089Z   CARGO_BUILD_JOBS: 2
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1247232Z   CARGO_INCREMENTAL: 0
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1248344Z   CARGO_PROFILE_DEV_DEBUG: 0
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1249586Z   CARGO_PROFILE_TEST_DEBUG: 0
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1250791Z   CARGO_TERM_COLOR: always
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1251995Z   PYTHONUTF8: 1
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1253023Z ##[endgroup]
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1972015Z test_machine_headers_match_the_requested_architecture (test_package_artifact.PackagingTests.test_machine_headers_match_the_requested_architecture) ... ok
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1977017Z test_missing_declared_or_null_unattributed_license_fails (test_package_artifact.PackagingTests.test_missing_declared_or_null_unattributed_license_fails) ... ok
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1983245Z test_null_license_uses_declared_and_case_insensitive_notices (test_package_artifact.PackagingTests.test_null_license_uses_declared_and_case_insensitive_notices) ... ok
+fmt	Check packaging edge cases	2026-11-07T17:41:02.1987864Z test_platform_inventory_walks_resolve_not_the_packages_array (test_package_artifact.PackagingTests.test_platform_inventory_walks_resolve_not_the_packages_array) ... ok
+fmt	Check packaging edge cases	2026-11-07T17:41:02.2000391Z test_truncated_and_invalid_pe_offsets_fail (test_package_artifact.PackagingTests.test_truncated_and_invalid_pe_offsets_fail) ... ok
+fmt	Check packaging edge cases	2026-11-07T17:41:02.2004336Z test_zip_entries_cannot_escape_or_overwrite (test_package_artifact.PackagingTests.test_zip_entries_cannot_escape_or_overwrite) ... ok
+fmt	Check packaging edge cases	2026-11-07T17:41:02.2006338Z 
+fmt	Check packaging edge cases	2026-11-07T17:41:02.2007090Z ----------------------------------------------------------------------
+fmt	Check packaging edge cases	2026-11-07T17:41:02.2008614Z Ran 6 tests in 0.005s
+fmt	Check packaging edge cases	2026-11-07T17:41:02.2009243Z 
+fmt	Check packaging edge cases	2026-11-07T17:41:02.2009701Z OK
+fmt	Assert native Linux and install pinned Rust	﻿2026-11-07T17:41:02.2170453Z ##[group]Run python3 scripts/ci/prepare_host.py --target x86_64-unknown-linux-gnu --toolchain-only
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2173012Z ^[[36;1mpython3 scripts/ci/prepare_host.py --target x86_64-unknown-linux-gnu --toolchain-only^[[0m
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2189178Z shell: /usr/bin/bash -e {0}
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2190300Z env:
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2191306Z   CARGO_BUILD_JOBS: 2
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2192362Z   CARGO_INCREMENTAL: 0
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2193660Z   CARGO_PROFILE_DEV_DEBUG: 0
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2194869Z   CARGO_PROFILE_TEST_DEBUG: 0
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2196039Z   CARGO_TERM_COLOR: always
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2197146Z   PYTHONUTF8: 1
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2198119Z ##[endgroup]
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.2629008Z native_os=Linux native_os_architecture=x86_64
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.3090619Z info: syncing channel updates for 1.99.1-x86_64-unknown-linux-gnu
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.4685748Z info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:02.4688698Z info: downloading 5 components
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.0782587Z 
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.0846087Z   1.99.1-x86_64-unknown-linux-gnu installed - rustc 1.99.1 (58cf8f9c3 2026-10-13)
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.0847062Z 
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.0902800Z RUSTUP_TOOLCHAIN=1.99.1-x86_64-unknown-linux-gnu
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.1009541Z rustc 1.99.1 (58cf8f9c3 2026-10-13)
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.1010452Z binary: rustc
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.1011281Z commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.1012284Z commit-date: 2026-10-13
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.1012999Z host: x86_64-unknown-linux-gnu
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.1013904Z release: 1.99.1
+fmt	Assert native Linux and install pinned Rust	2026-11-07T17:41:12.1014372Z LLVM version: 23.1.1
+fmt	Check workspace formatting	﻿2026-11-07T17:41:12.1127398Z ##[group]Run cargo fmt --all -- --check
+fmt	Check workspace formatting	2026-11-07T17:41:12.1127843Z ^[[36;1mcargo fmt --all -- --check^[[0m
+fmt	Check workspace formatting	2026-11-07T17:41:12.1143194Z shell: /usr/bin/bash -e {0}
+fmt	Check workspace formatting	2026-11-07T17:41:12.1143770Z env:
+fmt	Check workspace formatting	2026-11-07T17:41:12.1144150Z   CARGO_BUILD_JOBS: 2
+fmt	Check workspace formatting	2026-11-07T17:41:12.1144477Z   CARGO_INCREMENTAL: 0
+fmt	Check workspace formatting	2026-11-07T17:41:12.1144894Z   CARGO_PROFILE_DEV_DEBUG: 0
+fmt	Check workspace formatting	2026-11-07T17:41:12.1145247Z   CARGO_PROFILE_TEST_DEBUG: 0
+fmt	Check workspace formatting	2026-11-07T17:41:12.1145583Z   CARGO_TERM_COLOR: always
+fmt	Check workspace formatting	2026-11-07T17:41:12.1145925Z   PYTHONUTF8: 1
+fmt	Check workspace formatting	2026-11-07T17:41:12.1146295Z   RUSTUP_TOOLCHAIN: 1.99.1-x86_64-unknown-linux-gnu
+fmt	Check workspace formatting	2026-11-07T17:41:12.1146687Z ##[endgroup]
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	﻿2026-11-07T17:41:12.5362403Z Post job cleanup.
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6193191Z [command]/usr/bin/git version
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6264513Z git version 2.56.0
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6297587Z Temporarily overriding HOME='/home/runner/work/_temp/a78c72b9-f38d-452c-ba2b-df33759e9e45' before making global git config changes
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6299008Z Adding repository directory to the temporary git global config as a safe directory
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6302884Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/makeaedittool/makeaedittool
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6334296Z Removing SSH command configuration
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6340192Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6372261Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6597245Z Removing HTTP extra header
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6604095Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6631245Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6835592Z Removing includeIf entries pointing to credentials config files
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6843591Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+fmt	Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	2026-11-07T17:41:12.6877058Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+fmt	Complete job	﻿2026-11-07T17:41:12.7247531Z Cleaning up orphan processes

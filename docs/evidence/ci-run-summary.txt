@@ -1,0 +1,37 @@
+CI Run Summary: run_id=42397473795
+Run URL: https://github.com/stabey/makeaedittool/actions/runs/42397473795
+Commit SHA: caaf38fa994e7409ff940223bb56dffe46a75eb0
+Branch: main
+Workflow: Native CI
+Overall Conclusion: failure
+Total Artifacts: 0
+
+=== Matrix Jobs Overview ===
+Job: x86_64-pc-windows-msvc (ID: 128477929782) -> failure
+  Tests: {'workspace_tests_passed': 85, 'workspace_tests_failed': 0}
+  Headless Smoke: {'tabs': 100, 'metadata_us': 531, 'active_hydrate_us': 492, 'hydrated_documents': 1, 'active_bytes': 69632, 'inactive_hydrated': 0}
+  Failed Step: Check machine headers and package notices with SHA integrity (ValueError: ZIP does not support timestamps before 1980)
+
+Job: x86_64-unknown-linux-gnu (ID: 128477929792) -> failure
+  Tests: {'workspace_tests_passed': 85, 'workspace_tests_failed': 0}
+  Headless Smoke: {'tabs': 100, 'metadata_us': 328, 'active_hydrate_us': 490, 'hydrated_documents': 1, 'active_bytes': 69632, 'inactive_hydrated': 0}
+  Failed Step: Check machine headers and package notices with SHA integrity (ValueError: ZIP does not support timestamps before 1980)
+
+Job: aarch64-apple-darwin (ID: 128477929842) -> failure
+  Tests: {'workspace_tests_passed': 92, 'workspace_tests_failed': 0}
+  Headless Smoke: {'tabs': 100, 'metadata_us': 323, 'active_hydrate_us': 446, 'hydrated_documents': 1, 'active_bytes': 69632, 'inactive_hydrated': 0}
+  Failed Step: Check machine headers and package notices with SHA integrity (ValueError: ZIP does not support timestamps before 1980)
+
+Job: fmt (ID: 128477929881) -> success
+  Tests: {'packaging_unittest_passed': 6, 'packaging_unittest_failed': 0, 'cargo_fmt': 'passed'}
+
+Job: x86_64-apple-darwin (ID: 128477929891) -> failure
+  Tests: {'workspace_tests_passed': 92, 'workspace_tests_failed': 0}
+  Headless Smoke: {'tabs': 100, 'metadata_us': 663, 'active_hydrate_us': 509, 'hydrated_documents': 1, 'active_bytes': 69632, 'inactive_hydrated': 0}
+  Failed Step: Check machine headers and package notices with SHA integrity (ValueError: ZIP does not support timestamps before 1980)
+
+Job: aarch64-pc-windows-msvc (ID: 128477929962) -> failure
+  Tests: {'workspace_tests_passed': 85, 'workspace_tests_failed': 0}
+  Headless Smoke: {'tabs': 100, 'metadata_us': 514, 'active_hydrate_us': 521, 'hydrated_documents': 1, 'active_bytes': 69632, 'inactive_hydrated': 0}
+  Failed Step: Check machine headers and package notices with SHA integrity (ValueError: ZIP does not support timestamps before 1980)
+

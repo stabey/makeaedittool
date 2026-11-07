@@ -1,6 +1,6 @@
 # Native text editor
 
-Rust + GPUI Kit 文本编辑器。产品与验收基线见 [交接文档](Rust_GPUI_Editor_Agent_Handoff_v1.0.md)，当前状态见 [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md)。默认应用与 NSH 候选实验隔离，优先 macOS 原生验证；不宣称已支持未经运行的 Windows x64 或 macOS Intel。
+Rust + GPUI Kit 文本编辑器。产品与验收基线见 [交接文档](Rust_GPUI_Editor_Agent_Handoff_v1.0.md)，当前状态见 [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md)。默认应用与NSH候选实验隔离；本地原生GUI验收目前仅覆盖macOS Apple Silicon，CI构建不等于完整平台支持。
 
 产品定位是接近Notepad++的纯文本编辑器：本体优先保证编辑、保存恢复、大文件、多文件、标签页组及单窗口分屏。项目模型和LSP不作为本体目标；未来如需这些能力，通过插件提供。标签页组与分屏目前仍在设计，不能把目标当作已交付功能。
 
@@ -17,6 +17,18 @@ cargo test --locked --workspace
 ```
 
 首次依赖获取不是应用启动性能；构建成功也不代表 IME、恢复或保存故障验收通过。
+
+## GitHub与多平台构建
+
+源码：[stabey/makeaedittool](https://github.com/stabey/makeaedittool) · [Native CI](https://github.com/stabey/makeaedittool/actions/workflows/ci.yml)
+
+推送`main`、Pull Request及手动触发均执行锁定依赖的测试和release构建。五个目标分别使用原生托管runner：macOS ARM64、macOS Intel、Windows x64、Windows ARM64、Linux x64；不会把ARM模拟x64的结果记作原生x64验收。
+
+在成功运行的 **Artifacts** 中下载对应目标的ZIP，保留14天。产物含`editor`/`editor.exe`、服务CLI、构建身份、SHA-256、目标相关许可证清单及许可文件。它们是开发构建，不是安装包或正式签名/公证版本；系统运行库仍由目标环境提供。
+
+**Windows/Linux当前不能保存用户文件。** 安全保存实现仅支持macOS；其他平台产物显著携带`EXPERIMENTAL-CANNOT-SAVE.txt`，只用于构建与兼容性验证，不应作为日常编辑器使用。草稿恢复不能替代保存文件。
+
+CI运行无需窗口的`--help`、`--version`、100文档会话验证，并在macOS额外运行保存/故障服务验证。它不执行GUI smoke，不证明真实IME、鼠标交互、GPU兼容或性能指标。具体状态以运行日志及ZIP中的`BUILD_IDENTITY.txt`、`HEADLESS_SMOKE.json`为准。
 
 ## 工程结构
 
@@ -75,7 +87,7 @@ cargo run --locked --release --manifest-path spikes/nsh-eval/Cargo.toml --featur
 - [测试记录](docs/TEST_REPORT.md)
 - [性能记录](docs/PERFORMANCE_REPORT.md)
 - [已知限制](docs/KNOWN_LIMITATIONS.md)
-- [主应用依赖许可证清单](docs/DEPENDENCY_LICENSES.csv)与[隔离NSH候选清单](docs/NSH_DEPENDENCY_LICENSES.csv)：锁定解析图，包含开发/平台条件依赖，不等于全部实际链接进二进制。候选自身为未发布实验包。
+- [主应用依赖许可证清单](docs/DEPENDENCY_LICENSES.csv)是本地macOS解析快照；[隔离NSH候选清单](docs/NSH_DEPENDENCY_LICENSES.csv)仅对应实验。它们包含开发依赖，不等于实际链接清单。每个CI产物另生成目标过滤后的`DEPENDENCY_LICENSES.csv`及`licenses/manifest.json`，并附可获取的上游许可与资源声明。
 - 内置资源另有许可证：[Lucide/Feather图标](docs/licenses/gpui-kit-assets-0.9.0-LICENSE-LUCIDE)、[two-face 0.4.5语法与主题声明](docs/licenses/two-face-0.4.5-acknowledgements.md)。后者保留固定上游版本的完整声明，不能只用crate级MIT/Apache标签替代资源许可。
 
 所有尚未实际运行的能力均按未验证处理，不将交接文档目标或上游组件能力当作本项目成绩。

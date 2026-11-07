@@ -4,8 +4,9 @@
 
 ## 平台与分发
 
-- 当前验证主机为 macOS Apple Silicon。macOS Intel、Windows x64未构建或运行验证；现有Parallels为Windows ARM64，不替代目标平台。
-- 尚无签名、公证、安装包或自动更新交付。源码构建需要Rust及完整Xcode/Metal工具链。
+- 本地原生GUI验收环境为macOS Apple Silicon。其他目标的构建、测试及无窗口CLI状态以对应CI运行和产物`BUILD_IDENTITY.txt`为准；不等于Windows/Linux/macOS Intel完整GUI验收。
+- 尚无签名、公证、安装包或自动更新交付。macOS源码构建需要Rust及完整Xcode/Metal；Windows/Linux构建依赖见CI平台准备脚本，开发ZIP不自动安装系统运行库。
+- 当前安全保存实现仅支持macOS。Windows/Linux构建返回明确的`Unsupported`，不能保存用户文件；CI产物是携带警告的实验开发构建，不是可日常使用的编辑器版本。
 - NSH保留独立实验，不进入默认编辑器；真实IME、完整焦点/DPI/主题同步、正式SDK与插件生命周期门槛未通过。JSON扩展、LSP、图片查看器、离线扩展包尚未实现。
 
 ## 文件与预算

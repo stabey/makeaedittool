@@ -146,6 +146,26 @@ def license_inventory(metadata, target, files):
     return output.getvalue(), manifest
 
 
+def write_archive(archive, files, generated):
+    partial = archive.with_suffix(".zip.partial")
+    try:
+        # Cargo registry notices may be dated 1970; ZIP's DOS dates start in 1980.
+        # Clamp only unrepresentable timestamps, retaining bytes and file modes.
+        with zipfile.ZipFile(
+            partial, "w", compression=zipfile.ZIP_DEFLATED,
+            compresslevel=6, strict_timestamps=False,
+        ) as bundle:
+            for name, path in sorted(files.items()):
+                bundle.write(path, arcname=name)
+            for name, text in sorted(generated.items()):
+                if name in files:
+                    raise RuntimeError(f"Generated notice would overwrite {name}")
+                bundle.writestr(name, text)
+        partial.replace(archive)
+    finally:
+        partial.unlink(missing_ok=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", choices=TARGETS, required=True)
@@ -262,19 +282,7 @@ def main():
     editor = next(package for package in metadata["packages"] if package["id"] in metadata["workspace_members"] and package["name"] == "editor")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     archive = args.output_dir / f"makeaedittool-{editor['version']}-{args.target}-{args.commit[:12]}-unsigned-dev.zip"
-    partial = archive.with_suffix(".zip.partial")
-    try:
-        # Stream source files straight into the zip instead of duplicating release binaries on disk.
-        with zipfile.ZipFile(partial, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
-            for name, path in sorted(files.items()):
-                bundle.write(path, arcname=name)
-            for name, text in sorted(generated.items()):
-                if name in files:
-                    raise RuntimeError(f"Generated notice would overwrite {name}")
-                bundle.writestr(name, text)
-        partial.replace(archive)
-    finally:
-        partial.unlink(missing_ok=True)
+    write_archive(archive, files, generated)
     print(f"archive={archive}\narchive_sha256={sha256(archive)}", flush=True)
     if os.environ.get("GITHUB_OUTPUT"):
         with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:

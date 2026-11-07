@@ -1,12 +1,14 @@
 """Packaging behavior tests: machine headers, filtered attribution, and notice edges."""
 
 from pathlib import Path
+import os
 import struct
 import tempfile
 import unittest
+import zipfile
 
 from ci_common import TARGETS
-from package_artifact import add_file, crate_notices, machine_header, resolved_dependencies
+from package_artifact import add_file, crate_notices, machine_header, resolved_dependencies, write_archive
 
 
 class PackagingTests(unittest.TestCase):
@@ -96,6 +98,23 @@ class PackagingTests(unittest.TestCase):
             for name in ("licenses/LICENSE", "../LICENSE", "/LICENSE", "licenses\\LICENSE"):
                 with self.assertRaises(RuntimeError):
                     add_file(files, name, path)
+
+    def test_pre_dos_license_timestamp_preserves_bytes_and_mode(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            notice = root / "LICENSE"
+            content = b"Copyright notice from a published crate\n"
+            notice.write_bytes(content)
+            notice.chmod(0o640)
+            os.utime(notice, (1, 1))
+            archive = root / "artifact.zip"
+            write_archive(archive, {"licenses/LICENSE": notice}, {"BUILD_IDENTITY.txt": "test"})
+            with zipfile.ZipFile(archive) as bundle:
+                self.assertEqual(bundle.read("licenses/LICENSE"), content)
+                entry = bundle.getinfo("licenses/LICENSE")
+                self.assertEqual(entry.date_time, (1980, 1, 1, 0, 0, 0))
+                if os.name != "nt":
+                    self.assertEqual((entry.external_attr >> 16) & 0o777, 0o640)
 
 
 if __name__ == "__main__":
