@@ -21,7 +21,7 @@
 ## 当前交付
 
 - 默认原生应用 `target/release/editor` 可在本机运行；Kit-only、无NSH默认依赖。工作区92个测试、release构建、完整原生smoke、日常功能原生smoke及独立重启验证通过。
-- 公开仓库为[stabey/makeaedittool](https://github.com/stabey/makeaedittool)。提交`1536938`的五目标CI全部通过，五份unsigned开发ZIP已下载核验；下载的Mac ARM产物在本机通过完整及日常功能原生smoke。证据见`docs/evidence/ci-verification.json`。
+- 公开仓库为[stabey/makeanotepad](https://github.com/stabey/makeanotepad)。提交`1536938`的五目标CI全部通过，五份unsigned开发ZIP已下载核验；下载的Mac ARM产物在本机通过完整及日常功能原生smoke。证据见`docs/evidence/ci-verification.json`。
 - 普通文档：唯一EditorState权威、版本化原子编辑、同步程序化提交与原生事件匹配、NoOp、后台普通搜索/替换、高亮、主题、保存与草稿恢复。格式仅元数据修改也进入dirty/恢复保护，保存期间再改格式不会被旧保存确认抹掉。
 - 日常界面：默认打开文档/最近文件侧栏、命令面板、快速切换、语言/编码/换行/缩进选择、折行与空白显示、活动选区行编辑/注释、偏好持久化。自定义行命令不是全多光标操作，侧栏不是项目目录树。
 - 大文件：有界ReadAt、共享页缓存、稀疏索引、虚拟化视图、长行分段、64位字节导航、可取消流式搜索。1/10/64 GiB非稀疏日志及长行/密集行已实测，64 GiB在真实窗口显示。

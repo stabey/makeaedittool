@@ -20,7 +20,7 @@ cargo test --locked --workspace
 
 ## GitHub与多平台构建
 
-源码：[stabey/makeaedittool](https://github.com/stabey/makeaedittool) · [Native CI](https://github.com/stabey/makeaedittool/actions/workflows/ci.yml)
+源码：[stabey/makeanotepad](https://github.com/stabey/makeanotepad) · [Native CI](https://github.com/stabey/makeanotepad/actions/workflows/ci.yml)
 
 推送`main`、Pull Request及手动触发均执行锁定依赖的测试和release构建。五个目标分别使用原生托管runner：macOS ARM64、macOS Intel、Windows x64、Windows ARM64、Linux x64；不会把ARM模拟x64的结果记作原生x64验收。
 

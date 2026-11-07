@@ -124,7 +124,7 @@
 
 ## ADR 010：公开仓库与多平台CI的证据边界
 
-公开仓库为`https://github.com/stabey/makeaedittool`。保留项目已声明的Apache-2.0许可，排除本地认证/模型配置、生成数据和无关桌面截图。提交采用GitHub noreply邮箱。
+公开仓库为`https://github.com/stabey/makeanotepad`（由`makeaedittool`更名）。保留项目已声明的Apache-2.0许可，排除本地认证/模型配置、生成数据和无关桌面截图。提交采用GitHub noreply邮箱。
 
 CI方案经`CiDesignReview`评审：使用五个原生托管目标（macOS ARM64/Intel、Windows x64/ARM64、Linux x64），固定Rust与Action提交；只读仓库权限，不使用部署密钥，不自动发布正式Release。执行锁定依赖的测试与release构建，并运行无需窗口的真实CLI验证；托管runner不冒充GUI、IME或性能验收环境。
 
