@@ -1,0 +1,33 @@
+CI Run Summary: run_id=42399981386
+Run URL: https://github.com/stabey/makeaedittool/actions/runs/42399981386
+Commit SHA: 1536938d54414f40a360eb245baf1af0ddfcb739
+Branch: main
+Workflow: Native CI
+Overall Conclusion: success
+Total Artifacts: 5
+
+=== Matrix Jobs ===
+Job: fmt (ID: 128485453868) -> success
+  Tests: {'packaging_unittest_passed': 7, 'packaging_unittest_failed': 0, 'cargo_fmt': 'passed'}
+
+Job: x86_64-apple-darwin (ID: 128485454109) -> success
+  Tests: {'workspace_tests_passed': 92, 'workspace_tests_failed': 0}
+
+Job: x86_64-pc-windows-msvc (ID: 128485454149) -> success
+  Tests: {'workspace_tests_passed': 85, 'workspace_tests_failed': 0}
+
+Job: aarch64-pc-windows-msvc (ID: 128485454195) -> success
+  Tests: {'workspace_tests_passed': 85, 'workspace_tests_failed': 0}
+
+Job: aarch64-apple-darwin (ID: 128485454268) -> success
+  Tests: {'workspace_tests_passed': 92, 'workspace_tests_failed': 0}
+
+Job: x86_64-unknown-linux-gnu (ID: 128485454329) -> success
+  Tests: {'workspace_tests_passed': 85, 'workspace_tests_failed': 0}
+
+=== Artifacts Inventory ===
+Artifact: makeaedittool-0.1.0-x86_64-apple-darwin-1536938d5441-unsigned-dev.zip (ID: 13586160262, size: 14863173 bytes, digest: sha256:470c3e7a96b3f3b7eb997c7d30565fe4d0db18c205eaf0689e85677a4e262f0d)
+Artifact: makeaedittool-0.1.0-x86_64-pc-windows-msvc-1536938d5441-unsigned-dev.zip (ID: 13585591325, size: 15061608 bytes, digest: sha256:e31b011e3ac6b4bcff1c50ac501ec06622a37d729c6e756b750fbaa0f4f78fd0)
+Artifact: makeaedittool-0.1.0-aarch64-pc-windows-msvc-1536938d5441-unsigned-dev.zip (ID: 13585581377, size: 14192137 bytes, digest: sha256:a4856b7b21ae00e075cea4c23a23c32f1dd24ab1e2fd0b11eb07d827c4c78f8f)
+Artifact: makeaedittool-0.1.0-aarch64-apple-darwin-1536938d5441-unsigned-dev.zip (ID: 13584999037, size: 14295096 bytes, digest: sha256:49b397b792b7f954ea2b93088e3e156aed89b1a22f6ba00730fbe5a85550a67d)
+Artifact: makeaedittool-0.1.0-x86_64-unknown-linux-gnu-1536938d5441-unsigned-dev.zip (ID: 13584908073, size: 23165569 bytes, digest: sha256:4d03c5f4c9113721e21d48d992318672d1994fa3a81076d37a0c3c298d005e8a)

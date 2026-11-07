@@ -1,0 +1,61 @@
+=== Artifact Details & Contract Verification ===
+
+Target: aarch64-apple-darwin
+Directory: makeaedittool-0.1.0-aarch64-apple-darwin-1536938d5441-unsigned-dev.zip
+Binaries: {'editor': '5a181fde95cf788a6aefe637d21d57780c9fb03fb89eff26ca7d9057f4adbb6e', 'editor-services': 'ad82ec15101801b5fa80e7b080cc068840cb695c4594675e3b33173f793f2b28'}
+Machine Headers: {'editor': 'Mach-O 64-bit cputype=0x0100000c', 'editor-services': 'Mach-O 64-bit cputype=0x0100000c'}
+Dependencies Count: 524
+Atomic Save Support: SUPPORTED (macOS)
+EXPERIMENTAL-CANNOT-SAVE.txt present: False
+UNSIGNED-DEVELOPMENT-BUILD.txt present: True
+gui_smoke_executed: False
+ring crate present: False
+Contract Status: PASSED
+
+Target: x86_64-apple-darwin
+Directory: makeaedittool-0.1.0-x86_64-apple-darwin-1536938d5441-unsigned-dev.zip
+Binaries: {'editor': '58c6e8443e91489744c86a1431f85194605e74c3d8d38f5d4583dbccd9e49594', 'editor-services': 'c73b99765c7f8b747469abd453deacc1b52b2b16e2475ab97cd175f24575f065'}
+Machine Headers: {'editor': 'Mach-O 64-bit cputype=0x01000007', 'editor-services': 'Mach-O 64-bit cputype=0x01000007'}
+Dependencies Count: 525
+Atomic Save Support: SUPPORTED (macOS)
+EXPERIMENTAL-CANNOT-SAVE.txt present: False
+UNSIGNED-DEVELOPMENT-BUILD.txt present: True
+gui_smoke_executed: False
+ring crate present: False
+Contract Status: PASSED
+
+Target: x86_64-unknown-linux-gnu
+Directory: makeaedittool-0.1.0-x86_64-unknown-linux-gnu-1536938d5441-unsigned-dev.zip
+Binaries: {'editor': '7bd83857b03ff481abb1f3220fc3e5b214fe51ae221e403c9052c3792262c529', 'editor-services': 'aa86fee6068ecea88db2c3de29f28c633d19d8463c2c183e8b3f336281cd7558'}
+Machine Headers: {'editor': 'ELF64 little-endian e_machine=62 (x86_64)', 'editor-services': 'ELF64 little-endian e_machine=62 (x86_64)'}
+Dependencies Count: 623
+Atomic Save Support: UNSUPPORTED
+EXPERIMENTAL-CANNOT-SAVE.txt present: True
+UNSIGNED-DEVELOPMENT-BUILD.txt present: True
+gui_smoke_executed: False
+ring crate present: False
+Contract Status: PASSED
+
+Target: x86_64-pc-windows-msvc
+Directory: makeaedittool-0.1.0-x86_64-pc-windows-msvc-1536938d5441-unsigned-dev.zip
+Binaries: {'editor.exe': '96f7b541514ec929b0fa45a3d97d3c96815dde123c6367d8f28948336dcd2f9e', 'editor-services.exe': 'f360149da87ef9b7e64a0230bae79493f18de3e6e17f7499c86c821bd1386972'}
+Machine Headers: {'editor.exe': 'PE Machine=0x8664', 'editor-services.exe': 'PE Machine=0x8664'}
+Dependencies Count: 522
+Atomic Save Support: UNSUPPORTED
+EXPERIMENTAL-CANNOT-SAVE.txt present: True
+UNSIGNED-DEVELOPMENT-BUILD.txt present: True
+gui_smoke_executed: False
+ring crate present: False
+Contract Status: PASSED
+
+Target: aarch64-pc-windows-msvc
+Directory: makeaedittool-0.1.0-aarch64-pc-windows-msvc-1536938d5441-unsigned-dev.zip
+Binaries: {'editor.exe': 'a8f4ab2ab796fbacc133d48fb8ed97b8562b11420623567c43b9531016ee465e', 'editor-services.exe': 'fd132d122277e4af5d86a71c76698f8ff89c4efc00a75a24a4e725d7ffca6c13'}
+Machine Headers: {'editor.exe': 'PE Machine=0xaa64', 'editor-services.exe': 'PE Machine=0xaa64'}
+Dependencies Count: 521
+Atomic Save Support: UNSUPPORTED
+EXPERIMENTAL-CANNOT-SAVE.txt present: True
+UNSIGNED-DEVELOPMENT-BUILD.txt present: True
+gui_smoke_executed: False
+ring crate present: False
+Contract Status: PASSED

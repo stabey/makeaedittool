@@ -15,12 +15,13 @@
 - macOS Apple Silicon，Mac16,10，32 GiB 内存。
 - Rust/Cargo 1.99.1；Xcode 路径 `/Applications/Xcode.app/Contents/Developer`。
 - 工作卷可用空间约 1.4 TiB（实施开始时）。
-- Parallels Windows 11 正在运行；`prlctl exec ... echo %PROCESSOR_ARCHITECTURE%` 返回 ARM64。因此不作为 Windows x64 原生性能验收环境。当前集中验证 macOS；Windows x64 保持未验证。
+- Parallels Windows 11为ARM64，不作为Windows x64原生性能验收环境。现已通过GitHub原生Windows x64/ARM64及Linux x64的编译、测试和CLI验证；这些平台的GUI与性能仍未验收，安全保存尚不支持。
 - 用户提及的 `edtor-review` 不在已安装 agent 列表；本次由项目指定 `design-review` 承担独立设计讨论，未假称联系到不存在的 agent。
 
 ## 当前交付
 
 - 默认原生应用 `target/release/editor` 可在本机运行；Kit-only、无NSH默认依赖。工作区92个测试、release构建、完整原生smoke、日常功能原生smoke及独立重启验证通过。
+- 公开仓库为[stabey/makeaedittool](https://github.com/stabey/makeaedittool)。提交`1536938`的五目标CI全部通过，五份unsigned开发ZIP已下载核验；下载的Mac ARM产物在本机通过完整及日常功能原生smoke。证据见`docs/evidence/ci-verification.json`。
 - 普通文档：唯一EditorState权威、版本化原子编辑、同步程序化提交与原生事件匹配、NoOp、后台普通搜索/替换、高亮、主题、保存与草稿恢复。格式仅元数据修改也进入dirty/恢复保护，保存期间再改格式不会被旧保存确认抹掉。
 - 日常界面：默认打开文档/最近文件侧栏、命令面板、快速切换、语言/编码/换行/缩进选择、折行与空白显示、活动选区行编辑/注释、偏好持久化。自定义行命令不是全多光标操作，侧栏不是项目目录树。
 - 大文件：有界ReadAt、共享页缓存、稀疏索引、虚拟化视图、长行分段、64位字节导航、可取消流式搜索。1/10/64 GiB非稀疏日志及长行/密集行已实测，64 GiB在真实窗口显示。
@@ -49,12 +50,12 @@
 | T15 图片查看器 | 未实施 |
 | T16 离线扩展包 | 未实施；已有依赖/资源许可清单不等于扩展包 |
 | T17 性能收敛 | 已有同机真实实验与原生提交基线；首帧、IME、全平台持续资源分布未完成 |
-| T18 两平台发布 | macOS本地release可执行文件可运行；签名安装包、Intel、Windows x64未交付 |
+| T18 两平台发布 | 五目标CI开发ZIP已构建、下载并核验；Mac ARM下载产物实际运行通过。Windows/Linux不能保存，其他平台GUI、签名/公证及安装包未交付 |
 
 ## 后续推进顺序
 
-1. 先建立公开源码仓库与多平台CI构建，明确构建通过和平台运行验收的区别。
-2. 本体保持纯编辑器定位，优先评审标签页组与单窗口分屏；不引入项目模型或LSP。它们如有需要，由未来插件提供。
+1. 公开仓库与五目标CI开发构建已完成；后续保持构建、CLI、GUI和性能验收分开记录。
+2. 本体保持纯编辑器定位，不引入项目模型或LSP。标签页组与分屏方案已评审，尚未实现：先稳定文档/视图标识、会话迁移及标签页组，再实现不同文档分屏；同文档独立视图另设共享文本内核可行性门槛。详见`docs/ARCHITECTURE_DECISIONS.md`的ADR009。
 3. 补解锁后的鼠标/系统快捷键、真实IME、矩形选择、系统文件面板、屏幕首帧与持续输入帧率；继续同数据集的大文件、多文件与长期内存验证。
 4. NSH/SDK仍须通过兼容、IME、主题和焦点门槛，不绑定主编辑路径。平台构建产物不等于签名、公证、安装包或完整交互验收。
 

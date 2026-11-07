@@ -1,0 +1,20 @@
+=== Actual Downloaded Mac ARM Binary Smoke Verification ===
+Binary Path: .smoke-data/ci-native/editor
+Binary SHA-256: 5a181fde95cf788a6aefe637d21d57780c9fb03fb89eff26ca7d9057f4adbb6e
+Version: editor 0.1.0
+
+--smoke=usability: PASSED
+  evidence: docs/evidence/ci-native-usability.json
+  process_to_window_ms: 563.377167
+  first_interactive_ms: 564.037292
+  final_tab_count: 10
+  hydrated_editor_count: 9
+
+--smoke=full: PASSED
+  evidence: docs/evidence/ci-native-full.json
+  process_to_window_ms: 180.751959
+  first_interactive_ms: 181.067375
+  final_tab_count: 4
+  hydrated_editor_count: 3
+  kernel_parity_verified: True
+  paged_streaming_search_matches: 72

@@ -1,0 +1,446 @@
+{
+  "workflow": {
+    "name": "Native CI",
+    "run_id": 42399981386,
+    "run_url": "https://github.com/stabey/makeaedittool/actions/runs/42399981386",
+    "head_sha": "1536938d54414f40a360eb245baf1af0ddfcb739",
+    "head_branch": "main",
+    "conclusion": "success",
+    "created_at": "2026-11-07T18:10:59Z",
+    "updated_at": "2026-11-07T18:35:58Z"
+  },
+  "jobs": [
+    {
+      "name": "fmt",
+      "job_id": 128485453868,
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:11:01Z",
+      "completed_at": "2026-11-07T18:11:14Z",
+      "tests": {
+        "packaging_unittest_passed": 7,
+        "packaging_unittest_failed": 0,
+        "cargo_fmt": "passed"
+      },
+      "steps": {
+        "Set up job": "success",
+        "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Check packaging edge cases": "success",
+        "Assert native Linux and install pinned Rust": "success",
+        "Check workspace formatting": "success",
+        "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Complete job": "success"
+      }
+    },
+    {
+      "name": "x86_64-apple-darwin",
+      "job_id": 128485454109,
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:11:04Z",
+      "completed_at": "2026-11-07T18:35:57Z",
+      "tests": {
+        "workspace_tests_passed": 92,
+        "workspace_tests_failed": 0
+      },
+      "steps": {
+        "Set up job": "success",
+        "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Assert native OS and Rust host; prepare platform tools": "success",
+        "Test all workspace members": "success",
+        "Remove successful test build trees before release": "success",
+        "Build all workspace release binaries": "success",
+        "Exercise actual release CLIs without a GUI": "success",
+        "Check machine headers and package notices with SHA integrity": "success",
+        "Upload unsigned development zip": "success",
+        "Report exercised and unsupported behavior": "success",
+        "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Complete job": "success"
+      }
+    },
+    {
+      "name": "x86_64-pc-windows-msvc",
+      "job_id": 128485454149,
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:11:01Z",
+      "completed_at": "2026-11-07T18:27:19Z",
+      "tests": {
+        "workspace_tests_passed": 85,
+        "workspace_tests_failed": 0
+      },
+      "steps": {
+        "Set up job": "success",
+        "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Assert native OS and Rust host; prepare platform tools": "success",
+        "Test all workspace members": "success",
+        "Remove successful test build trees before release": "success",
+        "Build all workspace release binaries": "success",
+        "Exercise actual release CLIs without a GUI": "success",
+        "Check machine headers and package notices with SHA integrity": "success",
+        "Upload unsigned development zip": "success",
+        "Report exercised and unsupported behavior": "success",
+        "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Complete job": "success"
+      }
+    },
+    {
+      "name": "aarch64-pc-windows-msvc",
+      "job_id": 128485454195,
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:11:01Z",
+      "completed_at": "2026-11-07T18:27:41Z",
+      "tests": {
+        "workspace_tests_passed": 85,
+        "workspace_tests_failed": 0
+      },
+      "steps": {
+        "Set up job": "success",
+        "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Assert native OS and Rust host; prepare platform tools": "success",
+        "Test all workspace members": "success",
+        "Remove successful test build trees before release": "success",
+        "Build all workspace release binaries": "success",
+        "Exercise actual release CLIs without a GUI": "success",
+        "Check machine headers and package notices with SHA integrity": "success",
+        "Upload unsigned development zip": "success",
+        "Report exercised and unsupported behavior": "success",
+        "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Complete job": "success"
+      }
+    },
+    {
+      "name": "aarch64-apple-darwin",
+      "job_id": 128485454268,
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:11:03Z",
+      "completed_at": "2026-11-07T18:22:01Z",
+      "tests": {
+        "workspace_tests_passed": 92,
+        "workspace_tests_failed": 0
+      },
+      "steps": {
+        "Set up job": "success",
+        "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Assert native OS and Rust host; prepare platform tools": "success",
+        "Test all workspace members": "success",
+        "Remove successful test build trees before release": "success",
+        "Build all workspace release binaries": "success",
+        "Exercise actual release CLIs without a GUI": "success",
+        "Check machine headers and package notices with SHA integrity": "success",
+        "Upload unsigned development zip": "success",
+        "Report exercised and unsupported behavior": "success",
+        "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Complete job": "success"
+      }
+    },
+    {
+      "name": "x86_64-unknown-linux-gnu",
+      "job_id": 128485454329,
+      "conclusion": "success",
+      "started_at": "2026-11-07T18:11:01Z",
+      "completed_at": "2026-11-07T18:24:00Z",
+      "tests": {
+        "workspace_tests_passed": 85,
+        "workspace_tests_failed": 0
+      },
+      "steps": {
+        "Set up job": "success",
+        "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Assert native OS and Rust host; prepare platform tools": "success",
+        "Test all workspace members": "success",
+        "Remove successful test build trees before release": "success",
+        "Build all workspace release binaries": "success",
+        "Exercise actual release CLIs without a GUI": "success",
+        "Check machine headers and package notices with SHA integrity": "success",
+        "Upload unsigned development zip": "success",
+        "Report exercised and unsupported behavior": "success",
+        "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1": "success",
+        "Complete job": "success"
+      }
+    }
+  ],
+  "artifacts": {
+    "total_count": 5,
+    "inventory": [
+      {
+        "id": 13586160262,
+        "name": "makeaedittool-0.1.0-x86_64-apple-darwin-1536938d5441-unsigned-dev.zip",
+        "size_bytes": 14863173,
+        "archive_digest": "sha256:470c3e7a96b3f3b7eb997c7d30565fe4d0db18c205eaf0689e85677a4e262f0d"
+      },
+      {
+        "id": 13585591325,
+        "name": "makeaedittool-0.1.0-x86_64-pc-windows-msvc-1536938d5441-unsigned-dev.zip",
+        "size_bytes": 15061608,
+        "archive_digest": "sha256:e31b011e3ac6b4bcff1c50ac501ec06622a37d729c6e756b750fbaa0f4f78fd0"
+      },
+      {
+        "id": 13585581377,
+        "name": "makeaedittool-0.1.0-aarch64-pc-windows-msvc-1536938d5441-unsigned-dev.zip",
+        "size_bytes": 14192137,
+        "archive_digest": "sha256:a4856b7b21ae00e075cea4c23a23c32f1dd24ab1e2fd0b11eb07d827c4c78f8f"
+      },
+      {
+        "id": 13584999037,
+        "name": "makeaedittool-0.1.0-aarch64-apple-darwin-1536938d5441-unsigned-dev.zip",
+        "size_bytes": 14295096,
+        "archive_digest": "sha256:49b397b792b7f954ea2b93088e3e156aed89b1a22f6ba00730fbe5a85550a67d"
+      },
+      {
+        "id": 13584908073,
+        "name": "makeaedittool-0.1.0-x86_64-unknown-linux-gnu-1536938d5441-unsigned-dev.zip",
+        "size_bytes": 23165569,
+        "archive_digest": "sha256:4d03c5f4c9113721e21d48d992318672d1994fa3a81076d37a0c3c298d005e8a"
+      }
+    ]
+  },
+  "artifact_verifications": {
+    "aarch64-apple-darwin": {
+      "directory_name": "makeaedittool-0.1.0-aarch64-apple-darwin-1536938d5441-unsigned-dev.zip",
+      "target": "aarch64-apple-darwin",
+      "commit": "1536938d54414f40a360eb245baf1af0ddfcb739",
+      "binaries": {
+        "editor": "5a181fde95cf788a6aefe637d21d57780c9fb03fb89eff26ca7d9057f4adbb6e",
+        "editor-services": "ad82ec15101801b5fa80e7b080cc068840cb695c4594675e3b33173f793f2b28"
+      },
+      "machine_headers": {
+        "editor": "Mach-O 64-bit cputype=0x0100000c",
+        "editor-services": "Mach-O 64-bit cputype=0x0100000c"
+      },
+      "dependencies_count": 524,
+      "headless_smoke": {
+        "target": "aarch64-apple-darwin",
+        "status": "success",
+        "editor_version_status": "success",
+        "editor_help_status": "success",
+        "editor_version": "editor 0.1.0",
+        "session_bench_status": "success",
+        "session_bench": {
+          "metric": "lazy_session",
+          "tabs": "100",
+          "metadata_us": "685",
+          "active_hydrate_us": "771",
+          "hydrated_documents": "1",
+          "active_bytes": "69632",
+          "inactive_hydrated": "0"
+        },
+        "macos_services_smoke": "success",
+        "atomic_save_support": "SUPPORTED (macOS)",
+        "gui_smoke_executed": false,
+        "binary_sha256": {
+          "editor": "5a181fde95cf788a6aefe637d21d57780c9fb03fb89eff26ca7d9057f4adbb6e",
+          "editor-services": "ad82ec15101801b5fa80e7b080cc068840cb695c4594675e3b33173f793f2b28"
+        }
+      },
+      "atomic_save_support": "SUPPORTED (macOS)",
+      "gui_smoke_executed": false,
+      "has_cannot_save_notice": false,
+      "has_unsigned_dev_warning": true,
+      "ring_crate_present": false
+    },
+    "x86_64-apple-darwin": {
+      "directory_name": "makeaedittool-0.1.0-x86_64-apple-darwin-1536938d5441-unsigned-dev.zip",
+      "target": "x86_64-apple-darwin",
+      "commit": "1536938d54414f40a360eb245baf1af0ddfcb739",
+      "binaries": {
+        "editor": "58c6e8443e91489744c86a1431f85194605e74c3d8d38f5d4583dbccd9e49594",
+        "editor-services": "c73b99765c7f8b747469abd453deacc1b52b2b16e2475ab97cd175f24575f065"
+      },
+      "machine_headers": {
+        "editor": "Mach-O 64-bit cputype=0x01000007",
+        "editor-services": "Mach-O 64-bit cputype=0x01000007"
+      },
+      "dependencies_count": 525,
+      "headless_smoke": {
+        "target": "x86_64-apple-darwin",
+        "status": "success",
+        "editor_version_status": "success",
+        "editor_help_status": "success",
+        "editor_version": "editor 0.1.0",
+        "session_bench_status": "success",
+        "session_bench": {
+          "metric": "lazy_session",
+          "tabs": "100",
+          "metadata_us": "731",
+          "active_hydrate_us": "669",
+          "hydrated_documents": "1",
+          "active_bytes": "69632",
+          "inactive_hydrated": "0"
+        },
+        "macos_services_smoke": "success",
+        "atomic_save_support": "SUPPORTED (macOS)",
+        "gui_smoke_executed": false,
+        "binary_sha256": {
+          "editor": "58c6e8443e91489744c86a1431f85194605e74c3d8d38f5d4583dbccd9e49594",
+          "editor-services": "c73b99765c7f8b747469abd453deacc1b52b2b16e2475ab97cd175f24575f065"
+        }
+      },
+      "atomic_save_support": "SUPPORTED (macOS)",
+      "gui_smoke_executed": false,
+      "has_cannot_save_notice": false,
+      "has_unsigned_dev_warning": true,
+      "ring_crate_present": false
+    },
+    "x86_64-unknown-linux-gnu": {
+      "directory_name": "makeaedittool-0.1.0-x86_64-unknown-linux-gnu-1536938d5441-unsigned-dev.zip",
+      "target": "x86_64-unknown-linux-gnu",
+      "commit": "1536938d54414f40a360eb245baf1af0ddfcb739",
+      "binaries": {
+        "editor": "7bd83857b03ff481abb1f3220fc3e5b214fe51ae221e403c9052c3792262c529",
+        "editor-services": "aa86fee6068ecea88db2c3de29f28c633d19d8463c2c183e8b3f336281cd7558"
+      },
+      "machine_headers": {
+        "editor": "ELF64 little-endian e_machine=62 (x86_64)",
+        "editor-services": "ELF64 little-endian e_machine=62 (x86_64)"
+      },
+      "dependencies_count": 623,
+      "headless_smoke": {
+        "target": "x86_64-unknown-linux-gnu",
+        "status": "success",
+        "editor_version_status": "success",
+        "editor_help_status": "success",
+        "editor_version": "editor 0.1.0",
+        "session_bench_status": "success",
+        "session_bench": {
+          "metric": "lazy_session",
+          "tabs": "100",
+          "metadata_us": "375",
+          "active_hydrate_us": "352",
+          "hydrated_documents": "1",
+          "active_bytes": "69632",
+          "inactive_hydrated": "0"
+        },
+        "macos_services_smoke": "not-run: unsupported atomic saving on this platform",
+        "atomic_save_support": "UNSUPPORTED",
+        "gui_smoke_executed": false,
+        "binary_sha256": {
+          "editor": "7bd83857b03ff481abb1f3220fc3e5b214fe51ae221e403c9052c3792262c529",
+          "editor-services": "aa86fee6068ecea88db2c3de29f28c633d19d8463c2c183e8b3f336281cd7558"
+        }
+      },
+      "atomic_save_support": "UNSUPPORTED",
+      "gui_smoke_executed": false,
+      "has_cannot_save_notice": true,
+      "has_unsigned_dev_warning": true,
+      "ring_crate_present": false
+    },
+    "x86_64-pc-windows-msvc": {
+      "directory_name": "makeaedittool-0.1.0-x86_64-pc-windows-msvc-1536938d5441-unsigned-dev.zip",
+      "target": "x86_64-pc-windows-msvc",
+      "commit": "1536938d54414f40a360eb245baf1af0ddfcb739",
+      "binaries": {
+        "editor.exe": "96f7b541514ec929b0fa45a3d97d3c96815dde123c6367d8f28948336dcd2f9e",
+        "editor-services.exe": "f360149da87ef9b7e64a0230bae79493f18de3e6e17f7499c86c821bd1386972"
+      },
+      "machine_headers": {
+        "editor.exe": "PE Machine=0x8664",
+        "editor-services.exe": "PE Machine=0x8664"
+      },
+      "dependencies_count": 522,
+      "headless_smoke": {
+        "target": "x86_64-pc-windows-msvc",
+        "status": "success",
+        "editor_version_status": "success",
+        "editor_help_status": "success",
+        "editor_version": "editor 0.1.0",
+        "session_bench_status": "success",
+        "session_bench": {
+          "metric": "lazy_session",
+          "tabs": "100",
+          "metadata_us": "501",
+          "active_hydrate_us": "437",
+          "hydrated_documents": "1",
+          "active_bytes": "69632",
+          "inactive_hydrated": "0"
+        },
+        "macos_services_smoke": "not-run: unsupported atomic saving on this platform",
+        "atomic_save_support": "UNSUPPORTED",
+        "gui_smoke_executed": false,
+        "binary_sha256": {
+          "editor": "96f7b541514ec929b0fa45a3d97d3c96815dde123c6367d8f28948336dcd2f9e",
+          "editor-services": "f360149da87ef9b7e64a0230bae79493f18de3e6e17f7499c86c821bd1386972"
+        }
+      },
+      "atomic_save_support": "UNSUPPORTED",
+      "gui_smoke_executed": false,
+      "has_cannot_save_notice": true,
+      "has_unsigned_dev_warning": true,
+      "ring_crate_present": false
+    },
+    "aarch64-pc-windows-msvc": {
+      "directory_name": "makeaedittool-0.1.0-aarch64-pc-windows-msvc-1536938d5441-unsigned-dev.zip",
+      "target": "aarch64-pc-windows-msvc",
+      "commit": "1536938d54414f40a360eb245baf1af0ddfcb739",
+      "binaries": {
+        "editor.exe": "a8f4ab2ab796fbacc133d48fb8ed97b8562b11420623567c43b9531016ee465e",
+        "editor-services.exe": "fd132d122277e4af5d86a71c76698f8ff89c4efc00a75a24a4e725d7ffca6c13"
+      },
+      "machine_headers": {
+        "editor.exe": "PE Machine=0xaa64",
+        "editor-services.exe": "PE Machine=0xaa64"
+      },
+      "dependencies_count": 521,
+      "headless_smoke": {
+        "target": "aarch64-pc-windows-msvc",
+        "status": "success",
+        "editor_version_status": "success",
+        "editor_help_status": "success",
+        "editor_version": "editor 0.1.0",
+        "session_bench_status": "success",
+        "session_bench": {
+          "metric": "lazy_session",
+          "tabs": "100",
+          "metadata_us": "543",
+          "active_hydrate_us": "505",
+          "hydrated_documents": "1",
+          "active_bytes": "69632",
+          "inactive_hydrated": "0"
+        },
+        "macos_services_smoke": "not-run: unsupported atomic saving on this platform",
+        "atomic_save_support": "UNSUPPORTED",
+        "gui_smoke_executed": false,
+        "binary_sha256": {
+          "editor": "a8f4ab2ab796fbacc133d48fb8ed97b8562b11420623567c43b9531016ee465e",
+          "editor-services": "fd132d122277e4af5d86a71c76698f8ff89c4efc00a75a24a4e725d7ffca6c13"
+        }
+      },
+      "atomic_save_support": "UNSUPPORTED",
+      "gui_smoke_executed": false,
+      "has_cannot_save_notice": true,
+      "has_unsigned_dev_warning": true,
+      "ring_crate_present": false
+    }
+  },
+  "local_native_verification": {
+    "platform": "macOS (Darwin arm64)",
+    "tested_binary": ".smoke-data/ci-native/editor (from aarch64-apple-darwin CI artifact)",
+    "binary_sha256": "5a181fde95cf788a6aefe637d21d57780c9fb03fb89eff26ca7d9057f4adbb6e",
+    "version_output": "editor 0.1.0",
+    "smoke_usability": {
+      "evidence_path": "docs/evidence/ci-native-usability.json",
+      "passed": true,
+      "process_to_window_ms": 563.377167,
+      "first_interactive_ms": 564.037292,
+      "final_tab_count": 10,
+      "hydrated_editor_count": 9
+    },
+    "smoke_full": {
+      "evidence_path": "docs/evidence/ci-native-full.json",
+      "passed": true,
+      "process_to_window_ms": 180.751959,
+      "first_interactive_ms": 181.067375,
+      "final_tab_count": 4,
+      "hydrated_editor_count": 3,
+      "kernel_parity_verified": true,
+      "paged_streaming_search_matches": 72
+    }
+  },
+  "unverified_coverage": [
+    "Non-macOS native GUI execution (Windows and Linux runners do not execute GUI compositors in headless CI; atomic_save is unsupported on Windows/Linux).",
+    "Interactive input methods (IME composition, physical mouse clicks/drags, system key repeat): programmatic smoke test does not inject OS-level HID events under locked screen."
+  ],
+  "owned_temp_dirs": [
+    ".smoke-data/ci-downloads",
+    ".smoke-data/ci-native",
+    ".smoke-data/ci-native-usability",
+    ".smoke-data/ci-native-full"
+  ]
+}

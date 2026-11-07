@@ -134,3 +134,9 @@ CI设计与实现经`CiDesignReview`评审。`actionlint 1.7.12`发现并修复�
 [首轮完整托管运行42397473795](https://github.com/stabey/makeaedittool/actions/runs/42397473795)在五个原生目标上均完成workspace测试、release构建及无窗口CLI验证：macOS ARM64/Intel各92测试，Windows x64/ARM64及Linux x64各85测试。差异来自已有macOS保存测试条件，不是通过临时跳过失败测试获得。CI不运行原生GUI smoke。
 
 该轮最终失败于打包，而非编译：Cargo源包的部分许可文件时间戳早于1980年，Python ZIP默认严格时间戳检查拒绝写入，故**没有上传任何产物**。失败证据：[ci-first-failure.json](evidence/ci-first-failure.json)、[原始日志](evidence/ci-failures.txt)。修复只将ZIP不可表示的时间戳钳制到格式边界，不改变文件字节或权限；新增真实ZIP回归验证1970年许可文件的字节与模式保留，本地7个打包测试、actionlint与Rust格式检查通过。
+
+[修复后运行42399981386](https://github.com/stabey/makeaedittool/actions/runs/42399981386)对应提交`1536938d54414f40a360eb245baf1af0ddfcb739`，全部6个job成功：7个打包测试及格式检查通过，五平台workspace测试数量同上，release、CLI和上传均成功。五份ZIP已实际下载，核验二进制架构、SHA-256、提交标识、目标专属许可证清单及平台警告。每个CLI会话场景为100标签、只hydrate 1个文档；不是跨平台GUI或性能基准。
+
+独立验证器运行了**下载的**Mac ARM产物，而非本地旧二进制：`--smoke=usability`及`--smoke=full`均报告`passed=true`、`in_app_checks_passed=true`、`shutdown_durable_ack_observed=true`。数据目录隔离，未使用默认用户数据；完整场景覆盖事务/撤销、过期版本拒绝、Unicode搜索、CRLF/BOM、关闭重开、丢弃恢复及分页搜索72处匹配。程序化原生窗口smoke不等于硬件输入、拖拽或真实IME验收。
+
+最终证据：[ci-verification.json](evidence/ci-verification.json)、[ci-native-usability.json](evidence/ci-native-usability.json)、[ci-native-full.json](evidence/ci-native-full.json)、`ci-final-*.txt`。Windows/Linux保存仍为Unsupported；各自ZIP带`EXPERIMENTAL-CANNOT-SAVE.txt`。其他平台原生GUI、签名/公证、安装包与正式Release发布不在此次已验证范围。
