@@ -2,6 +2,8 @@
 
 Rust + GPUI Kit 文本编辑器。产品与验收基线见 [交接文档](Rust_GPUI_Editor_Agent_Handoff_v1.0.md)，当前状态见 [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md)。默认应用与 NSH 候选实验隔离，优先 macOS 原生验证；不宣称已支持未经运行的 Windows x64 或 macOS Intel。
 
+产品定位是接近Notepad++的纯文本编辑器：本体优先保证编辑、保存恢复、大文件、多文件、标签页组及单窗口分屏。项目模型和LSP不作为本体目标；未来如需这些能力，通过插件提供。标签页组与分屏目前仍在设计，不能把目标当作已交付功能。
+
 ## 构建环境
 
 - Rust 1.99.1（`rust-toolchain.toml`）。

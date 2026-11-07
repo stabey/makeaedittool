@@ -9,3 +9,5 @@
 *.sqlite-shm
 # Workstation-only capture, not editor verification evidence.
 /docs/evidence/test-window-front.png
+/dist/
+/scripts/ci/__pycache__/

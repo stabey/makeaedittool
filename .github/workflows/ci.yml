@@ -1,0 +1,113 @@
+name: Native CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_BUILD_JOBS: "2"
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  CARGO_TERM_COLOR: always
+  CARGO_TARGET_DIR: ${{ github.workspace }}/target
+  PYTHONUTF8: "1"
+
+jobs:
+  fmt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # SHAs verified against the actions/* release tag refs; no floating actions.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check packaging edge cases
+        run: python3 -B -m unittest discover -s scripts/ci -p test_package_artifact.py -v
+      - name: Assert native Linux and install pinned Rust
+        run: python3 scripts/ci/prepare_host.py --target x86_64-unknown-linux-gnu --toolchain-only
+      - name: Check workspace formatting
+        run: cargo fmt --all -- --check
+
+  build-test-package:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+            python: python3
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            python: python3
+          - os: windows-2025
+            target: x86_64-pc-windows-msvc
+            python: python
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            python: python
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            python: python3
+    env:
+      BUILD_COMMIT: ${{ github.sha }}
+      CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Assert native OS and Rust host; prepare platform tools
+        id: prepare
+        run: ${{ matrix.python }} scripts/ci/prepare_host.py --target ${{ matrix.target }}
+      # No target/ or registry/src cache: keep the hosted 14 GB disk budget available.
+      - name: Test all workspace members
+        id: tests
+        run: cargo test --locked --workspace --target ${{ matrix.target }}
+      - name: Remove successful test build trees before release
+        run: ${{ matrix.python }} scripts/ci/clean_debug.py --target ${{ matrix.target }}
+      - name: Build all workspace release binaries
+        id: release
+        run: cargo build --locked --release --workspace --target ${{ matrix.target }}
+      - name: Exercise actual release CLIs without a GUI
+        id: smoke
+        env:
+          CI_SMOKE_REPORT: ${{ runner.temp }}/native-smoke-${{ matrix.target }}.json
+        timeout-minutes: 15
+        run: ${{ matrix.python }} scripts/ci/smoke.py --target ${{ matrix.target }}
+      - name: Check machine headers and package notices with SHA integrity
+        id: package
+        env:
+          CI_SMOKE_REPORT: ${{ runner.temp }}/native-smoke-${{ matrix.target }}.json
+          CI_TEST_STATUS: ${{ steps.tests.outcome }}
+          CI_BUILD_STATUS: ${{ steps.release.outcome }}
+        run: ${{ matrix.python }} scripts/ci/package_artifact.py --target ${{ matrix.target }}
+      - name: Upload unsigned development zip
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          path: ${{ steps.package.outputs.archive }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+      - name: Report exercised and unsupported behavior
+        if: ${{ always() }}
+        env:
+          CI_PREPARE_STATUS: ${{ steps.prepare.outcome }}
+          CI_TEST_STATUS: ${{ steps.tests.outcome }}
+          CI_BUILD_STATUS: ${{ steps.release.outcome }}
+          CI_SMOKE_STATUS: ${{ steps.smoke.outcome }}
+          CI_PACKAGE_STATUS: ${{ steps.package.outcome }}
+          CI_UPLOAD_STATUS: ${{ steps.upload.outcome }}
+        run: ${{ matrix.python }} scripts/ci/summary.py --target ${{ matrix.target }}
