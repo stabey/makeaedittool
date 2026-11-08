@@ -3,9 +3,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use editor_services::{
-    DocMeta, DocumentId, EncodingSpec, FaultInjector, LifecycleGen, LineEnding, RecoveryHandle,
-    Revision, SearchAlgorithm, SessionTabStub, UiShellStore, ViewState,
+    CancelToken, DocMeta, DocumentId, DocumentKey, EncodingSpec, FaultInjector, GroupColor,
+    GroupCommand, GroupId, LifecycleGen, LineEnding, RecoveryHandle, Revision, SearchAlgorithm,
+    SessionDocumentStub, SessionLayout, UiShellStore, ViewTarget,
 };
+use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::input::InputState;
 use gpui_kit::{AnyWindowHandle, AsyncApp, Entity, EntityInputHandler as _, Focusable as _};
 use serde::Serialize;
@@ -14,11 +16,14 @@ use crate::actions::{
     DuplicateLine, MoveLineDown, MoveLineUp, SaveFile, ToggleComment, ToggleLineEnding,
     ToggleThemeMode, ToggleUtf8Bom,
 };
-use crate::app::{EditorWorkspace, StubHydrationSource, TabSlot, classify_stub_hydration_source};
+use crate::app::{EditorWorkspace, TabSlot};
 use crate::cli::SmokeScenario;
 use crate::editor_adapter::{ApplyEditsError, compute_metadata_dirty};
 use crate::search_bar::{SearchQueryKind, SearchStatus};
 use crate::shell::EditorViewPrefs;
+#[path = "smoke_groups.rs"]
+mod groups;
+pub(crate) use groups::verify_post_shutdown_layout;
 pub const TYPING_LATENCY_LABEL: &str = "submission-only, not screen latency";
 pub const TYPING_BENCH_OPS: usize = 128;
 
@@ -70,6 +75,29 @@ pub struct SmokeReport {
     pub format_only_bom_restart_and_save_verified: bool,
     pub mru_persistence_verified: bool,
     pub shell_persistence_warning: Option<String>,
+    pub group_metadata_mutations_verified: bool,
+    pub group_undo_preserved_verified: bool,
+    pub group_cancel_restores_editability_verified: bool,
+    pub group_native_pending_guard_verified: bool,
+    pub group_close_reopen_verified: bool,
+    pub group_restart_layout_verified: bool,
+    pub group_batch_open_verified: bool,
+    pub group_bulk_cancel_verified: bool,
+    pub group_bulk_keep_verified: bool,
+    pub group_drag_drop_verified: bool,
+    pub group_drag_cancel_verified: bool,
+    pub group_keyboard_modal_verified: bool,
+    pub startup_restart_layout_verified: bool,
+    pub startup_metadata_view_count: usize,
+    pub startup_group_count: usize,
+    pub startup_inactive_hydrated_count: usize,
+    pub startup_cli_overflow_active_hydrated_verified: bool,
+    #[serde(skip)]
+    pub expected_session_layout: Option<SessionLayout>,
+    #[serde(skip)]
+    pub expected_group_drafts: Vec<(DocumentKey, editor_services::ContentIdentity, Revision)>,
+    #[serde(skip)]
+    pub(crate) expected_bulk_group: Option<groups::BulkGroupEvidence>,
     #[serde(skip)]
     pub expected_post_shutdown_fresh_doc: Option<DocumentId>,
     #[serde(skip)]
@@ -112,6 +140,7 @@ pub fn spawn_smoke_runner(
                 SmokeScenario::StartupCheck => "startup".to_string(),
                 SmokeScenario::Full => "full".to_string(),
                 SmokeScenario::Usability => "usability".to_string(),
+                SmokeScenario::Groups => "groups".to_string(),
             },
             typing_latency_label: TYPING_LATENCY_LABEL.to_string(),
             ..Default::default()
@@ -126,6 +155,9 @@ pub fn spawn_smoke_runner(
             }
             SmokeScenario::Usability => {
                 run_usability_scenario(&window_handle, &workspace, &mut report, cx).await
+            }
+            SmokeScenario::Groups => {
+                groups::run_group_scenario(&window_handle, &workspace, &mut report, cx).await
             }
         };
         cx.update(|cx| {
@@ -159,9 +191,14 @@ pub fn spawn_smoke_runner(
 
         let quit_failure = match quit_started {
             Ok(true) => None,
-            Ok(false) => {
-                Some("smoke quit was blocked before entering clean shutdown barrier".to_string())
-            }
+            Ok(false) => wait_until(
+                Duration::from_secs(30),
+                cx,
+                |cx| cx.update(|cx| workspace.read(cx).shutting_down),
+                "acknowledged layout/lifecycle barrier before quit",
+            )
+            .await
+            .err(),
             Err(e) => Some(format!("window update failed during smoke quit: {e}")),
         };
         if let Some(reason) = quit_failure {
@@ -216,10 +253,13 @@ async fn run_startup_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                let active_hydrated = ws
-                    .tabs
-                    .get(ws.active_tab)
-                    .is_some_and(|s| !matches!(s, TabSlot::Hydrating { .. }));
+                let active_hydrated = ws.active_slot().is_some_and(|slot| match slot {
+                    TabSlot::Dehydrated(_) | TabSlot::Hydrating { .. } => false,
+                    TabSlot::Paged(view) => {
+                        view.current_slice.is_some() || view.source_error.is_some()
+                    }
+                    _ => true,
+                });
                 ws.recovery_ready && active_hydrated
             })
         },
@@ -234,10 +274,69 @@ async fn run_startup_scenario(
     });
     sleep_ms(40, cx).await;
 
-    cx.update(|cx| {
-        let ws = workspace.read(cx);
-        capture_workspace_metrics(ws, report);
-    });
+    window_handle
+        .update(cx, |_, _, cx| {
+            workspace.update(cx, |ws, cx| -> Result<(), String> {
+                if ws.recovery.is_none() {
+                    return Err(format!(
+                        "startup recovery unavailable: {:?}",
+                        ws.recovery_degraded_error
+                    ));
+                }
+                let active_ready = match ws.active_slot() {
+                    Some(TabSlot::Editable(editor)) => !editor.has_pending_native_edit(cx),
+                    Some(TabSlot::Paged(view)) => {
+                        view.current_slice.is_some() && view.source_error.is_none()
+                    }
+                    _ => false,
+                };
+                if !active_ready {
+                    return Err(
+                        "selected startup view failed real native hydration/viewport loading"
+                            .into(),
+                    );
+                }
+                ws.session_layout().validate().map_err(|e| e.to_string())?;
+                report.startup_metadata_view_count = ws.session_layout().views.len();
+                report.startup_group_count = ws.session_layout().tree.groups.len();
+                report.startup_inactive_hydrated_count = ws
+                    .ordered_view_ids()
+                    .iter()
+                    .filter(|id| {
+                        Some(**id) != ws.active_view_id()
+                            && matches!(
+                                ws.view_slot(**id),
+                                Some(TabSlot::Editable(_) | TabSlot::Paged(_))
+                            )
+                    })
+                    .count();
+                let cli_overflow = !ws.cli.files.is_empty()
+                    && ws.session_layout().views.len() == editor_services::MAX_SESSION_VIEWS
+                    && ws.cli.files.iter().all(|path| {
+                        let path = std::path::absolute(path).unwrap_or_else(|_| path.clone());
+                        !ws.ordered_view_ids().iter().any(|id| {
+                            ws.view_slot(*id)
+                                .is_some_and(|slot| slot.meta().path.as_ref() == Some(&path))
+                        })
+                    });
+                if (ws.cli.files.is_empty() || cli_overflow)
+                    && report.startup_inactive_hydrated_count != 0
+                {
+                    return Err("metadata restart hydrated inactive views".into());
+                }
+                // With a real full fixture and extra CLI file, the selected native
+                // editor/viewport must load even though every requested file was rejected.
+                report.startup_cli_overflow_active_hydrated_verified = cli_overflow;
+                if report.scenario == "startup" {
+                    ws.capture_session_view_states(cx);
+                    ws.persist_session_layout(cx);
+                    report.expected_session_layout = Some(ws.session_layout().clone());
+                }
+                capture_workspace_metrics(ws, report);
+                Ok(())
+            })
+        })
+        .map_err(|e| e.to_string())??;
 
     Ok(())
 }
@@ -256,8 +355,7 @@ async fn run_full_scenario(
             cx.update(|cx| {
                 let ws = workspace.read(cx);
                 let active_ready = ws
-                    .tabs
-                    .get(ws.active_tab)
+                    .active_slot()
                     .is_some_and(|s| !matches!(s, TabSlot::Hydrating { .. }));
                 ws.recovery_ready && active_ready
             })
@@ -303,7 +401,7 @@ async fn run_full_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing active editable tab after replace_text_in_range".to_string());
         };
         let rev_after_type = ed.visible_revision;
@@ -340,7 +438,7 @@ async fn run_full_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing active editable tab after undo".to_string());
         };
         report
@@ -371,7 +469,7 @@ async fn run_full_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing active editable tab after redo".to_string());
         };
         report
@@ -436,7 +534,7 @@ async fn run_full_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing editable tab after atomic batch".to_string());
         };
         if ed.visible_revision != new_rev {
@@ -471,7 +569,7 @@ async fn run_full_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing editable tab after batch undo".to_string());
         };
         if ed.committed_byte_len() != initial_sample.len() as u64 {
@@ -499,7 +597,7 @@ async fn run_full_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing editable tab after batch redo".to_string());
         };
         if ed.committed_byte_len() != expected_after_batch.len() as u64 {
@@ -593,7 +691,7 @@ async fn run_full_scenario(
     // `visible_revision` must remain `chained_r2 == chained_r0 + 2` (never double-incremented!).
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing editable tab after chained flush".to_string());
         };
         if ed.visible_revision != chained_r2 || chained_r2 != Revision(chained_r0.0 + 2) {
@@ -664,7 +762,7 @@ async fn run_full_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing editable tab after retry flush".to_string());
         };
         if ed.visible_revision != retry_rev || retry_rev != Revision(chained_r2.0 + 2) {
@@ -729,8 +827,9 @@ async fn run_full_scenario(
             workspace.update(cx, |ws, cx| {
                 ws.on_toggle_bom(&ToggleUtf8Bom, window, cx);
                 ws.on_toggle_line_ending(&ToggleLineEnding, window, cx);
-                ws.save_tab(
-                    ws.active_tab,
+                ws.save_view(
+                    ws.view_target(ws.active_view_id().expect("active view"))
+                        .expect("live target"),
                     Some(saved_file.clone()),
                     true,
                     false,
@@ -747,10 +846,7 @@ async fn run_full_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed)) if !ed.is_dirty() && ed.meta.path.as_deref() == Some(saved_file.as_path())
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed)) if !ed.is_dirty() && ed.meta.path.as_deref() == Some(saved_file.as_path()))
             })
         },
         "atomic save completion and savepoint clear",
@@ -763,12 +859,14 @@ async fn run_full_scenario(
     }
     report.crlf_bom_roundtrip_verified = true;
 
-    // 5. Close saved tab (durable close_document ACK barrier) and reopen from Recently Closed.
+    // 5. Close a saved view through the atomic lifecycle barrier and reopen its stored placement.
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| {
-                let active = ws.active_tab;
-                ws.request_close_tab(active, window, cx);
+                let target = ws
+                    .view_target(ws.active_view_id().expect("active view"))
+                    .expect("live target");
+                ws.request_close_view(target, window, cx);
             });
         })
         .map_err(|e| e.to_string())?;
@@ -776,7 +874,7 @@ async fn run_full_scenario(
     wait_until(
         Duration::from_secs(10),
         cx,
-        |cx| cx.update(|cx| !workspace.read(cx).recently_closed.is_empty()),
+        |cx| cx.update(|cx| workspace.read(cx).recently_closed_count() > 0),
         "durable tab close acknowledgement and recently_closed insertion",
     )
     .await?;
@@ -795,13 +893,10 @@ async fn run_full_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed))
-                        if ed.meta.path.as_deref() == Some(saved_file.as_path())
-                            && ed.meta.encoding == EncodingSpec::Utf8Bom
-                            && ed.meta.line_ending == LineEnding::Crlf
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed))
+                    if ed.meta.path.as_deref() == Some(saved_file.as_path())
+                        && ed.meta.encoding == EncodingSpec::Utf8Bom
+                        && ed.meta.line_ending == LineEnding::Crlf)
             })
         },
         "reopen recently closed tab with preserved BOM and CRLF",
@@ -814,12 +909,12 @@ async fn run_full_scenario(
     // then edit `fresh_doc_id` and verify durable ACK + post-shutdown manifest persistence!
     let old_doc_id = cx.update(|cx| {
         let ws = workspace.read(cx);
-        ws.tabs[ws.active_tab].doc_id()
+        ws.active_slot().expect("active view").doc_id()
     });
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| {
-                if let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) {
+                if let Some(TabSlot::Editable(ed)) = ws.active_slot() {
                     let editor = ed.editor().clone();
                     editor.update(cx, |state, cx| {
                         state.replace_text_in_range(
@@ -840,14 +935,11 @@ async fn run_full_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed))
-                        if ed.doc_id == old_doc_id
-                            && ed.is_dirty()
-                            && ed.durable_revision >= ed.visible_revision
-                            && ed.durable_revision.0 > 0
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed))
+                    if ed.doc_id == old_doc_id
+                        && ed.is_dirty()
+                        && ed.durable_revision >= ed.visible_revision
+                        && ed.durable_revision.0 > 0)
             })
         },
         "durable checkpoint of old_doc_id before discard-reload",
@@ -857,8 +949,20 @@ async fn run_full_scenario(
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| {
-                ws.request_reload_active(true, window, cx);
+                let target = ws
+                    .view_target(ws.active_view_id().expect("active view"))
+                    .expect("live target");
+                ws.request_reload_view(target, window, cx);
             });
+        })
+        .map_err(|e| e.to_string())?;
+    pump_frame(window_handle, cx)?;
+    window_handle
+        .update(cx, |_, window, cx| {
+            window.dispatch_action(
+                Box::new(gpui_kit::component::dialog::Confirm { secondary: false }),
+                cx,
+            )
         })
         .map_err(|e| e.to_string())?;
 
@@ -868,13 +972,10 @@ async fn run_full_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed))
-                        if ed.doc_id != old_doc_id
-                            && ed.lifecycle_gen == LifecycleGen(1)
-                            && !ed.is_dirty()
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed))
+                    if ed.doc_id != old_doc_id
+                        && ed.lifecycle_gen == LifecycleGen(1)
+                        && !ed.is_dirty())
             })
         },
         "discard-reload completion onto fresh DocumentId(LifecycleGen(1))",
@@ -883,13 +984,13 @@ async fn run_full_scenario(
 
     let fresh_doc_id = cx.update(|cx| {
         let ws = workspace.read(cx);
-        ws.tabs[ws.active_tab].doc_id()
+        ws.active_slot().expect("active view").doc_id()
     });
 
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| {
-                if let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) {
+                if let Some(TabSlot::Editable(ed)) = ws.active_slot() {
                     let editor = ed.editor().clone();
                     editor.update(cx, |state, cx| {
                         state.replace_text_in_range(
@@ -910,14 +1011,11 @@ async fn run_full_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed))
-                        if ed.doc_id == fresh_doc_id
-                            && ed.is_dirty()
-                            && ed.durable_revision >= ed.visible_revision
-                            && ed.durable_revision.0 > 0
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed))
+                    if ed.doc_id == fresh_doc_id
+                        && ed.is_dirty()
+                        && ed.durable_revision >= ed.visible_revision
+                        && ed.durable_revision.0 > 0)
             })
         },
         "durable commit ACK on reloaded fresh_doc_id",
@@ -955,10 +1053,7 @@ async fn run_full_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Paged(pv)) if pv.current_slice.is_some()
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Paged(pv)) if pv.current_slice.is_some())
             })
         },
         "paged file first 64 KiB viewport load",
@@ -1016,40 +1111,34 @@ async fn run_full_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Paged(pv)) if pv.visible_byte_range().start > 1_000_000
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Paged(pv)) if pv.visible_byte_range().start > 1_000_000)
             })
         },
         "paged viewport jump beyond 1 MiB",
     )
     .await?;
 
-    // 8. Clean Empty Untitled Reconstitution + Session Layout Persistence (`!has_checkpoint && path.is_none()`):
-    // Create an untouched empty untitled tab, exercise `start_hydrating_stub` on its layout stub
-    // to verify it reconstitutes directly as `TabSlot::Editable` without querying `recovery_heads`,
-    // and leave it open so `verify_post_shutdown_manifest` verifies its persisted layout stub.
+    // 8. Reconstitute an empty, uncheckpointed document through the real retry path,
+    // then verify its metadata-only association after shutdown and restart.
     let clean_untitled_id = window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> Result<DocumentId, String> {
                 ws.cli.editable_byte_limit = None;
-                let id = ws.create_untitled_tab(true, window, cx);
-                let idx = ws.active_tab;
-                let meta = ws.tabs[idx].meta().clone();
-                let stub = SessionTabStub {
+                let target = ws
+                    .create_untitled_tab(true, window, cx)
+                    .ok_or("new view rejected")?;
+                let id = target.document.doc_id;
+                let meta = ws.view_slot(target.view_id).unwrap().meta().clone();
+                let stub = SessionDocumentStub {
                     doc_id: id,
-                    lifecycle_gen: LifecycleGen(1),
+                    lifecycle_gen: target.document.lifecycle_gen,
                     durable_rev: Revision(0),
                     meta,
-                    view: ViewState {
-                        cursor_byte: 0,
-                        scroll_byte: 0,
-                    },
                     has_checkpoint: false,
                 };
-                ws.start_hydrating_stub(idx, stub, window, cx);
-                match &ws.tabs[idx] {
+                ws.documents.insert(id, TabSlot::Dehydrated(stub));
+                ws.retry_view_hydration(target, window, cx);
+                match ws.view_slot(target.view_id).unwrap() {
                     TabSlot::Editable(ed)
                         if ed.doc_id == id
                             && ed.lifecycle_gen == LifecycleGen(1)
@@ -1105,7 +1194,7 @@ async fn run_1mib_ordinary_typing_benchmark(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                !matches!(ws.tabs.get(ws.active_tab), Some(TabSlot::Hydrating { .. }))
+                !matches!(ws.active_slot(), Some(TabSlot::Hydrating { .. }))
             })
         },
         "1 MiB ordinary tab disk open completion",
@@ -1114,7 +1203,7 @@ async fn run_1mib_ordinary_typing_benchmark(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        match ws.tabs.get(ws.active_tab) {
+        match ws.active_slot() {
             Some(TabSlot::Editable(ed))
                 if ed.meta.path.as_deref() == Some(bench_path.as_path())
                     && ed.committed_byte_len() >= 1_048_576 =>
@@ -1223,7 +1312,7 @@ async fn run_1mib_ordinary_typing_benchmark(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed_after)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed_after)) = ws.active_slot() else {
             return Err("missing editable tab after typing loop".to_string());
         };
         let rev_delta = ed_after.visible_revision.0.saturating_sub(rev_before.0);
@@ -1254,13 +1343,27 @@ async fn run_1mib_ordinary_typing_benchmark(
     report.typing_submit_p95_ms = percentile_sorted(&samples_ms, 0.95);
     report.typing_submit_max_ms = samples_ms.last().copied().unwrap_or(0.0);
     report.large_paste_64k_submit_ms = Some(paste_ms);
+    let expected_paste_revision = Revision(rev_before.0 + TYPING_BENCH_OPS as u64 + 1);
+    wait_until(Duration::from_secs(10),cx,|cx|cx.update(|cx|{
+            matches!(workspace.read(cx).documents.get(&bench_doc_id),Some(TabSlot::Editable(ed)) if ed.visible_revision==expected_paste_revision&&!ed.has_pending_native_edit(cx))
+        }),"benchmark paste committed before lifecycle freeze").await?;
 
     // Discard and close the temporary 1 MiB benchmark tab via the durable close barrier.
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| {
-                if let Some(ix) = ws.tabs.iter().position(|t| t.doc_id() == bench_doc_id) {
-                    ws.close_tab_confirmed(ix, true, window, cx);
+                if let Some(target) = ws
+                    .session
+                    .views
+                    .values()
+                    .find(|view| view.document.doc_id == bench_doc_id)
+                    .and_then(|view| ws.view_target(view.id))
+                {
+                    ws.request_close_view(target, window, cx);
+                    if let Some(sequence) = ws.pending_lifecycle_sequence() {
+                        ws.choose_discard(sequence, window, cx);
+                        window.close_dialog(cx);
+                    }
                 }
             });
         })
@@ -1273,8 +1376,8 @@ async fn run_1mib_ordinary_typing_benchmark(
             cx.update(|cx| {
                 !workspace
                     .read(cx)
-                    .tabs
-                    .iter()
+                    .documents
+                    .values()
                     .any(|t| t.doc_id() == bench_doc_id)
             })
         },
@@ -1386,12 +1489,12 @@ fn capture_workspace_metrics(ws: &EditorWorkspace, report: &mut SmokeReport) {
     report.process_to_window_ms = ws.startup_metrics.process_started_ms_to_window;
     report.first_interactive_ms = ws.startup_metrics.first_interactive_ms;
     report.recovery_manifest_ms = ws.startup_metrics.recovery_manifest_ms;
-    report.final_tab_count = ws.tabs.len();
+    report.final_tab_count = ws.session.views.len();
     report.hydrated_editor_count = ws.hydrated_editor_count();
     report.hydrated_content_bytes = ws.hydrated_content_bytes();
     report.paged_tab_count = ws
-        .tabs
-        .iter()
+        .documents
+        .values()
         .filter(|s| matches!(s, TabSlot::Paged(_)))
         .count();
     report.shell_persistence_warning = ws.shell_persistence_warning.clone();
@@ -1452,8 +1555,8 @@ fn dispatch_smoke_key(
 /// 1. Tombstoned `old_doc_id` (`state = 2`) is completely absent from `SessionManifest`.
 /// 2. Reloaded `fresh_doc_id` (`LifecycleGen(1)`) is present in `SessionManifest` and its
 ///    hydrated draft starts with the post-reload edit.
-/// 3. Clean empty untitled `clean_untitled_id` (when provided) is persisted as `!has_checkpoint`
-///    with `path == None` and routes to `StubHydrationSource::EmptyCleanUntitled`.
+/// 3. Clean empty untitled `clean_untitled_id` (when provided) has no checkpoint/file
+///    source or modified metadata and retains one exact persisted view reference.
 pub fn verify_post_shutdown_manifest(
     data_dir: &Path,
     fresh_doc_id: DocumentId,
@@ -1472,12 +1575,12 @@ pub fn verify_post_shutdown_manifest(
             .map_err(|e| format!("post-shutdown manifest timeout: {e}"))?
             .map_err(|e| format!("post-shutdown manifest error: {e}"))?;
 
-        if manifest.tabs.iter().any(|t| t.doc_id == old_doc_id) {
+        if manifest.documents.iter().any(|t| t.doc_id == old_doc_id) {
             return Err(format!(
                 "tombstoned old_doc_id {old_doc_id:?} resurrected in post-shutdown SessionManifest"
             ));
         }
-        let Some(fresh_stub) = manifest.tabs.iter().find(|t| t.doc_id == fresh_doc_id) else {
+        let Some(fresh_stub) = manifest.documents.iter().find(|t| t.doc_id == fresh_doc_id) else {
             return Err(format!(
                 "reloaded fresh_doc_id {fresh_doc_id:?} missing from post-shutdown SessionManifest"
             ));
@@ -1492,7 +1595,7 @@ pub fn verify_post_shutdown_manifest(
             ));
         }
         let draft_rx = handle
-            .request_hydrate(fresh_doc_id)
+            .request_hydrate(fresh_stub.key(), CancelToken::new())
             .map_err(|e| format!("post-shutdown request_hydrate failed: {e}"))?;
         let draft = draft_rx
             .recv_timeout(Duration::from_secs(5))
@@ -1506,18 +1609,25 @@ pub fn verify_post_shutdown_manifest(
         }
 
         if let Some(clean_id) = expected_clean_untitled_doc {
-            let Some(clean_stub) = manifest.tabs.iter().find(|t| t.doc_id == clean_id) else {
+            let Some(clean_stub) = manifest.documents.iter().find(|t| t.doc_id == clean_id) else {
                 return Err(format!(
                     "clean untitled tab {clean_id:?} missing from post-shutdown SessionManifest"
                 ));
             };
-            let route = classify_stub_hydration_source(
-                clean_stub.has_checkpoint,
-                clean_stub.meta.path.is_some(),
-            );
-            if route != StubHydrationSource::EmptyCleanUntitled {
+            if clean_stub.has_checkpoint
+                || clean_stub.meta.path.is_some()
+                || clean_stub.durable_rev != Revision(0)
+                || compute_metadata_dirty(&clean_stub.meta)
+                || manifest
+                    .layout
+                    .views
+                    .values()
+                    .filter(|view| view.document == clean_stub.key())
+                    .count()
+                    != 1
+            {
                 return Err(format!(
-                    "expected EmptyCleanUntitled route for clean untitled stub, got {route:?}"
+                    "clean untitled metadata/reference changed after shutdown: {clean_stub:?}"
                 ));
             }
         }
@@ -1548,8 +1658,7 @@ async fn run_usability_scenario(
             cx.update(|cx| {
                 let ws = workspace.read(cx);
                 let active_ready = ws
-                    .tabs
-                    .get(ws.active_tab)
+                    .active_slot()
                     .is_some_and(|s| !matches!(s, TabSlot::Hydrating { .. }));
                 ws.recovery_ready && ws.shell_loaded && active_ready
             })
@@ -1633,7 +1742,7 @@ async fn run_usability_scenario(
             if ws.palette_visible {
                 return Err("palette remained visible after confirming Select All".into());
             }
-            let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+            let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
                 return Err("active tab is not Editable after Select All".into());
             };
             let state = ed.editor().read(cx);
@@ -1681,7 +1790,7 @@ async fn run_usability_scenario(
     window_handle
         .update(cx, |_, window, cx| -> Result<(), String> {
             let ws = workspace.read(cx);
-            let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+            let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
                 return Err("active tab is not Editable after palette Undo".into());
             };
             if !ed.editor().read(cx).focus_handle(cx).is_focused(window) {
@@ -1709,11 +1818,8 @@ async fn run_usability_scenario(
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> Result<(), String> {
                 // The actual keymap dispatch above must restore a mounted editor.
-                let editor_focused = matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed))
-                        if ed.editor().read(cx).focus_handle(cx).is_focused(window)
-                );
+                let editor_focused = matches!(ws.active_slot(), Some(TabSlot::Editable(ed))
+                    if ed.editor().read(cx).focus_handle(cx).is_focused(window));
                 if !editor_focused {
                     return Err("palette dismissal restored unmounted Go To focus".into());
                 }
@@ -1746,7 +1852,7 @@ async fn run_usability_scenario(
     window_handle
         .update(cx, |_, _, cx| -> Result<(), String> {
             let ws = workspace.read(cx);
-            let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+            let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
                 return Err("missing editor for shortcut scope check".into());
             };
             if ed.committed_rope().to_string() != "x" {
@@ -1760,7 +1866,7 @@ async fn run_usability_scenario(
     window_handle
         .update(cx, |_, _, cx| -> Result<(), String> {
             let ws = workspace.read(cx);
-            let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+            let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
                 return Err("missing editor after duplicate shortcut".into());
             };
             if ed.committed_rope().to_string() != "x\nx" {
@@ -1774,7 +1880,7 @@ async fn run_usability_scenario(
     window_handle
         .update(cx, |_, _, cx| -> Result<(), String> {
             let ws = workspace.read(cx);
-            let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+            let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
                 return Err("missing editor after wrap shortcut".into());
             };
             if ws.current_view_prefs().soft_wrap || ed.committed_rope().to_string() != "x" {
@@ -1802,18 +1908,23 @@ async fn run_usability_scenario(
             workspace.update(cx, |ws, cx| {
                 ws.open_path(lazy_a_path.clone(), window, cx);
                 ws.open_path(active_b_path.clone(), window, cx);
-                ws.tabs.push(TabSlot::Dehydrated(SessionTabStub {
-                    doc_id: DocumentId::new(),
-                    lifecycle_gen: LifecycleGen(1),
-                    durable_rev: Revision(0),
-                    meta: DocMeta {
-                        title: "unhydrated_c.rs".to_string(),
-                        path: Some(unhydrated_c_path.clone()),
-                        ..DocMeta::default()
-                    },
-                    view: ViewState::default(),
-                    has_checkpoint: false,
-                }));
+                let target = ws
+                    .create_untitled_tab(true, window, cx)
+                    .expect("fixture capacity");
+                ws.documents.insert(
+                    target.document.doc_id,
+                    TabSlot::Dehydrated(SessionDocumentStub {
+                        doc_id: target.document.doc_id,
+                        lifecycle_gen: target.document.lifecycle_gen,
+                        durable_rev: Revision(0),
+                        meta: DocMeta {
+                            title: "unhydrated_c.rs".into(),
+                            path: Some(unhydrated_c_path.clone()),
+                            ..DocMeta::default()
+                        },
+                        has_checkpoint: false,
+                    }),
+                );
             });
         })
         .map_err(|e| e.to_string())?;
@@ -1824,10 +1935,10 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                let a_ready = ws.tabs.iter().any(|s| {
+                let a_ready = ws.documents.values().any(|s| {
                     matches!(s, TabSlot::Editable(ed) if ed.meta.path.as_deref() == Some(lazy_a_path.as_path()))
                 });
-                let b_ready = ws.tabs.iter().any(|s| {
+                let b_ready = ws.documents.values().any(|s| {
                     matches!(s, TabSlot::Editable(ed) if ed.meta.path.as_deref() == Some(active_b_path.as_path()))
                 });
                 a_ready && b_ready
@@ -1841,12 +1952,18 @@ async fn run_usability_scenario(
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> Result<(), String> {
-                let b_ix = ws
-                    .tabs
-                    .iter()
-                    .position(|s| s.meta().path.as_deref() == Some(active_b_path.as_path()))
-                    .ok_or_else(|| "missing active_b tab".to_string())?;
-                ws.activate_tab(b_ix, window, cx);
+                let target = ws
+                    .session
+                    .views
+                    .values()
+                    .find(|view| {
+                        ws.view_slot(view.id).is_some_and(|slot| {
+                            slot.meta().path.as_deref() == Some(active_b_path.as_path())
+                        })
+                    })
+                    .and_then(|view| ws.view_target(view.id))
+                    .ok_or("missing active_b view")?;
+                ws.activate_view(target, window, cx);
                 ws.set_soft_wrap(false, window, cx);
                 ws.set_show_whitespaces(true, window, cx);
                 ws.set_indent_prefs(4, false, window, cx);
@@ -1891,8 +2008,8 @@ async fn run_usability_scenario(
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
         let Some(TabSlot::Editable(ed_b)) = ws
-            .tabs
-            .iter()
+            .documents
+            .values()
             .find(|s| s.meta().path.as_deref() == Some(active_b_path.as_path()))
         else {
             return Err("active_b missing".into());
@@ -1909,8 +2026,8 @@ async fn run_usability_scenario(
         }
 
         let Some(TabSlot::Editable(ed_a)) = ws
-            .tabs
-            .iter()
+            .documents
+            .values()
             .find(|s| s.meta().path.as_deref() == Some(lazy_a_path.as_path()))
         else {
             return Err("lazy_a missing".into());
@@ -1923,8 +2040,8 @@ async fn run_usability_scenario(
         }
 
         let Some(slot_c) = ws
-            .tabs
-            .iter()
+            .documents
+            .values()
             .find(|s| s.meta().path.as_deref() == Some(unhydrated_c_path.as_path()))
         else {
             return Err("unhydrated_c missing".into());
@@ -1942,12 +2059,18 @@ async fn run_usability_scenario(
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> Result<(), String> {
-                let a_ix = ws
-                    .tabs
-                    .iter()
-                    .position(|s| s.meta().path.as_deref() == Some(lazy_a_path.as_path()))
-                    .ok_or_else(|| "missing lazy_a index".to_string())?;
-                ws.activate_tab(a_ix, window, cx);
+                let target = ws
+                    .session
+                    .views
+                    .values()
+                    .find(|view| {
+                        ws.view_slot(view.id).is_some_and(|slot| {
+                            slot.meta().path.as_deref() == Some(lazy_a_path.as_path())
+                        })
+                    })
+                    .and_then(|view| ws.view_target(view.id))
+                    .ok_or("missing lazy_a view")?;
+                ws.activate_view(target, window, cx);
                 Ok(())
             })
         })
@@ -1955,7 +2078,7 @@ async fn run_usability_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed_a)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed_a)) = ws.active_slot() else {
             return Err("lazy_a not Editable on activation".into());
         };
         if ed_a.applied_prefs() != expected_updated_prefs || ed_a.is_dirty() {
@@ -1990,10 +2113,7 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(crlf_path.as_path())
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(crlf_path.as_path()))
             })
         },
         "crlf_ops.rs open completion",
@@ -2031,7 +2151,7 @@ async fn run_usability_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing crlf_ops tab".into());
         };
         let text = ed.committed_rope().to_string();
@@ -2059,7 +2179,7 @@ async fn run_usability_scenario(
 
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
-        let Some(TabSlot::Editable(ed)) = ws.tabs.get(ws.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = ws.active_slot() else {
             return Err("missing crlf_ops tab after undo".into());
         };
         if ed.committed_rope().to_string() != crlf_initial {
@@ -2135,7 +2255,7 @@ async fn run_usability_scenario(
     let empty_untitled_id = window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> Result<DocumentId, String> {
-                let id = ws.create_untitled_tab(true, window, cx);
+                let id=ws.create_untitled_tab(true,window,cx).ok_or("new view rejected")?.document.doc_id;
                 ws.set_active_line_ending(LineEnding::Crlf, window, cx);
                 ws.set_active_encoding(EncodingSpec::Utf8Bom, window, cx);
                 ws.set_active_language_override(Some("rust"), window, cx);
@@ -2178,10 +2298,7 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(inflight_path.as_path())
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(inflight_path.as_path()))
             })
         },
         "format_inflight.txt open",
@@ -2235,7 +2352,15 @@ async fn run_usability_scenario(
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> Revision {
                 let rev_for_save = ws.active_editable_mut().unwrap().visible_revision;
-                ws.save_tab(ws.active_tab, None, false, false, window, cx);
+                ws.save_view(
+                    ws.view_target(ws.active_view_id().expect("active view"))
+                        .expect("live target"),
+                    None,
+                    false,
+                    false,
+                    window,
+                    cx,
+                );
                 // Mutate format WHILE background save is in flight:
                 ws.set_active_encoding(EncodingSpec::Utf8Bom, window, cx);
                 rev_for_save
@@ -2249,12 +2374,9 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed))
-                        if ed.meta.saved_identity.is_some_and(|id| id.byte_len == "alpha\nbeta\n".len() as u64)
-                            && ed.visible_revision > captured_save_rev
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed))
+                    if ed.meta.saved_identity.is_some_and(|id| id.byte_len == "alpha\nbeta\n".len() as u64)
+                        && ed.visible_revision > captured_save_rev)
             })
         },
         "in-flight save completion during concurrent format switch",
@@ -2310,10 +2432,7 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(bom_restart_path.as_path())
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(bom_restart_path.as_path()))
             })
         },
         "bom_restart_save.txt open",
@@ -2324,7 +2443,7 @@ async fn run_usability_scenario(
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> DocumentId {
                 ws.set_active_encoding(EncodingSpec::Utf8Bom, window, cx);
-                ws.tabs[ws.active_tab].doc_id()
+                ws.active_slot().expect("active view").doc_id()
             })
         })
         .map_err(|e| e.to_string())?;
@@ -2336,14 +2455,11 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed))
-                        if ed.doc_id == bom_restart_doc_id
-                            && ed.is_dirty()
-                            && ed.durable_revision >= ed.visible_revision
-                            && ed.durable_revision.0 > 0
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed))
+                    if ed.doc_id == bom_restart_doc_id
+                        && ed.is_dirty()
+                        && ed.durable_revision >= ed.visible_revision
+                        && ed.durable_revision.0 > 0)
             })
         },
         "durable recovery checkpoint of format-only BOM change",
@@ -2365,7 +2481,7 @@ async fn run_usability_scenario(
                 .map_err(|e| e.to_string())?
                 .map_err(|e| e.to_string())?;
             manifest
-                .tabs
+                .documents
                 .into_iter()
                 .find(|t| t.doc_id == bom_restart_doc_id)
                 .ok_or_else(|| "bom_restart_doc_id missing from SQLite SessionManifest".to_string())
@@ -2379,9 +2495,12 @@ async fn run_usability_scenario(
     window_handle
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| {
-                let ix = ws.active_tab;
-                ws.tabs[ix] = TabSlot::Dehydrated(persisted_stub);
-                ws.activate_tab(ix, window, cx);
+                let target = ws
+                    .view_target(ws.active_view_id().expect("active view"))
+                    .expect("live view");
+                ws.documents
+                    .insert(target.document.doc_id, TabSlot::Dehydrated(persisted_stub));
+                ws.activate_view(target, window, cx);
             });
         })
         .map_err(|e| e.to_string())?;
@@ -2392,10 +2511,7 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed)) if ed.doc_id == bom_restart_doc_id
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed)) if ed.doc_id == bom_restart_doc_id)
             })
         },
         "restart hydration of format-only BOM draft",
@@ -2432,10 +2548,7 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed)) if ed.doc_id == bom_restart_doc_id && !ed.is_dirty()
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed)) if ed.doc_id == bom_restart_doc_id && !ed.is_dirty())
             })
         },
         "save completion of rehydrated BOM tab",
@@ -2469,10 +2582,7 @@ async fn run_usability_scenario(
         |cx| {
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                matches!(
-                    ws.tabs.get(ws.active_tab),
-                    Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(post_shutdown_bom_path.as_path())
-                )
+                matches!(ws.active_slot(), Some(TabSlot::Editable(ed)) if ed.meta.path.as_deref() == Some(post_shutdown_bom_path.as_path()))
             })
         },
         "bom_post_shutdown.txt open",
@@ -2483,7 +2593,7 @@ async fn run_usability_scenario(
         .update(cx, |_, window, cx| {
             workspace.update(cx, |ws, cx| -> DocumentId {
                 ws.set_active_encoding(EncodingSpec::Utf8Bom, window, cx);
-                ws.tabs[ws.active_tab].doc_id()
+                ws.active_slot().expect("active view").doc_id()
             })
         })
         .map_err(|e| e.to_string())?;
@@ -2570,7 +2680,7 @@ pub fn verify_post_shutdown_usability(data_dir: &Path, report: &SmokeReport) -> 
 
         if let Some(untitled_id) = report.expected_usability_empty_untitled_doc {
             let stub = manifest
-                .tabs
+                .documents
                 .iter()
                 .find(|t| t.doc_id == untitled_id)
                 .ok_or_else(|| {
@@ -2593,7 +2703,7 @@ pub fn verify_post_shutdown_usability(data_dir: &Path, report: &SmokeReport) -> 
 
         if let Some(bom_id) = report.expected_usability_bom_dirty_doc {
             let stub = manifest
-                .tabs
+                .documents
                 .iter()
                 .find(|t| t.doc_id == bom_id)
                 .ok_or_else(|| {
@@ -2605,7 +2715,7 @@ pub fn verify_post_shutdown_usability(data_dir: &Path, report: &SmokeReport) -> 
                 );
             }
             let draft = handle
-                .request_hydrate(bom_id)
+                .request_hydrate(stub.key(), CancelToken::new())
                 .map_err(|e| e.to_string())?
                 .recv_timeout(Duration::from_secs(5))
                 .map_err(|e| e.to_string())?

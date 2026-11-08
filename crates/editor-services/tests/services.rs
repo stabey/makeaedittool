@@ -31,7 +31,7 @@ fn admit<T>(mut operation: impl FnMut() -> Result<T, ServiceError>) -> T {
 fn snapshot(id: DocumentId, revision: u64, text: &str) -> RecoveryCommit {
     RecoveryCommit {
         doc_id: id,
-        lifecycle_gen: LifecycleGen(0),
+        lifecycle_gen: LifecycleGen(1),
         base_rev: Revision(revision.saturating_sub(1)),
         new_rev: Revision(revision),
         rope: Rope::from_str(text),
@@ -41,6 +41,86 @@ fn snapshot(id: DocumentId, revision: u64, text: &str) -> RecoveryCommit {
             ..Default::default()
         },
     }
+}
+
+fn document_key(id: DocumentId) -> DocumentKey {
+    DocumentKey {
+        doc_id: id,
+        lifecycle_gen: LifecycleGen(1),
+    }
+}
+fn add_layout_view(
+    layout: &mut SessionLayout,
+    key: DocumentKey,
+    view: ViewState,
+    active: bool,
+) -> ViewTarget {
+    let id = ViewId::new();
+    layout
+        .insert_view(
+            LayoutView {
+                id,
+                document: key,
+                group_id: GroupId::UNGROUPED,
+                view,
+            },
+            None,
+            active,
+        )
+        .unwrap();
+    ViewTarget {
+        view_id: id,
+        document: key,
+    }
+}
+fn persist_test_layout(
+    service: &RecoveryHandle,
+    layout: &SessionLayout,
+    changes: Vec<DocumentChange>,
+) -> LayoutRevision {
+    let base = receive(service.request_manifest().unwrap()).layout_revision;
+    receive(admit(|| {
+        service.write_session(SessionWrite {
+            sequence: LayoutSeq(1),
+            expected_revision: base,
+            layout: LayoutPayload::Structural(layout.clone()),
+            document_changes: changes.clone(),
+            preserve_source_layout: None,
+        })
+    }))
+    .revision
+}
+fn close_test_view(
+    service: &RecoveryHandle,
+    target: ViewTarget,
+    disposition: CloseDisposition,
+    required: Option<Revision>,
+) -> CloseAck {
+    let manifest = receive(service.request_manifest().unwrap());
+    let stub = manifest
+        .documents
+        .iter()
+        .find(|stub| stub.key() == target.document)
+        .unwrap();
+    let view = manifest.layout.views[&target.view_id].view.clone();
+    let mut after = manifest.layout.clone();
+    after.remove_views(&[target]).unwrap();
+    receive(admit(|| {
+        service.close_views(CloseBatch {
+            sequence: LayoutSeq(2),
+            expected_revision: manifest.layout_revision,
+            entries: vec![CloseEntry {
+                target,
+                disposition,
+                required_durable_rev: required,
+                expected_format: (stub.meta.encoding, stub.meta.line_ending),
+                view: view.clone(),
+                expected_identity: None,
+            }],
+            after: after.clone(),
+            empty_pane_document: None,
+        })
+    }))
 }
 fn matches_for(
     text: &str,
@@ -530,7 +610,17 @@ fn recovery_baseline_deltas_gap_compaction_and_external_source_loss() {
         "ordinary typing must append deltas, not full snapshots"
     );
     fs::remove_file(source).unwrap();
-    let hydrated = receive(service.request_hydrate(id).unwrap());
+    let hydrated = receive(
+        service
+            .request_hydrate(
+                DocumentKey {
+                    doc_id: id,
+                    lifecycle_gen: LifecycleGen(1),
+                },
+                CancelToken::new(),
+            )
+            .unwrap(),
+    );
     assert_eq!(hydrated.rope, "中文🙂!");
     assert!(hydrated.disk_conflict);
     assert_eq!(hydrated.durable_rev, Revision(2));
@@ -544,7 +634,12 @@ fn recovery_baseline_deltas_gap_compaction_and_external_source_loss() {
     admit(|| service.try_commit(compact.clone()));
     receive(service.flush().unwrap());
     assert_eq!(
-        receive(service.request_hydrate(id).unwrap()).rope,
+        receive(
+            service
+                .request_hydrate(document_key(id), CancelToken::new())
+                .unwrap()
+        )
+        .rope,
         "中文🙂!!"
     );
     let checkpoint_rev: i64 = conn
@@ -565,7 +660,12 @@ fn recovery_baseline_deltas_gap_compaction_and_external_source_loss() {
     admit(|| service.try_commit(gap.clone()));
     receive(service.flush().unwrap());
     assert_eq!(
-        receive(service.request_hydrate(id).unwrap()).rope,
+        receive(
+            service
+                .request_hydrate(document_key(id), CancelToken::new())
+                .unwrap()
+        )
+        .rope,
         "self-contained after queue gap"
     );
     let rows: i64 = conn
@@ -578,7 +678,12 @@ fn recovery_baseline_deltas_gap_compaction_and_external_source_loss() {
     admit(|| service.try_commit(late.clone()));
     receive(service.flush().unwrap());
     assert_eq!(
-        receive(service.request_hydrate(id).unwrap()).durable_rev,
+        receive(
+            service
+                .request_hydrate(document_key(id), CancelToken::new())
+                .unwrap()
+        )
+        .durable_rev,
         Revision(7)
     );
     receive(admit(|| service.shutdown()));
@@ -605,7 +710,12 @@ fn invalid_unicode_delta_does_not_advance_durable_revision() {
     assert!(result.is_err());
     // A malformed caller submission must not receive an acknowledgement for invalid deltas.
     assert_eq!(
-        receive(service.request_hydrate(id).unwrap()).durable_rev,
+        receive(
+            service
+                .request_hydrate(document_key(id), CancelToken::new())
+                .unwrap()
+        )
+        .durable_rev,
         Revision(1)
     );
     // Supply an authoritative replacement snapshot explicitly to repair this rejected input.
@@ -626,32 +736,67 @@ fn discard_tombstone_rejects_late_snapshots_and_close_keeps_recent_draft() {
     let baseline = snapshot(id, 1, "keep recently closed");
     admit(|| service.try_commit(baseline.clone()));
     receive(service.flush().unwrap());
-    receive(service.close_document(id, LifecycleGen(0), false).unwrap());
+    let mut layout = SessionLayout::default();
+    let target = add_layout_view(&mut layout, document_key(id), ViewState::default(), true);
+    persist_test_layout(
+        &service,
+        &layout,
+        vec![DocumentChange::Create(DocumentMetaRecord {
+            key: target.document,
+            meta: baseline.meta.clone(),
+        })],
+    );
+    close_test_view(
+        &service,
+        target,
+        CloseDisposition::KeepRecovery,
+        Some(Revision(1)),
+    );
     assert_eq!(
-        receive(service.request_recently_closed().unwrap())
-            .tabs
+        receive(service.request_recently_closed(None, 64).unwrap())
+            .entries
             .len(),
         1
     );
     assert_eq!(
-        receive(service.request_hydrate(id).unwrap()).rope,
+        receive(
+            service
+                .request_hydrate(target.document, CancelToken::new())
+                .unwrap()
+        )
+        .rope,
         "keep recently closed"
     );
-    receive(service.close_document(id, LifecycleGen(1), true).unwrap());
+    let mut reopened = receive(service.request_manifest().unwrap()).layout;
+    let fresh_view = add_layout_view(&mut reopened, target.document, ViewState::default(), true);
+    assert_ne!(fresh_view.view_id, target.view_id);
+    persist_test_layout(
+        &service,
+        &reopened,
+        vec![DocumentChange::Reopen(target.document)],
+    );
+    close_test_view(
+        &service,
+        fresh_view,
+        CloseDisposition::Discard {
+            tombstone_gen: LifecycleGen(2),
+        },
+        Some(Revision(1)),
+    );
     let late = snapshot(id, 2, "late resurrection");
     admit(|| service.try_commit(late.clone()));
     receive(service.flush().unwrap());
     assert!(
         service
-            .request_hydrate(id)
+            .request_hydrate(target.document, CancelToken::new())
             .unwrap()
             .recv_timeout(Duration::from_secs(5))
             .unwrap()
             .is_err()
     );
     assert!(
-        receive(service.request_recently_closed().unwrap())
-            .tabs
+        receive(service.request_recently_closed(None, 64).unwrap())
+            .entries
             .is_empty()
     );
     receive(admit(|| service.shutdown()));
@@ -661,23 +806,30 @@ fn session_manifest_is_metadata_only_and_corrupt_draft_is_isolated() {
     let dir = TempDir::new().unwrap();
     let database = dir.path().join("db");
     let service = RecoveryHandle::start(&database).unwrap();
-    let mut tabs = Vec::new();
+    let mut layout = SessionLayout::default();
+    let mut targets = Vec::new();
+    let mut changes = Vec::new();
     for n in 0..100 {
         let id = DocumentId::new();
         let mut job = snapshot(id, 1, &format!("draft {n} 中文🙂"));
         job.meta.title = format!("Draft {n}");
-        tabs.push(TabLayoutRecord {
-            doc_id: id,
-            lifecycle_gen: LifecycleGen(0),
-            meta: job.meta.clone(),
-            view: ViewState {
+        let target = add_layout_view(
+            &mut layout,
+            document_key(id),
+            ViewState {
                 cursor_byte: n,
                 scroll_byte: n * 2,
             },
-        });
+            n == 42,
+        );
+        targets.push(target);
+        changes.push(DocumentChange::Create(DocumentMetaRecord {
+            key: target.document,
+            meta: job.meta.clone(),
+        }));
         admit(|| service.try_commit(job.clone()));
     }
-    admit(|| service.save_session_layout(tabs.clone(), Some(tabs[42].doc_id)));
+    persist_test_layout(&service, &layout, changes);
     receive(admit(|| service.flush()));
     let mut durable = std::collections::HashMap::new();
     for event in service.events().try_iter() {
@@ -687,7 +839,7 @@ fn session_manifest_is_metadata_only_and_corrupt_draft_is_isolated() {
                 lifecycle_gen,
                 durable_rev,
             } => {
-                assert_eq!(lifecycle_gen, LifecycleGen(0));
+                assert_eq!(lifecycle_gen, LifecycleGen(1));
                 durable.insert(doc_id, durable_rev);
             }
             RecoveryEvent::StorageError { error, .. } => {
@@ -698,33 +850,51 @@ fn session_manifest_is_metadata_only_and_corrupt_draft_is_isolated() {
     assert_eq!(
         durable.len(),
         100,
-        "every retained submission must receive a durable acknowledgement"
+        "every retained submission receives a durable acknowledgment"
     );
-    for tab in &tabs {
-        assert_eq!(durable.get(&tab.doc_id), Some(&Revision(1)));
+    for target in &targets {
+        assert_eq!(durable.get(&target.document.doc_id), Some(&Revision(1)));
     }
     let conn = rusqlite::Connection::open(database).unwrap();
     conn.execute(
         "UPDATE checkpoint_chunks SET content=x'ff' WHERE doc=?1",
-        [format!("{:032x}", tabs[99].doc_id.0)],
+        [format!("{:032x}", targets[99].document.doc_id.0)],
     )
     .unwrap();
     let manifest = receive(service.request_manifest().unwrap());
-    assert_eq!(manifest.tabs.len(), 100);
-    assert_eq!(manifest.active_doc, Some(tabs[42].doc_id));
-    assert_eq!(manifest.tabs[42].view.cursor_byte, 42);
-    let active = receive(service.request_hydrate(tabs[42].doc_id).unwrap());
-    assert_eq!(active.rope, "draft 42 中文🙂");
+    assert_eq!(manifest.documents.len(), 100);
+    assert_eq!(
+        manifest.layout.pane().active_view,
+        Some(targets[42].view_id)
+    );
+    assert_eq!(
+        manifest.layout.views[&targets[42].view_id].view.cursor_byte,
+        42
+    );
+    assert_eq!(
+        receive(
+            service
+                .request_hydrate(targets[42].document, CancelToken::new())
+                .unwrap()
+        )
+        .rope,
+        "draft 42 中文🙂"
+    );
     assert!(
         service
-            .request_hydrate(tabs[99].doc_id)
+            .request_hydrate(targets[99].document, CancelToken::new())
             .unwrap()
             .recv_timeout(Duration::from_secs(5))
             .unwrap()
             .is_err()
     );
     assert_eq!(
-        receive(service.request_hydrate(tabs[0].doc_id).unwrap()).rope,
+        receive(
+            service
+                .request_hydrate(targets[0].document, CancelToken::new())
+                .unwrap()
+        )
+        .rope,
         "draft 0 中文🙂"
     );
     receive(admit(|| service.shutdown()));
@@ -748,7 +918,7 @@ fn saved_association_survives_later_commit_with_captured_old_metadata() {
         service
             .record_save_intent(SaveIntent {
                 doc_id: id,
-                lifecycle_gen: LifecycleGen(0),
+                lifecycle_gen: LifecycleGen(1),
                 captured_rev: Revision(1),
                 target_path: path.clone(),
                 captured_identity: identity,
@@ -759,7 +929,17 @@ fn saved_association_survives_later_commit_with_captured_old_metadata() {
             })
             .unwrap(),
     );
-    let published = receive(service.request_hydrate(id).unwrap());
+    let published = receive(
+        service
+            .request_hydrate(
+                DocumentKey {
+                    doc_id: id,
+                    lifecycle_gen: LifecycleGen(1),
+                },
+                CancelToken::new(),
+            )
+            .unwrap(),
+    );
     assert_eq!(published.meta.encoding, EncodingSpec::Utf8Bom);
     assert_eq!(published.meta.line_ending, LineEnding::Crlf);
     assert_eq!(
@@ -777,15 +957,28 @@ fn saved_association_survives_later_commit_with_captured_old_metadata() {
     // Do not flush between these admissions: that would hide the metadata ordering race.
     latest.meta.encoding = EncodingSpec::Utf8;
     latest.meta.language_override = Some("python".into());
-    let layout = TabLayoutRecord {
-        doc_id: id,
-        lifecycle_gen: LifecycleGen(0),
-        meta: latest.meta,
-        view: ViewState::default(),
-    };
-    admit(|| service.save_session_layout(vec![layout.clone()], Some(id)));
+    let mut layout = SessionLayout::default();
+    add_layout_view(&mut layout, document_key(id), ViewState::default(), true);
+    persist_test_layout(
+        &service,
+        &layout,
+        vec![DocumentChange::Create(DocumentMetaRecord {
+            key: document_key(id),
+            meta: latest.meta,
+        })],
+    );
     receive(admit(|| service.flush()));
-    let restored = receive(service.request_hydrate(id).unwrap());
+    let restored = receive(
+        service
+            .request_hydrate(
+                DocumentKey {
+                    doc_id: id,
+                    lifecycle_gen: LifecycleGen(1),
+                },
+                CancelToken::new(),
+            )
+            .unwrap(),
+    );
     assert_eq!(restored.meta.path, Some(path));
     assert_eq!(restored.meta.saved_encoding, Some(EncodingSpec::Utf8));
     assert_eq!(restored.meta.saved_line_ending, Some(LineEnding::Lf));
@@ -795,19 +988,19 @@ fn saved_association_survives_later_commit_with_captured_old_metadata() {
     assert_eq!(restored.meta.saved_identity, Some(identity));
     assert_eq!(restored.rope, "saved plus later typing");
     let manifest = receive(service.request_manifest().unwrap());
-    assert_eq!(manifest.tabs.len(), 1);
+    assert_eq!(manifest.documents.len(), 1);
     assert_eq!(
-        manifest.tabs[0].meta.language_override.as_deref(),
+        manifest.documents[0].meta.language_override.as_deref(),
         Some("python")
     );
-    assert_eq!(manifest.tabs[0].meta.encoding, EncodingSpec::Utf8);
-    assert_eq!(manifest.tabs[0].meta.line_ending, LineEnding::Crlf);
+    assert_eq!(manifest.documents[0].meta.encoding, EncodingSpec::Utf8);
+    assert_eq!(manifest.documents[0].meta.line_ending, LineEnding::Crlf);
     assert_eq!(
-        manifest.tabs[0].meta.saved_encoding,
+        manifest.documents[0].meta.saved_encoding,
         Some(EncodingSpec::Utf8)
     );
     assert_eq!(
-        manifest.tabs[0].meta.saved_line_ending,
+        manifest.documents[0].meta.saved_line_ending,
         Some(LineEnding::Lf)
     );
     receive(admit(|| service.shutdown()));
@@ -845,7 +1038,7 @@ fn process_exit_before_sqlite_commit_recovers_only_prior_complete_revision() {
 fn save_request(path: &Path, text: &str) -> SaveRequest {
     SaveRequest {
         doc_id: DocumentId::new(),
-        lifecycle_gen: LifecycleGen(0),
+        lifecycle_gen: LifecycleGen(1),
         captured_rev: Revision(7),
         rope: Rope::from_str(text),
         target_path: path.to_path_buf(),
@@ -1006,7 +1199,12 @@ fn save_process_exit_stages_keep_either_complete_old_or_complete_new_file() {
         );
         let service = RecoveryHandle::start(dir.path().join("save.sqlite3")).unwrap();
         assert_eq!(
-            receive(service.request_hydrate(DocumentId(0x5a7e)).unwrap()).rope,
+            receive(
+                service
+                    .request_hydrate(document_key(DocumentId(0x5a7e)), CancelToken::new())
+                    .unwrap()
+            )
+            .rope,
             "captured new text\n"
         );
         let intents = receive(service.request_save_intents().unwrap());
@@ -1082,7 +1280,7 @@ fn unmodified_supported_files_save_byte_identically() {
         };
         let request = SaveRequest {
             doc_id: id,
-            lifecycle_gen: LifecycleGen(0),
+            lifecycle_gen: LifecycleGen(1),
             captured_rev: Revision(0),
             rope,
             target_path: path.clone(),
@@ -1395,16 +1593,31 @@ fn durable_head_without_saved_layout_is_visible_after_restart() {
     let reopened = RecoveryHandle::start(database).unwrap();
     let manifest = receive(reopened.request_manifest().unwrap());
     assert!(manifest.warnings.is_empty());
-    assert_eq!(manifest.tabs.len(), 1);
-    assert_eq!(manifest.tabs[0].doc_id, id);
+    assert_eq!(manifest.documents.len(), 1);
+    assert_eq!(manifest.documents[0].doc_id, id);
     assert_eq!(
-        receive(reopened.request_hydrate(id).unwrap()).rope,
+        receive(
+            reopened
+                .request_hydrate(document_key(id), CancelToken::new())
+                .unwrap()
+        )
+        .rope,
         "durable without layout 中文🙂"
     );
-    receive(admit(|| reopened.close_document(id, LifecycleGen(1), true)));
+    let layout = manifest.layout;
+    let target = layout.target(layout.pane().tabs[0]).unwrap();
+    persist_test_layout(&reopened, &layout, Vec::new());
+    close_test_view(
+        &reopened,
+        target,
+        CloseDisposition::Discard {
+            tombstone_gen: LifecycleGen(2),
+        },
+        Some(Revision(1)),
+    );
     assert!(
         receive(reopened.request_manifest().unwrap())
-            .tabs
+            .documents
             .is_empty()
     );
     receive(admit(|| reopened.shutdown()));
@@ -1416,21 +1629,26 @@ fn malformed_metadata_and_view_are_isolated_with_visible_manifest_warnings() {
     let database = dir.path().join("db");
     let service = RecoveryHandle::start(&database).unwrap();
     let ids = [DocumentId::new(), DocumentId::new(), DocumentId::new()];
-    let mut tabs = Vec::new();
+    let mut layout = SessionLayout::default();
+    let mut changes = Vec::new();
     for (index, id) in ids.iter().enumerate() {
         let job = snapshot(*id, 1, &format!("intact draft {index}"));
-        tabs.push(TabLayoutRecord {
-            doc_id: *id,
-            lifecycle_gen: LifecycleGen(0),
-            meta: job.meta.clone(),
-            view: ViewState {
+        add_layout_view(
+            &mut layout,
+            document_key(*id),
+            ViewState {
                 cursor_byte: 7,
                 scroll_byte: 8,
             },
-        });
+            index == 0,
+        );
+        changes.push(DocumentChange::Create(DocumentMetaRecord {
+            key: document_key(*id),
+            meta: job.meta.clone(),
+        }));
         admit(|| service.try_commit(job.clone()));
     }
-    admit(|| service.save_session_layout(tabs.clone(), Some(ids[0])));
+    persist_test_layout(&service, &layout, changes);
     receive(admit(|| service.flush()));
     let conn = rusqlite::Connection::open(database).unwrap();
     conn.execute(
@@ -1439,38 +1657,56 @@ fn malformed_metadata_and_view_are_isolated_with_visible_manifest_warnings() {
     )
     .unwrap();
     conn.execute(
-        "UPDATE windows_views SET view='invalid json' WHERE doc=?1",
+        "UPDATE layout_views SET view_state='invalid json' WHERE doc=?1",
         [format!("{:032x}", ids[2].0)],
     )
     .unwrap();
     let manifest = receive(service.request_manifest().unwrap());
-    assert_eq!(manifest.tabs.len(), 2);
-    assert!(manifest.tabs.iter().any(|tab| tab.doc_id == ids[0]));
+    assert_eq!(manifest.documents.len(), 2);
+    assert!(manifest.documents.iter().any(|stub| stub.doc_id == ids[0]));
     let reset_view = manifest
-        .tabs
-        .iter()
-        .find(|tab| tab.doc_id == ids[2])
+        .layout
+        .views
+        .values()
+        .find(|view| view.document.doc_id == ids[2])
         .unwrap();
-    assert_eq!(reset_view.view.cursor_byte, 0);
-    assert_eq!(reset_view.view.scroll_byte, 0);
+    assert_eq!(reset_view.view, ViewState::default());
+    let catalog = receive(
+        service
+            .request_recovery_page(RecoveryPageRequest {
+                cursor: None,
+                limit: 64,
+            })
+            .unwrap(),
+    );
     assert!(
-        manifest
-            .warnings
+        catalog
+            .entries
             .iter()
-            .any(|warning| warning.doc_id == Some(ids[1]))
+            .any(|entry| entry.key.doc_id == Some(ids[1]) && entry.stub.is_err())
     );
     assert!(
         manifest
             .warnings
             .iter()
-            .any(|warning| warning.doc_id == Some(ids[2]))
+            .any(|warning| warning.doc_id.is_none() && warning.message.contains("layout"))
     );
     assert_eq!(
-        receive(service.request_hydrate(ids[0]).unwrap()).rope,
+        receive(
+            service
+                .request_hydrate(document_key(ids[0]), CancelToken::new())
+                .unwrap()
+        )
+        .rope,
         "intact draft 0"
     );
     assert_eq!(
-        receive(service.request_hydrate(ids[2]).unwrap()).rope,
+        receive(
+            service
+                .request_hydrate(document_key(ids[2]), CancelToken::new())
+                .unwrap()
+        )
+        .rope,
         "intact draft 2"
     );
     let preserved: i64 = conn
@@ -1502,7 +1738,17 @@ fn valid_but_inaccurate_equal_length_deltas_checkpoint_the_captured_rope() {
     }];
     admit(|| service.try_commit(mismatched.clone()));
     receive(admit(|| service.flush()));
-    let restored = receive(service.request_hydrate(id).unwrap());
+    let restored = receive(
+        service
+            .request_hydrate(
+                DocumentKey {
+                    doc_id: id,
+                    lifecycle_gen: LifecycleGen(1),
+                },
+                CancelToken::new(),
+            )
+            .unwrap(),
+    );
     assert_eq!(restored.durable_rev, Revision(2));
     assert_eq!(restored.rope, "ab");
     let mut next = snapshot(id, 3, "abc");
@@ -1512,7 +1758,15 @@ fn valid_but_inaccurate_equal_length_deltas_checkpoint_the_captured_rope() {
     }];
     admit(|| service.try_commit(next.clone()));
     receive(admit(|| service.flush()));
-    assert_eq!(receive(service.request_hydrate(id).unwrap()).rope, "abc");
+    assert_eq!(
+        receive(
+            service
+                .request_hydrate(document_key(id), CancelToken::new())
+                .unwrap()
+        )
+        .rope,
+        "abc"
+    );
     receive(admit(|| service.shutdown()));
 }
 
@@ -1543,7 +1797,7 @@ fn legacy_metadata_and_save_intents_keep_unknown_format_baselines() {
 
     let intent = SaveIntent {
         doc_id: DocumentId(11),
-        lifecycle_gen: LifecycleGen(0),
+        lifecycle_gen: LifecycleGen(1),
         captured_rev: Revision(1),
         target_path: "legacy.txt".into(),
         captured_identity: identity,
@@ -1570,14 +1824,34 @@ fn legacy_metadata_and_save_intents_keep_unknown_format_baselines() {
     admit(|| service.try_commit(job.clone()));
     receive(admit(|| service.flush()));
     receive(service.record_save_intent(legacy.clone()).unwrap());
-    let published = receive(service.request_hydrate(legacy.doc_id).unwrap());
+    let published = receive(
+        service
+            .request_hydrate(
+                DocumentKey {
+                    doc_id: legacy.doc_id,
+                    lifecycle_gen: LifecycleGen(1),
+                },
+                CancelToken::new(),
+            )
+            .unwrap(),
+    );
     assert_eq!(published.meta.saved_encoding, None);
     assert_eq!(published.meta.saved_line_ending, None);
     job.base_rev = Revision(1);
     job.new_rev = Revision(2);
     admit(|| service.try_commit(job.clone()));
     receive(admit(|| service.flush()));
-    let draft = receive(service.request_hydrate(legacy.doc_id).unwrap());
+    let draft = receive(
+        service
+            .request_hydrate(
+                DocumentKey {
+                    doc_id: legacy.doc_id,
+                    lifecycle_gen: LifecycleGen(1),
+                },
+                CancelToken::new(),
+            )
+            .unwrap(),
+    );
     assert_eq!(draft.meta.saved_encoding, None);
     assert_eq!(draft.meta.saved_line_ending, None);
     assert_eq!(draft.meta.encoding, EncodingSpec::Utf8Bom);
@@ -1609,7 +1883,17 @@ fn real_save_intent_captures_request_format_without_reverting_newer_metadata() {
     assert_eq!(intents[0].captured_encoding, Some(EncodingSpec::Utf8Bom));
     assert_eq!(intents[0].captured_line_ending, Some(LineEnding::Crlf));
     assert!(matches!(intents[0].stage, SaveStage::Published));
-    let draft = receive(service.request_hydrate(request.doc_id).unwrap());
+    let draft = receive(
+        service
+            .request_hydrate(
+                DocumentKey {
+                    doc_id: request.doc_id,
+                    lifecycle_gen: LifecycleGen(1),
+                },
+                CancelToken::new(),
+            )
+            .unwrap(),
+    );
     assert_eq!(draft.meta.saved_encoding, Some(EncodingSpec::Utf8Bom));
     assert_eq!(draft.meta.saved_line_ending, Some(LineEnding::Crlf));
     assert_eq!(draft.meta.encoding, EncodingSpec::Utf8);
@@ -1636,3 +1920,6 @@ fn real_save_intent_captures_request_format_without_reverting_newer_metadata() {
     assert_eq!(line_ending, LineEnding::Crlf);
     receive(admit(|| service.shutdown()));
 }
+
+#[path = "support/session_groups.rs"]
+mod session_groups;

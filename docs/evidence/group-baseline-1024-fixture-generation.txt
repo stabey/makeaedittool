@@ -1,0 +1,98 @@
+=== Exact 1024-Tab Database Fixture Generation & Contract ===
+
+1. Overview & Purpose
+The 1024-tab database fixture (.smoke-data/group-baseline-native-1024/seed/seed1024.sqlite3)
+was constructed to measure native GPUI Kit editor recovery and startup performance at the
+architectural session manifest limit (ADR 009, recovery.rs LIMIT 1024).
+
+Because editor-services session-bench has an explicit CLI argument guard of 1..128 tabs,
+exact 1024 tabs cannot be generated directly via CLI subcommands. The fixture was
+synthesized from a verified 128-tab base seed and checkpointed into a standalone SQLite
+database.
+
+2. Raw v1 Fixture Preservation (Retained for Post-Migration Comparison)
+All raw v1 fixtures are preserved in scratch directories for after-migration verification:
+- 100-Tab v1 Fixture:
+  Path: .smoke-data/group-baseline-native-100/seed/session-a7266698-3f42-4de1-8720-2a42f4c50450.sqlite3
+  Size: 7,122,944 bytes
+  SHA-256: b1a426dbeb41ef1a68c693b3e00e272d9ea97fe3ad7d1a284d8eb438e587003d
+- 128-Tab v1 Fixture:
+  Path: .smoke-data/group-baseline-native-128/seed/session-f18945f1-38dd-459a-bceb-d66951d15666.sqlite3
+  Size: 9,125,888 bytes
+  SHA-256: 2588636ac492ba5400ff523b5bc05cf75bc116b424120b6f52de184e49152ef8
+- 1024-Tab v1 Fixture:
+  Path: .smoke-data/group-baseline-native-1024/seed/seed1024.sqlite3
+  Size: 72,491,008 bytes
+  SHA-256: f4c04d2187f78efe358e82c49b7739691129139ae7ae366e0b293437dcad4dc9
+
+3. Exact Generation Method & Commands
+
+Step 3.1: Generate verified 128-tab base seed via release CLI harness
+  mkdir -p .smoke-data/group-baseline-native-128/seed
+  target/release/editor-services session-bench .smoke-data/group-baseline-native-128/seed 128
+  sqlite3 .smoke-data/group-baseline-native-128/seed/session-*.sqlite3 "PRAGMA wal_checkpoint(TRUNCATE);"
+
+Step 3.2: Backup base seed and synthesize entries 128..1023 to reach 1024 tabs
+  mkdir -p .smoke-data/group-baseline-native-1024/seed
+  python3 -c "
+import sqlite3, uuid, json, glob
+
+src_path = glob.glob('.smoke-data/group-baseline-native-128/seed/session-*.sqlite3')[0]
+src = sqlite3.connect(src_path)
+dst = sqlite3.connect('.smoke-data/group-baseline-native-1024/seed/seed1024.sqlite3')
+src.backup(dst)
+
+cur = dst.cursor()
+cur.execute('SELECT content, checksum FROM checkpoint_chunks LIMIT 1')
+content, checksum = cur.fetchone()
+cur.execute('SELECT checkpoint_hash FROM recovery_heads LIMIT 1')
+(checkpoint_hash,) = cur.fetchone()
+
+# Base seed holds Draft 0..127. Add Draft 128..1023 (896 entries) with matching durable chunks:
+for i in range(128, 1024):
+    doc_id = uuid.uuid4().hex
+    title = f'Draft {i}'
+    meta = json.dumps({'title': title, 'path': None, 'encoding': 'Utf8', 'line_ending': 'Lf', 'origin_fingerprint': None, 'saved_identity': None, 'readonly_reason': None, 'paged': False})
+    view = json.dumps({'cursor_byte': i, 'scroll_byte': 0})
+    cur.execute('INSERT INTO documents(id, gen, state, meta, saved_rev, saved_meta) VALUES(?, 0, 0, ?, -1, NULL)', (doc_id, meta))
+    cur.execute('INSERT INTO recovery_heads(doc, checkpoint_rev, durable_rev, byte_len, checkpoint_hash, delta_bytes, delta_rows) VALUES(?, 1, 1, 69632, ?, 0, 0)', (doc_id, checkpoint_hash))
+    cur.execute('INSERT INTO checkpoint_chunks(doc, rev, ordinal, content, checksum) VALUES(?, 1, 0, ?, ?)', (doc_id, content, checksum))
+    cur.execute('INSERT INTO windows_views(doc, position, view) VALUES(?, ?, ?)', (doc_id, i, view))
+
+dst.commit()
+cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+dst.close()
+src.close()
+"
+
+Step 3.3: Copy to isolated run directories before execution
+  for i in 1 2 3; do
+    mkdir -p .smoke-data/group-baseline-native-1024/run$i
+    cp .smoke-data/group-baseline-native-1024/seed/seed1024.sqlite3 .smoke-data/group-baseline-native-1024/run$i/recovery.sqlite3
+  done
+
+4. Durable Heads vs. Metadata-Only Distinctions
+
+Table Row Counts in seed1024.sqlite3:
+- documents: 1024 rows
+  Every row has state=0 (open/active draft), gen=0, meta JSON with title 'Draft N', saved_rev=-1.
+- windows_views: 1024 rows
+  Every row maps a document id to its session tab position (0..1023) and view JSON {"cursor_byte": N, "scroll_byte": 0}.
+- recovery_heads: 1024 rows (REAL DURABLE HEADS)
+  Every row has checkpoint_rev=1, durable_rev=1, byte_len=69632, delta_bytes=0, delta_rows=0.
+  checkpoint_hash is the BLAKE3 digest 97BCE3BBB64416AD7BFD7E44D98050EC6F34B4986C66D7DC9E5B2F058B4FD135.
+- checkpoint_chunks: 1024 rows (REAL PERSISTED CHUNKS)
+  Every row holds rev=1, ordinal=0, 69,632-byte content payload ("draft 中文🙂\n" * 4096),
+  and matching BLAKE3 checksum 97BCE3BBB64416AD7BFD7E44D98050EC6F34B4986C66D7DC9E5B2F058B4FD135.
+- session: 1 row
+  key='active', value='68a18423bc8346a3949db715ab53ed54' (pointing to Draft 0).
+
+5. Active Draft Byte Identity vs. Lazy Stubs
+- Active Draft: Draft 0 (document id 68a18423bc8346a3949db715ab53ed54)
+  Byte length: exactly 69,632 UTF-8 bytes.
+  Content: 4096 repetitions of 'draft 中文🙂\n'.
+  Hydration Behavior: On native startup, editor's recovery worker queries the manifest (1024 stubs),
+  hydrates ONLY Draft 0 into live EditorState (hydrated_editor_count=1, hydrated_content_bytes=69632).
+- Inactive Tabs (1..1023):
+  All 1023 tabs have has_checkpoint=true in SessionTabStub, backed by real durable heads and chunks,
+  but remain unhydrated stubs (TabSlot::Dehydrated) with 0 live EditorState heap allocations.

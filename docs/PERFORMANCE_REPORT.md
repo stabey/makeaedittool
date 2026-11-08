@@ -136,3 +136,27 @@ target/release/editor-services ram-bench 64MiB
 侧栏没有导致100标签全文加载；RSS中位数增加约2.77 MiB。进程时间中位数从0.28 s到0.32 s，样本太少且缓存未控制，不能据此宣称启动更快或统计上无退化。输入数字仍仅为提交成本，不包含屏幕呈现或每次durable等待；本轮没有新增64 GiB或Windows ARM性能结论。
 
 原始证据：[补齐前OS输出](evidence/usability-100-before-os.txt)、[最终OS输出](evidence/usability-100-final-os.txt)、[补齐前完整smoke](evidence/usability-full-before.json)、[最终独立完整smoke](evidence/usability-full-verifier.json)、[本轮二进制标识](evidence/usability-build-identity.txt)。中途版本的`usability-100-after*`保留为过程证据，不与最终版本混用。
+
+## 标签组：100/1024草稿迁移与重启
+
+同一Mac、同一外置卷，release串行运行，未清OS缓存。每种规模三份相同v1源库的SQLite备份，各先迁移再重启；1024夹具包含真实恢复头与正文，不是空元数据。以下为三次均值，**全进程时间包含退出，不是首帧或p95**。
+
+| 标签数与路径 | 改动前时间 | 最终时间 | 改动前峰值RSS | 最终峰值RSS |
+|---|---:|---:|---:|---:|
+| 100，v1迁移 | 0.330 s | 0.337 s | 116.61 MiB | 118.57 MiB |
+| 100，v2重启 | 0.330 s | 0.343 s | 116.61 MiB | 118.29 MiB |
+| 1024，v1迁移 | 0.400 s | 0.463 s | 167.89 MiB | 174.72 MiB |
+| 1024，v2重启 | 0.400 s | 0.427 s | 167.89 MiB | 174.17 MiB |
+
+所有运行只hydrate一个编辑器、69632字节正文。1024标签重启峰值RSS均值增加约6.28 MiB；迁移比旧版本启动多约63 ms。三样本且缓存未控制，不能宣称统计上无退化。最终完整smoke输入提交p50为0.064125 ms、p95为0.072 ms，单次64 KiB粘贴提交1.41525 ms；不含屏幕呈现，不代表端到端输入延迟。
+
+最终editor SHA-256为`0d439c7f069065828326b87cbff836143228ef91daf0ece720ec4f32b524c896`；逐次命令、OS时间/RSS及正文加载量见[group-accepted-summary.json](evidence/group-accepted-summary.json)及`group-accepted-*-os.txt`。改动前二进制为`b8e6f545606fa603a3fa698db10fb5bbc9d84a4ed4ecacdcaf603c13f66245f7`，旧二进制与源码提交的对应未独立证明。`group-final-perf-*`测量的是中间版本`42d527...`，不能当作本表最终版本。
+
+新增可复现夹具及真实窗口场景：
+
+```sh
+target/release/editor-services session-fixture /tmp/makeanotepad-groups-unique 1000 1
+target/release/editor --data-dir /tmp/makeanotepad-groups-unique --smoke=groups --smoke-report /tmp/makeanotepad-groups-report.json
+```
+
+夹具命令拒绝已有数据库。1000草稿整组取消/关闭不加载全部正文；关闭后持久状态已验证为1000个Closed加1个新空白。未新增64 GiB扫描、Windows ARM性能、长期内存泄漏或逐帧呈现结论。

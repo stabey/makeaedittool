@@ -1,0 +1,234 @@
+{
+  "note": "Intermediate verification evidence. Final acceptance pending Main verification.",
+  "binary_identities": {
+    "baseline_binary": {
+      "editor_sha256": "b8e6f545606fa603a3fa698db10fb5bbc9d84a4ed4ecacdcaf603c13f66245f7",
+      "editor_services_sha256": "779973e990befd8ac20f42961f266c3128357c40bd1a365e10232cd70b5e06a8",
+      "role": "Pre-change baseline before tab-group migration"
+    },
+    "intermediate_binary": {
+      "editor_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+      "editor_services_sha256": "fca076fe18be3ad3f20987957acd3b18c3480878fda7c86f55d6110e6cd81ab6",
+      "role": "First release build after tab-group merge; measured for 100/1024 before/after performance and produced original smoke_groups failure"
+    },
+    "rebuilt_release_binary": {
+      "editor_sha256": "ce487170095a8a190f398d24490abbddbf456eeab5f2e9ff74ad7e8f7fcd81e3",
+      "editor_services_sha256": "a665b55964b20791d263d4a5d0b797de68b47314437f836519963f178fe5d1b7",
+      "role": "Rebuilt release binary with core frame pump and safety fixes; measured for fresh smoke runs"
+    }
+  },
+  "performance_measurements_on_intermediate_binary_42d527": {
+    "measured_binary_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+    "tabs_100": {
+      "before_change_v1_baseline": {
+        "binary_sha256": "b8e6f545606fa603a3fa698db10fb5bbc9d84a4ed4ecacdcaf603c13f66245f7",
+        "mean_real_sec": 0.33,
+        "mean_rss_mib": 116.61,
+        "hydrated_editors": 1,
+        "hydrated_content_bytes": 69632
+      },
+      "after_change_v1_migration": {
+        "measured_binary_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+        "runs": [
+          {
+            "run": 1,
+            "real_sec": 0.39,
+            "rss_bytes": 123977728,
+            "rss_mib": 118.23,
+            "total_elapsed_ms": 389.66
+          },
+          {
+            "run": 2,
+            "real_sec": 0.34,
+            "rss_bytes": 124043264,
+            "rss_mib": 118.3,
+            "total_elapsed_ms": 337.88
+          },
+          {
+            "run": 3,
+            "real_sec": 0.34,
+            "rss_bytes": 124403712,
+            "rss_mib": 118.64,
+            "total_elapsed_ms": 338.89
+          }
+        ],
+        "mean_real_sec": 0.357,
+        "mean_rss_mib": 118.39,
+        "hydrated_editors": 1,
+        "hydrated_content_bytes": 69632
+      },
+      "after_change_v2_restart": {
+        "measured_binary_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+        "runs": [
+          {
+            "run": 1,
+            "real_sec": 0.35,
+            "rss_bytes": 123715584,
+            "rss_mib": 117.98,
+            "total_elapsed_ms": 347.61
+          },
+          {
+            "run": 2,
+            "real_sec": 0.34,
+            "rss_bytes": 123666432,
+            "rss_mib": 117.94,
+            "total_elapsed_ms": 337.57
+          },
+          {
+            "run": 3,
+            "real_sec": 0.35,
+            "rss_bytes": 123912192,
+            "rss_mib": 118.17,
+            "total_elapsed_ms": 342.4
+          }
+        ],
+        "mean_real_sec": 0.347,
+        "mean_rss_mib": 118.03,
+        "hydrated_editors": 1,
+        "hydrated_content_bytes": 69632
+      }
+    },
+    "tabs_1024": {
+      "before_change_v1_baseline": {
+        "binary_sha256": "b8e6f545606fa603a3fa698db10fb5bbc9d84a4ed4ecacdcaf603c13f66245f7",
+        "mean_real_sec": 0.4,
+        "mean_rss_mib": 167.89,
+        "hydrated_editors": 1,
+        "hydrated_content_bytes": 69632
+      },
+      "after_change_v1_migration": {
+        "measured_binary_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+        "runs": [
+          {
+            "run": 1,
+            "real_sec": 0.5,
+            "rss_bytes": 182730752,
+            "rss_mib": 174.27,
+            "total_elapsed_ms": 492.41
+          },
+          {
+            "run": 2,
+            "real_sec": 0.47,
+            "rss_bytes": 183156736,
+            "rss_mib": 174.67,
+            "total_elapsed_ms": 466.8
+          },
+          {
+            "run": 3,
+            "real_sec": 0.48,
+            "rss_bytes": 182763520,
+            "rss_mib": 174.3,
+            "total_elapsed_ms": 470.2
+          }
+        ],
+        "mean_real_sec": 0.483,
+        "mean_rss_mib": 174.41,
+        "hydrated_editors": 1,
+        "hydrated_content_bytes": 69632
+      },
+      "after_change_v2_restart": {
+        "measured_binary_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+        "runs": [
+          {
+            "run": 1,
+            "real_sec": 0.47,
+            "rss_bytes": 182845440,
+            "rss_mib": 174.38,
+            "total_elapsed_ms": 462.74
+          },
+          {
+            "run": 2,
+            "real_sec": 0.4,
+            "rss_bytes": 182452224,
+            "rss_mib": 174.0,
+            "total_elapsed_ms": 399.8
+          },
+          {
+            "run": 3,
+            "real_sec": 0.41,
+            "rss_bytes": 182517760,
+            "rss_mib": 174.06,
+            "total_elapsed_ms": 402.1
+          }
+        ],
+        "mean_real_sec": 0.427,
+        "mean_rss_mib": 174.15,
+        "hydrated_editors": 1,
+        "hydrated_content_bytes": 69632
+      }
+    },
+    "cli_overflow_1024": {
+      "measured_binary_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+      "verified": true,
+      "startup_cli_overflow_active_hydrated_verified": true,
+      "real_sec": 0.48,
+      "rss_bytes": 183205888,
+      "rss_mib": 174.72,
+      "hydrated_editors": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 1024
+    }
+  },
+  "observed_failure_on_intermediate_binary_42d527": {
+    "measured_binary_sha256": "42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8",
+    "command": "target/release/editor --data-dir .smoke-data/group-final-smoke-groups --smoke=groups --smoke-report docs/evidence/group-final-smoke-groups.json",
+    "exit_code": 1,
+    "failure_reason": "timed out waiting for undo preserved across group operations",
+    "evidence_files": [
+      "docs/evidence/group-final-smoke-groups.json",
+      "docs/evidence/group-final-smoke-groups-os.txt"
+    ]
+  },
+  "fresh_smoke_runs_on_rebuilt_binary_ce4871": {
+    "measured_binary_sha256": "ce487170095a8a190f398d24490abbddbf456eeab5f2e9ff74ad7e8f7fcd81e3",
+    "smoke_groups": {
+      "evidence_file": "docs/evidence/group-final-smoke-groups-ce4871.json",
+      "exit_code": 0,
+      "passed": true,
+      "shutdown_durable_ack_observed": true,
+      "total_elapsed_ms": 1235.65,
+      "flags": {
+        "group_metadata_mutations_verified": true,
+        "group_undo_preserved_verified": true,
+        "group_cancel_restores_editability_verified": true,
+        "group_native_pending_guard_verified": true,
+        "group_close_reopen_verified": true,
+        "group_restart_layout_verified": true,
+        "group_batch_open_verified": true
+      }
+    },
+    "smoke_full": {
+      "evidence_file": "docs/evidence/group-final-smoke-full.json",
+      "exit_code": 0,
+      "passed": true,
+      "shutdown_durable_ack_observed": true,
+      "total_elapsed_ms": 1721.91,
+      "typing_submit_p50_ms": 0.0675,
+      "typing_submit_p95_ms": 0.0807,
+      "large_paste_64k_submit_ms": 1.3978,
+      "paged_streaming_search_matches": 72
+    },
+    "smoke_usability": {
+      "evidence_file": "docs/evidence/group-final-smoke-usability.json",
+      "exit_code": 0,
+      "passed": true,
+      "shutdown_durable_ack_observed": true,
+      "total_elapsed_ms": 956.39,
+      "all_8_usability_checks_passed": true
+    },
+    "smoke_startup": {
+      "evidence_file": "docs/evidence/group-final-smoke-startup.json",
+      "exit_code": 0,
+      "passed": true,
+      "shutdown_durable_ack_observed": true,
+      "total_elapsed_ms": 337.85,
+      "startup_restart_layout_verified": true
+    }
+  },
+  "ui_automation_ground_truth": {
+    "display_pixel_capture": "UNVERIFIED (ScreenCaptureKit error -3811; screencapture produces 100% uniform black RGB(0,0,0) frames in this workstation session)",
+    "applescript_ipc_keystrokes": "NOT PROVEN by state (observed SELECT state, count(*) FROM documents => state 0 count 1000; zero documents closed; Keep did not commit; IPC injection is not behavioral proof)",
+    "drag_drop": "UNVERIFIED by physical hardware (inspected in code, not executed via HID)",
+    "in_app_native_smoke_runner": "VERIFIED (GPUI window events, focus, frame rendering, atomic transactions, durable recovery, and post-shutdown SQLite states validated synchronously in application runloop)"
+  }
+}

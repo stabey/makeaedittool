@@ -1,5 +1,6 @@
 use crate::editor_adapter::MAX_ORDINARY_DOC_BYTES;
 use crate::paged_view::format_bytes;
+use editor_services::DocumentId;
 
 /// Explicit ordinary-editor hydration admission budget (`§15.2`, `ADR-005`).
 ///
@@ -15,7 +16,7 @@ pub struct HydrationBudgetConfig {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct HydratedSlotInfo {
-    pub tab_index: usize,
+    pub doc_id: DocumentId,
     pub byte_len: u64,
     pub is_dirty: bool,
     pub has_undo_history: bool,
@@ -27,7 +28,7 @@ pub struct HydratedSlotInfo {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AdmissionDecision {
     Admit {
-        dehydrate_tab_indices: Vec<usize>,
+        dehydrate_documents: Vec<DocumentId>,
     },
     OverBudget {
         reason: String,
@@ -66,7 +67,7 @@ pub fn plan_hydration_admission(
         || remaining_editors >= config.max_hydrated_editors
         || remaining_bytes.saturating_add(incoming_bytes) > config.max_hydrated_bytes;
 
-    let mut dehydrate_tab_indices = Vec::new();
+    let mut dehydrate_documents = Vec::new();
 
     if needs_clean_reclaim {
         let mut reclaimable: Vec<HydratedSlotInfo> = current_hydrated
@@ -86,7 +87,7 @@ pub fn plan_hydration_admission(
             if !over_soft_count && !over_hard_count && !over_bytes {
                 break;
             }
-            dehydrate_tab_indices.push(candidate.tab_index);
+            dehydrate_documents.push(candidate.doc_id);
             remaining_bytes = remaining_bytes.saturating_sub(candidate.byte_len);
             remaining_editors = remaining_editors.saturating_sub(1);
         }
@@ -118,7 +119,7 @@ pub fn plan_hydration_admission(
     }
 
     AdmissionDecision::Admit {
-        dehydrate_tab_indices,
+        dehydrate_documents,
     }
 }
 
@@ -136,7 +137,7 @@ mod tests {
 
         let existing: Vec<HydratedSlotInfo> = (0..99)
             .map(|i| HydratedSlotInfo {
-                tab_index: i,
+                doc_id: DocumentId(i),
                 byte_len: 4096,
                 is_dirty: i % 2 == 0,
                 has_undo_history: true,
@@ -150,7 +151,7 @@ mod tests {
         assert_eq!(
             decision,
             AdmissionDecision::Admit {
-                dehydrate_tab_indices: Vec::new()
+                dehydrate_documents: Vec::new()
             }
         );
     }
@@ -165,7 +166,7 @@ mod tests {
 
         let existing = vec![
             HydratedSlotInfo {
-                tab_index: 0,
+                doc_id: DocumentId(0),
                 byte_len: 1024,
                 is_dirty: true,
                 has_undo_history: true,
@@ -174,7 +175,7 @@ mod tests {
                 last_activated_tick: 1,
             },
             HydratedSlotInfo {
-                tab_index: 1,
+                doc_id: DocumentId(1),
                 byte_len: 1024,
                 is_dirty: false,
                 has_undo_history: false,
@@ -183,7 +184,7 @@ mod tests {
                 last_activated_tick: 2,
             },
             HydratedSlotInfo {
-                tab_index: 2,
+                doc_id: DocumentId(2),
                 byte_len: 1024,
                 is_dirty: false,
                 has_undo_history: true, // Edited then undone -> still has undo/redo history; NEVER evict!
@@ -192,7 +193,7 @@ mod tests {
                 last_activated_tick: 3,
             },
             HydratedSlotInfo {
-                tab_index: 3,
+                doc_id: DocumentId(3),
                 byte_len: 1024,
                 is_dirty: false,
                 has_undo_history: false,
@@ -206,7 +207,7 @@ mod tests {
         assert_eq!(
             decision,
             AdmissionDecision::Admit {
-                dehydrate_tab_indices: vec![1]
+                dehydrate_documents: vec![DocumentId(1)]
             }
         );
     }
@@ -221,7 +222,7 @@ mod tests {
 
         let four_dirty_64m: Vec<HydratedSlotInfo> = (0..4)
             .map(|i| HydratedSlotInfo {
-                tab_index: i,
+                doc_id: DocumentId(i),
                 byte_len: 64 * 1024 * 1024,
                 is_dirty: true,
                 has_undo_history: true,
@@ -246,7 +247,7 @@ mod tests {
         // 4 untouched untitled tabs (is_file_backed = false) occupy the hard cap of 4 editors.
         let four_untitled: Vec<HydratedSlotInfo> = (0..4)
             .map(|i| HydratedSlotInfo {
-                tab_index: i,
+                doc_id: DocumentId(i),
                 byte_len: 0,
                 is_dirty: false,
                 has_undo_history: false,

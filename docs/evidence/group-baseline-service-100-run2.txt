@@ -1,0 +1,19 @@
+metric=lazy_session tabs=100 metadata_us=184 active_hydrate_us=215 hydrated_documents=1 active_bytes=69632 inactive_hydrated=0
+        0.06 real         0.01 user         0.02 sys
+            17907712  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                1271  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                 180  voluntary context switches
+                 128  involuntary context switches
+           531146453  instructions retired
+           148241290  cycles elapsed
+            15270296  peak memory footprint

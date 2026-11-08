@@ -175,6 +175,22 @@ fn run() -> Result<()> {
             Path::new(argument(&args, 1)?),
             args.get(2).map(|s| s.parse()).transpose()?.unwrap_or(100),
         )?,
+        Some("session-fixture") => {
+            let directory = Path::new(argument(&args, 1)?);
+            let views = args.get(2).map(|s| s.parse()).transpose()?.unwrap_or(100);
+            let groups = args
+                .get(3)
+                .map(|s| s.parse())
+                .transpose()?
+                .unwrap_or(views.min(8));
+            std::fs::create_dir_all(directory)?;
+            let database = directory.join("recovery.sqlite3");
+            create_session_fixture(&database, views, groups)?;
+            println!(
+                "session_fixture views={views} groups={groups} database={} hydrated_editor_cap=128",
+                database.display()
+            );
+        }
         Some("recovery-bench") => recovery_bench(
             Path::new(argument(&args, 1)?),
             args.get(2)
@@ -193,6 +209,9 @@ fn run() -> Result<()> {
             );
             println!(
                 "  recovery-bench DIRECTORY [SIZE=4MiB] [COMMITS=20]  # includes worker replay equality and SQLite FULL commits"
+            );
+            println!(
+                "  session-fixture DIRECTORY [VIEWS=100] [GROUPS=8]  # real 1..1024-view, 1..128-group restart fixture; refuses existing recovery.sqlite3"
             );
         }
     }
@@ -789,7 +808,7 @@ fn admit_recovery<T>(
 fn commit(doc_id: DocumentId, revision: u64, text: &str) -> RecoveryCommit {
     RecoveryCommit {
         doc_id,
-        lifecycle_gen: LifecycleGen(0),
+        lifecycle_gen: LifecycleGen(1),
         base_rev: Revision(revision.saturating_sub(1)),
         new_rev: Revision(revision),
         rope: Rope::from_str(text),
@@ -800,60 +819,134 @@ fn commit(doc_id: DocumentId, revision: u64, text: &str) -> RecoveryCommit {
         },
     }
 }
-fn session_bench(directory: &Path, tabs: usize) -> Result<()> {
-    if tabs == 0 || tabs > 128 {
-        return Err("session benchmark accepts 1..128 tabs".into());
+fn create_session_fixture(database: &Path, views: usize, group_count: usize) -> Result<()> {
+    if views == 0 || views > MAX_SESSION_VIEWS {
+        return Err("session fixture accepts 1..1024 metadata views (the separate hydrated-editor cap remains 128)".into());
     }
-    std::fs::create_dir_all(directory)?;
-    let service =
-        RecoveryHandle::start(directory.join(format!("session-{}.sqlite3", uuid::Uuid::new_v4())))?;
-    let mut layout = Vec::new();
+    if !(1..=MAX_CUSTOM_GROUPS).contains(&group_count) {
+        return Err("session fixture accepts 1..128 groups".into());
+    }
+    if database.exists() {
+        return Err("refusing to overwrite an existing recovery database".into());
+    }
+    let service = RecoveryHandle::start(database)?;
+    let initial = ack(service.request_manifest()?)?;
+    let mut layout = initial.layout;
+    let mut changes = Vec::with_capacity(views);
+    let mut durable = std::collections::HashSet::new();
     let text = "draft 中文🙂\n".repeat(4096);
-    for n in 0..tabs {
+    let mut groups = Vec::new();
+    for n in 0..group_count {
+        let group = layout
+            .apply_group_command(GroupCommand::Create {
+                name: format!("Fixture group {n} 中文"),
+                color: GroupColor::ALL[n % 8 + 1],
+                before: None,
+                initial_view: None,
+            })?
+            .created_group
+            .ok_or("missing fixture group")?;
+        layout.apply_group_command(GroupCommand::SetCollapsed {
+            group,
+            collapsed: n % 2 == 0,
+        })?;
+        groups.push(group);
+    }
+    for n in 0..views {
         let id = DocumentId::new();
+        let key = DocumentKey {
+            doc_id: id,
+            lifecycle_gen: LifecycleGen(1),
+        };
         let mut job = commit(id, 1, &text);
         job.meta.title = format!("Draft {n}");
-        layout.push(TabLayoutRecord {
-            doc_id: id,
-            lifecycle_gen: LifecycleGen(0),
-            meta: job.meta.clone(),
-            view: ViewState {
-                cursor_byte: n as u64,
-                scroll_byte: 0,
+        let cursor_byte = (n * "draft 中文🙂\n".len()) as u64;
+        layout.insert_view(
+            LayoutView {
+                id: ViewId::new(),
+                document: key,
+                group_id: groups[n % groups.len()],
+                view: ViewState {
+                    cursor_byte,
+                    scroll_byte: cursor_byte,
+                },
             },
-        });
+            None,
+            n == views / 2,
+        )?;
+        changes.push(DocumentChange::Create(DocumentMetaRecord {
+            key,
+            meta: job.meta.clone(),
+        }));
         admit_recovery(|| service.try_commit(job.clone()))?;
-    }
-    let active = layout.first().map(|t| t.doc_id);
-    admit_recovery(|| service.save_session_layout(layout.clone(), active))?;
-    ack(admit_recovery(|| service.flush())?)?;
-    let mut durable = std::collections::HashSet::new();
-    for event in service.events().try_iter() {
-        match event {
-            RecoveryEvent::DurableAck {
-                doc_id,
-                durable_rev: Revision(1),
-                ..
-            } => {
-                durable.insert(doc_id);
+        if n % 32 == 31 || n + 1 == views {
+            ack(admit_recovery(|| service.flush())?)?;
+            for event in service.events().try_iter() {
+                match event {
+                    RecoveryEvent::DurableAck {
+                        doc_id,
+                        durable_rev: Revision(1),
+                        ..
+                    } => {
+                        durable.insert(doc_id);
+                    }
+                    RecoveryEvent::StorageError { error, .. } => return Err(error.into()),
+                    event => {
+                        return Err(format!("unexpected fixture acknowledgment: {event:?}").into());
+                    }
+                }
             }
-            RecoveryEvent::StorageError { error, .. } => return Err(error.into()),
-            event => return Err(format!("unexpected session acknowledgement: {event:?}").into()),
         }
     }
-    if durable.len() != tabs || !layout.iter().all(|tab| durable.contains(&tab.doc_id)) {
-        return Err("session benchmark did not durably acknowledge every submitted draft".into());
+    if durable.len() != views
+        || !layout
+            .views
+            .values()
+            .all(|view| durable.contains(&view.document.doc_id))
+    {
+        return Err("not every fixture document was durably acknowledged".into());
     }
+    ack(admit_recovery(|| {
+        service.write_session(SessionWrite {
+            sequence: LayoutSeq(1),
+            expected_revision: initial.layout_revision,
+            layout: LayoutPayload::Structural(layout.clone()),
+            document_changes: changes.clone(),
+            preserve_source_layout: None,
+        })
+    })?)?;
+    ack(admit_recovery(|| service.shutdown())?)?;
+    Ok(())
+}
+fn session_bench(directory: &Path, views: usize) -> Result<()> {
+    std::fs::create_dir_all(directory)?;
+    let database = directory.join(format!("session-{}.sqlite3", uuid::Uuid::new_v4()));
+    create_session_fixture(&database, views, views.min(8))?;
+    let started = Instant::now();
+    let service = RecoveryHandle::start(&database)?;
+    let worker_open_us = started.elapsed().as_micros();
     let started = Instant::now();
     let manifest = ack(service.request_manifest()?)?;
     let metadata_us = started.elapsed().as_micros();
+    if manifest.layout.views.len() != views || manifest.documents.len() != views {
+        return Err("restarted metadata fixture lost views".into());
+    }
+    let active = manifest
+        .layout
+        .target(manifest.layout.pane().active_view.ok_or("no active view")?)
+        .ok_or("active identity missing")?;
     let started = Instant::now();
-    let draft = ack(service.request_hydrate(active.ok_or("no active tab")?)?)?;
+    let draft = ack(service.request_hydrate(active.document, CancelToken::new())?)?;
+    if draft.rope != "draft 中文🙂\n".repeat(4096) {
+        return Err("restarted active draft differs".into());
+    }
     println!(
-        "metric=lazy_session tabs={} metadata_us={metadata_us} active_hydrate_us={} hydrated_documents=1 active_bytes={} inactive_hydrated=0",
-        manifest.tabs.len(),
+        "metric=lazy_session tabs={} views={} worker_open_us={worker_open_us} metadata_us={metadata_us} active_hydrate_us={} hydrated_documents=1 active_bytes={} inactive_hydrated=0 database={}",
+        manifest.layout.views.len(),
+        manifest.layout.views.len(),
         started.elapsed().as_micros(),
-        draft.rope.len()
+        draft.rope.len(),
+        database.display()
     );
     ack(admit_recovery(|| service.shutdown())?)?;
     Ok(())
@@ -869,7 +962,7 @@ fn recovery_bench(directory: &Path, size: usize, commits: usize) -> Result<()> {
     let mut rope = Rope::from_str(&"x".repeat(size));
     let baseline = RecoveryCommit {
         doc_id: id,
-        lifecycle_gen: LifecycleGen(0),
+        lifecycle_gen: LifecycleGen(1),
         base_rev: Revision(0),
         new_rev: Revision(1),
         rope: rope.clone(),
@@ -895,7 +988,7 @@ fn recovery_bench(directory: &Path, size: usize, commits: usize) -> Result<()> {
         equality_ns += before.elapsed().as_nanos();
         let job = RecoveryCommit {
             doc_id: id,
-            lifecycle_gen: LifecycleGen(0),
+            lifecycle_gen: LifecycleGen(1),
             base_rev: Revision(number as u64 + 1),
             new_rev: Revision(number as u64 + 2),
             rope: rope.clone(),
@@ -910,7 +1003,13 @@ fn recovery_bench(directory: &Path, size: usize, commits: usize) -> Result<()> {
         ack(admit_recovery(|| service.flush())?)?;
         samples.push(before.elapsed().as_nanos() as u64);
     }
-    let draft = ack(service.request_hydrate(id)?)?;
+    let draft = ack(service.request_hydrate(
+        DocumentKey {
+            doc_id: id,
+            lifecycle_gen: LifecycleGen(1),
+        },
+        CancelToken::new(),
+    )?)?;
     if draft.rope != rope {
         return Err("recovery benchmark final draft mismatch".into());
     }
@@ -966,13 +1065,19 @@ fn smoke(directory: &Path) -> Result<()> {
     next.deltas[0].byte_range = ("draft 中文🙂".len() as u64)..("draft 中文🙂".len() as u64);
     admit_recovery(|| recovery.try_commit(next.clone()))?;
     ack(admit_recovery(|| recovery.flush())?)?;
-    let draft = ack(recovery.request_hydrate(id)?)?;
+    let draft = ack(recovery.request_hydrate(
+        DocumentKey {
+            doc_id: id,
+            lifecycle_gen: LifecycleGen(1),
+        },
+        CancelToken::new(),
+    )?)?;
     if draft.rope != "draft 中文🙂!" {
         return Err("delta recovery content mismatch".into());
     }
     let request = SaveRequest {
         doc_id: id,
-        lifecycle_gen: LifecycleGen(0),
+        lifecycle_gen: LifecycleGen(1),
         captured_rev: Revision(2),
         rope,
         target_path: path.clone(),
@@ -1006,11 +1111,51 @@ fn smoke(directory: &Path) -> Result<()> {
             return Err("non-overlapping cross-block search mismatch".into());
         }
     }
-    ack(recovery.close_document(id, LifecycleGen(1), true)?)?;
+    let manifest = ack(recovery.request_manifest()?)?;
+    let layout = manifest.layout;
+    let layout_ack = ack(recovery.write_session(SessionWrite {
+        sequence: LayoutSeq(1),
+        expected_revision: manifest.layout_revision,
+        layout: LayoutPayload::Structural(layout.clone()),
+        document_changes: Vec::new(),
+        preserve_source_layout: None,
+    })?)?;
+    let target = layout
+        .views
+        .values()
+        .find(|v| v.document.doc_id == id)
+        .and_then(|v| layout.target(v.id))
+        .ok_or("smoke draft missing from restored layout")?;
+    let mut after = layout.clone();
+    after.remove_views(&[target])?;
+    ack(recovery.close_views(CloseBatch {
+        sequence: LayoutSeq(2),
+        expected_revision: layout_ack.revision,
+        entries: vec![CloseEntry {
+            target,
+            disposition: CloseDisposition::Discard {
+                tombstone_gen: LifecycleGen(2),
+            },
+            required_durable_rev: Some(Revision(2)),
+            expected_format: (draft.meta.encoding, draft.meta.line_ending),
+            view: ViewState::default(),
+            expected_identity: None,
+        }],
+        after,
+        empty_pane_document: None,
+    })?)?;
     let late = commit(id, 3, "late stale checkpoint");
     admit_recovery(|| recovery.try_commit(late.clone()))?;
     ack(admit_recovery(|| recovery.flush())?)?;
-    if ack(recovery.request_hydrate(id)?).is_ok() {
+    if ack(recovery.request_hydrate(
+        DocumentKey {
+            doc_id: id,
+            lifecycle_gen: LifecycleGen(1),
+        },
+        CancelToken::new(),
+    )?)
+    .is_ok()
+    {
         return Err("discard resurrected a draft".into());
     }
     ack(admit_recovery(|| recovery.shutdown())?)?;
@@ -1040,7 +1185,13 @@ fn crash_recovery(directory: &Path) -> Result<()> {
 }
 fn recover_check(directory: &Path) -> Result<()> {
     let service = RecoveryHandle::start(directory.join("crash.sqlite3"))?;
-    let draft = ack(service.request_hydrate(DocumentId(0xc0de))?)?;
+    let draft = ack(service.request_hydrate(
+        DocumentKey {
+            doc_id: DocumentId(0xc0de),
+            lifecycle_gen: LifecycleGen(1),
+        },
+        CancelToken::new(),
+    )?)?;
     if draft.durable_rev != Revision(1) || draft.rope != "durable baseline 中文🙂" {
         return Err(
             "recovery after process exit did not preserve the last committed revision".into(),
@@ -1078,7 +1229,7 @@ fn crash_save(directory: &Path, stage: &str) -> Result<()> {
     ack(admit_recovery(|| service.flush())?)?;
     let request = SaveRequest {
         doc_id: id,
-        lifecycle_gen: LifecycleGen(0),
+        lifecycle_gen: LifecycleGen(1),
         captured_rev: Revision(1),
         rope: Rope::from_str("captured new text\n"),
         target_path: path.clone(),

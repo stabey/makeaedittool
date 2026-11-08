@@ -1,39 +1,49 @@
+use std::collections::HashSet;
 use std::ops::Range;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Duration;
 
-use editor_services::{EncodingSpec, IndexStatus, LineEnding, ReadOnlyReason, SearchAlgorithm};
+use editor_services::{
+    EncodingSpec, GroupColor, GroupCommand, GroupId, IndexStatus, LineEnding, ReadOnlyReason,
+    SearchAlgorithm, ViewTarget,
+};
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::command::{Command, CommandGroup, CommandItem};
 use gpui_kit::component::input::{Editor, Escape, Input};
-use gpui_kit::component::menu::DropdownMenu as _;
+use gpui_kit::component::menu::{ContextMenuExt as _, DropdownMenu as _};
 use gpui_kit::component::{
     ActiveTheme as _, Disableable as _, IconName, IndexPath, Selectable as _, Sizable as _,
     StyledExt as _, h_flex, v_flex, v_virtual_list,
 };
 use gpui_kit::{
-    Anchor, Context, Focusable as _, InteractiveElement as _, IntoElement, MouseButton,
-    ParentElement as _, Render, SharedString, Size, StatefulInteractiveElement as _, Styled as _,
-    Window, black, div, prelude::FluentBuilder as _, px, size,
+    Anchor, AppContext as _, Context, Focusable as _, InteractiveElement as _, IntoElement,
+    MouseButton, ParentElement as _, Render, Role, SharedString, Size,
+    StatefulInteractiveElement as _, Styled as _, Window, black, div, prelude::FluentBuilder as _,
+    px, size,
 };
 
 use crate::actions::{
-    CycleSearchKernel, FindNextMatch, FindPrevMatch, OpenCommandPalette, OpenFile, OpenGoToOffset,
-    OpenQuickSwitcher, ReloadActiveDocument, SelectLanguageAuto, SetEncodingUtf8,
-    SetEncodingUtf8Bom, SetIndentSpaces2, SetIndentSpaces4, SetIndentSpaces8, SetIndentTabs2,
-    SetIndentTabs4, SetIndentTabs8, SetLineEndingCrlf, SetLineEndingLf, ToggleShowWhitespace,
-    ToggleSidebar, ToggleSoftWrap, ToggleThemeMode, WORKSPACE_CONTEXT, action_for_language_id,
+    CreateGroupFromActiveTab, CycleSearchKernel, FindNextMatch, FindPrevMatch, OpenCommandPalette,
+    OpenFile, OpenGoToOffset, OpenQuickSwitcher, OpenRecoveryCatalog, SelectLanguageAuto,
+    SetEncodingUtf8, SetEncodingUtf8Bom, SetIndentSpaces2, SetIndentSpaces4, SetIndentSpaces8,
+    SetIndentTabs2, SetIndentTabs4, SetIndentTabs8, SetLineEndingCrlf, SetLineEndingLf,
+    ToggleShowWhitespace, ToggleSidebar, ToggleSoftWrap, ToggleThemeMode, WORKSPACE_CONTEXT,
+    action_for_language_id,
 };
 use crate::app::{EditorWorkspace, TabSlot};
+use crate::group_ui::{
+    DraggedGroupGhost, DraggedTabGhost, DraggedTabGroup, DraggedTabView, GroupPaletteAction,
+    build_group_menu, build_tab_context_menu, group_color_hsla, group_elem_id, next_group_anchor,
+    next_view_anchor_in_group, prev_group_anchor, prev_view_anchor_in_group, view_elem_id,
+};
 use crate::language::{SUPPORTED_LANGUAGES, comment_prefix_for_language, detect_language};
 use crate::paged_view::{PagedTabState, format_bytes};
 use crate::search_bar::{SearchQueryKind, SearchStatus};
 use crate::shell::{
-    PaletteCommandTarget, PaletteMode, disambiguate_paths, file_name_str, matches_palette_filter,
-    parse_palette_query,
+    PaletteCommandTarget, PaletteMode, disambiguate_paths, disambiguate_single_path, file_name_str,
+    matches_palette_filter, parse_palette_query,
 };
-
 impl Render for EditorWorkspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.startup_metrics.first_interactive_ms.is_none() && window.is_window_active() {
@@ -44,6 +54,8 @@ impl Render for EditorWorkspace {
                 Some(self.process_start.elapsed().as_secs_f64() * 1000.0);
         }
 
+        self.group_ui.sync_drag_liveness(cx);
+
         let header = self.render_header_and_tabs(cx);
         let banners = self.render_banners(cx);
         let goto_bar = self.goto_visible.then(|| self.render_goto_bar(cx));
@@ -51,11 +63,14 @@ impl Render for EditorWorkspace {
         let palette_overlay = self.palette_visible.then(|| self.build_palette_overlay(cx));
         let center_body = self.render_workspace_center(palette_overlay, cx);
         let status_bar = self.render_status_bar(cx);
+        let group_editor_overlay = self.render_group_editor_modal(cx);
+        let recovery_browser_overlay = self.render_recovery_browser_modal(cx);
 
         div()
             .id("editor-workspace-root")
             .key_context(WORKSPACE_CONTEXT)
             .track_focus(&self.focus_handle)
+            .relative()
             .size_full()
             .flex()
             .flex_col()
@@ -130,21 +145,43 @@ impl Render for EditorWorkspace {
             .on_action(cx.listener(Self::on_cycle_search_kernel))
             .on_action(cx.listener(Self::on_reload_active))
             .on_action(cx.listener(Self::on_quit))
+            .on_action(cx.listener(Self::on_create_group_from_active_tab))
+            .on_action(cx.listener(Self::on_create_empty_group))
+            .on_action(cx.listener(Self::on_rename_current_group))
+            .on_action(cx.listener(Self::on_cycle_current_group_color))
+            .on_action(cx.listener(Self::on_toggle_current_group_collapse))
+            .on_action(cx.listener(Self::on_move_active_tab_earlier_in_group))
+            .on_action(cx.listener(Self::on_move_active_tab_later_in_group))
+            .on_action(cx.listener(Self::on_move_active_tab_to_next_group))
+            .on_action(cx.listener(Self::on_move_active_tab_to_prev_group))
+            .on_action(cx.listener(Self::on_move_current_group_earlier))
+            .on_action(cx.listener(Self::on_move_current_group_later))
+            .on_action(cx.listener(Self::on_ungroup_active_tab))
+            .on_action(cx.listener(Self::on_remove_current_group_keep_tabs))
+            .on_action(cx.listener(Self::on_close_current_group_tabs))
+            .on_action(cx.listener(Self::on_open_recovery_catalog))
             .child(header)
             .children(banners)
             .when_some(goto_bar, |el, bar| el.child(bar))
             .when_some(search_panel, |el, panel| el.child(panel))
             .child(center_body)
             .child(status_bar)
+            .when_some(group_editor_overlay, |el, ov| el.child(ov))
+            .when_some(recovery_browser_overlay, |el, ov| el.child(ov))
     }
 }
 impl EditorWorkspace {
     fn render_header_and_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let can_save_active = matches!(
-            self.tabs.get(self.active_tab),
-            Some(TabSlot::Editable(ed)) if !ed.is_readonly()
-        );
-        let closed_count = self.recently_closed.len();
+        let active_id = self.active_view_id();
+        let active_target = active_id.and_then(|id| self.view_target(id));
+        let lifecycle_busy = self.is_lifecycle_busy();
+        let can_save_active = !lifecycle_busy
+            && matches!(self.active_slot(), Some(TabSlot::Editable(ed)) if !ed.is_readonly());
+        let closed_count = self.recently_closed_count();
+        let rec_summary = &self.recovery_browser_state().latest_summary;
+        let unplaced_count = rec_summary
+            .unplaced_checkpoints
+            .saturating_add(rec_summary.unplaced_other);
         let is_dark = cx.theme().mode.is_dark();
 
         let sidebar_visible = self.shell_state.sidebar_visible;
@@ -178,6 +215,7 @@ impl EditorWorkspace {
                     .ghost()
                     .xsmall()
                     .icon(IconName::Plus)
+                    .disabled(lifecycle_busy)
                     .tooltip("New Tab (⌘N)")
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.create_untitled_tab(true, window, cx);
@@ -190,6 +228,7 @@ impl EditorWorkspace {
                     .ghost()
                     .xsmall()
                     .icon(IconName::FolderOpen)
+                    .disabled(lifecycle_busy)
                     .tooltip("Open File… (⌘O)")
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.on_open_file(&OpenFile, window, cx);
@@ -202,10 +241,12 @@ impl EditorWorkspace {
                     .ghost()
                     .xsmall()
                     .label("Save")
-                    .disabled(!can_save_active)
+                    .disabled(!can_save_active || active_target.is_none())
                     .tooltip("Save (⌘S)")
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.save_tab(this.active_tab, None, false, false, window, cx);
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        if let Some(target) = active_target {
+                            this.save_view(target, None, false, false, window, cx);
+                        }
                     })),
             )
             .child(
@@ -219,10 +260,27 @@ impl EditorWorkspace {
                     } else {
                         SharedString::from("Reopen")
                     })
-                    .disabled(closed_count == 0)
+                    .disabled(closed_count == 0 || lifecycle_busy)
                     .tooltip("Reopen Closed Tab (⇧⌘T)")
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.reopen_recently_closed(window, cx);
+                    })),
+            )
+            .child(
+                Button::new("toolbar-recovery-browser")
+                    .accessibility_id("btn-recovery-browser")
+                    .accessibility_label("Recovery Draft Catalog")
+                    .ghost()
+                    .xsmall()
+                    .selected(self.is_recovery_browser_open())
+                    .label(if unplaced_count > 0 {
+                        SharedString::from(format!("Drafts ({unplaced_count})"))
+                    } else {
+                        SharedString::from("Drafts")
+                    })
+                    .tooltip("Browse Stored Recovery Drafts & Overflow Catalog (⌥⌘B)")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.on_open_recovery_catalog(&OpenRecoveryCatalog, window, cx);
                     })),
             );
 
@@ -233,90 +291,459 @@ impl EditorWorkspace {
             .h_full()
             .flex()
             .items_end()
-            .overflow_x_scroll();
+            .overflow_x_scroll()
+            .track_scroll(&self.group_ui.tab_strip_scroll);
 
-        for (ix, slot) in self.tabs.iter().enumerate() {
-            let is_active = ix == self.active_tab;
-            let badge_info = slot.honest_badge();
-            let show_modified_dot = badge_info.proven_modified;
-            let mode_badge = if show_modified_dot {
-                None
-            } else {
-                badge_info.short_badge
-            };
-            let title = slot.title().to_string();
+        let ws_entity = cx.entity();
+        let ws_entity_id = cx.entity_id();
+        let session = self.session_layout();
+        let ordered_views = self.ordered_view_ids();
+        let show_ungrouped_header = session.tree.groups.len() > 1
+            || session
+                .group(GroupId::UNGROUPED)
+                .is_some_and(|g| g.collapsed);
 
-            let tab_bg = if is_active {
-                cx.theme().tab_active
-            } else {
-                cx.theme().tab
-            };
-            let tab_fg = if is_active {
-                cx.theme().tab_active_foreground
-            } else {
-                cx.theme().tab_foreground
-            };
+        let mut tab_cursor = 0usize;
+        for group in &session.tree.groups {
+            let seg_start = tab_cursor;
+            while tab_cursor < ordered_views.len()
+                && session
+                    .view(ordered_views[tab_cursor])
+                    .is_some_and(|v| v.group_id == group.id)
+            {
+                tab_cursor += 1;
+            }
+            let group_tabs = &ordered_views[seg_start..tab_cursor];
+            let member_count = group_tabs.len();
+            let gid = group.id;
+            let gcolor = group.color;
+            let gaccent = group_color_hsla(gcolor, is_dark);
+            let is_collapsed = group.collapsed;
+            let render_header = gid != GroupId::UNGROUPED || show_ungrouped_header;
 
-            let tab_item = div()
-                .id(("tab-item", ix))
-                .h(px(32.))
-                .max_w(px(220.))
-                .px_2p5()
-                .flex()
-                .items_center()
-                .gap_1p5()
-                .flex_shrink_0()
-                .cursor_pointer()
-                .bg(tab_bg)
-                .text_color(tab_fg)
-                .border_r_1()
-                .border_color(cx.theme().border)
-                .when(is_active, |el| {
-                    el.border_t_2()
-                        .border_color(cx.theme().primary)
-                        .font_medium()
-                })
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.activate_tab(ix, window, cx);
-                }))
-                .when_some(mode_badge, |el, badge| {
-                    el.child(
+            if render_header {
+                let active_collapsed_member = if is_collapsed {
+                    active_id
+                        .filter(|aid| group_tabs.contains(aid))
+                        .and_then(|aid| {
+                            let target = self.view_target(aid)?;
+                            let slot = self.view_slot(aid)?;
+                            Some((target, slot.title().to_string(), slot.proven_modified()))
+                        })
+                } else {
+                    None
+                };
+
+                let gname_display = group.name.clone();
+                let a11y_summary = match &active_collapsed_member {
+                    Some((_, act_title, _)) => format!(
+                        "Group {} ({} tabs, collapsed, active: {})",
+                        group.name, member_count, act_title
+                    ),
+                    None => format!(
+                        "Group {} ({} tabs, {})",
+                        group.name,
+                        member_count,
+                        if is_collapsed {
+                            "collapsed"
+                        } else {
+                            "expanded"
+                        }
+                    ),
+                };
+                let ws_drag_grp = ws_entity.downgrade();
+                let ws_ctx_grp = ws_entity.clone();
+                let ws_dd_grp = ws_entity.clone();
+                let ws_ctx_collapsed_active = ws_entity.clone();
+                let drag_grp_payload = DraggedTabGroup {
+                    workspace_entity_id: ws_entity_id,
+                    group_id: gid,
+                };
+
+                let group_header = h_flex()
+                    .id(group_elem_id(*b"grph", gid))
+                    .h(px(32.))
+                    .px_2()
+                    .gap_1()
+                    .items_center()
+                    .flex_shrink_0()
+                    .bg(cx
+                        .theme()
+                        .secondary
+                        .opacity(if is_collapsed { 0.62 } else { 0.36 }))
+                    .border_r_1()
+                    .border_color(cx.theme().border)
+                    .border_t_2()
+                    .border_color(gaccent)
+                    .aria_label(a11y_summary)
+                    .when(!lifecycle_busy, |el| {
+                        el.on_drag(drag_grp_payload, move |drag, _offset, _window, cx| {
+                            cx.stop_propagation();
+                            if let Some(ws) = ws_drag_grp.upgrade() {
+                                ws.update(cx, |this, cx| {
+                                    this.record_group_drag_start(drag.group_id, cx);
+                                });
+                            }
+                            cx.new(|_| DraggedGroupGhost {
+                                workspace: ws_drag_grp.clone(),
+                                group_id: drag.group_id,
+                            })
+                        })
+                        .drag_over::<DraggedTabGroup>(move |style, drag, _w, cx| {
+                            if drag.group_id != gid {
+                                style
+                                    .border_l_2()
+                                    .border_color(cx.theme().drag_border)
+                                    .bg(cx.theme().list_hover)
+                            } else {
+                                style
+                            }
+                        })
+                        .on_drop(
+                            cx.listener(move |this, drag: &DraggedTabGroup, window, cx| {
+                                cx.stop_propagation();
+                                this.complete_group_drop_before(*drag, Some(gid), window, cx);
+                            }),
+                        )
+                        .drag_over::<DraggedTabView>(move |style, _drag, _w, cx| {
+                            style
+                                .bg(cx.theme().primary.opacity(0.18))
+                                .border_color(cx.theme().drag_border)
+                        })
+                        .on_drop(cx.listener(
+                            move |this, drag: &DraggedTabView, window, cx| {
+                                cx.stop_propagation();
+                                this.complete_tab_drop_into_group(*drag, gid, window, cx);
+                            },
+                        ))
+                    })
+                    .child(
                         div()
-                            .px_1()
-                            .rounded(px(3.))
-                            .bg(cx.theme().secondary)
-                            .text_color(cx.theme().secondary_foreground)
-                            .text_xs()
-                            .child(badge),
-                    )
-                })
-                .child(div().text_xs().truncate().max_w(px(148.)).child(title))
-                .when(show_modified_dot, |el| {
-                    el.child(
-                        div()
-                            .size(px(7.))
+                            .size(px(8.))
                             .rounded_full()
                             .flex_shrink_0()
-                            .bg(cx.theme().warning),
+                            .bg(gaccent),
                     )
-                })
-                .child(
-                    Button::new(("tab-close", ix))
-                        .accessibility_id(format!("btn-close-tab-{ix}"))
-                        .accessibility_label("Close Tab")
-                        .ghost()
-                        .xsmall()
-                        .compact()
-                        .icon(IconName::Close)
-                        .on_click(cx.listener(move |this, _, window, cx| {
-                            cx.stop_propagation();
-                            this.request_close_tab(ix, window, cx);
-                        })),
-                );
+                    .child(
+                        Button::new(group_elem_id(*b"gcol", gid))
+                            .accessibility_id(format!("btn-group-collapse-{}", gid.key()))
+                            .accessibility_label(if is_collapsed {
+                                format!("Expand group {gname_display}")
+                            } else {
+                                format!("Collapse group {gname_display}")
+                            })
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .disabled(lifecycle_busy)
+                            .icon(if is_collapsed {
+                                IconName::ChevronRight
+                            } else {
+                                IconName::ChevronDown
+                            })
+                            .label(format!("{gname_display} ({member_count})"))
+                            .tooltip(if is_collapsed {
+                                "Expand Group Tabs — or drop a tab onto header to add"
+                            } else {
+                                "Collapse Group Tabs — drag header to reorder group"
+                            })
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                cx.stop_propagation();
+                                let _ = this.run_ui_group_command(
+                                    GroupCommand::SetCollapsed {
+                                        group: gid,
+                                        collapsed: !is_collapsed,
+                                    },
+                                    window,
+                                    cx,
+                                );
+                            })),
+                    )
+                    .when_some(
+                        active_collapsed_member,
+                        |el, (active_target, active_title, active_modified)| {
+                            el.child(
+                                h_flex()
+                                    .id(group_elem_id(*b"gact", gid))
+                                    .px_1p5()
+                                    .py_0p5()
+                                    .gap_1()
+                                    .items_center()
+                                    .cursor_pointer()
+                                    .rounded(px(4.))
+                                    .bg(cx.theme().tab_active)
+                                    .border_1()
+                                    .border_color(cx.theme().primary)
+                                    .text_xs()
+                                    .font_medium()
+                                    .hover(|s| s.bg(cx.theme().list_hover))
+                                    .aria_label(format!(
+                                        "Active tab in collapsed group: {active_title}"
+                                    ))
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        cx.stop_propagation();
+                                        this.activate_view(active_target, window, cx);
+                                    }))
+                                    .child(
+                                        div()
+                                            .size(px(6.))
+                                            .rounded_full()
+                                            .flex_shrink_0()
+                                            .bg(cx.theme().primary),
+                                    )
+                                    .child(
+                                        div()
+                                            .max_w(px(128.))
+                                            .truncate()
+                                            .child(format!("Active: {active_title}")),
+                                    )
+                                    .when(active_modified, |pill| {
+                                        pill.child(
+                                            div()
+                                                .size(px(6.))
+                                                .rounded_full()
+                                                .flex_shrink_0()
+                                                .bg(cx.theme().warning),
+                                        )
+                                    })
+                                    .context_menu(move |menu, window, cx| {
+                                        build_tab_context_menu(
+                                            menu,
+                                            ws_ctx_collapsed_active.clone(),
+                                            active_target,
+                                            window,
+                                            cx,
+                                        )
+                                    }),
+                            )
+                        },
+                    )
+                    .child(
+                        Button::new(group_elem_id(*b"gmnu", gid))
+                            .accessibility_id(format!("btn-group-menu-{}", gid.key()))
+                            .accessibility_label("Group Options Menu")
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .icon(IconName::Ellipsis)
+                            .tooltip("Group Options (Rename, Color, Reorder, Remove vs Close Tabs)")
+                            .dropdown_menu(move |menu, window, cx| {
+                                build_group_menu(menu, ws_dd_grp.clone(), gid, window, cx)
+                            }),
+                    )
+                    .context_menu(move |menu, window, cx| {
+                        build_group_menu(menu, ws_ctx_grp.clone(), gid, window, cx)
+                    });
 
-            tab_strip = tab_strip.child(tab_item);
+                tab_strip = tab_strip.child(group_header);
+            }
+
+            if !is_collapsed {
+                for &view_id in group_tabs {
+                    let Some(target) = self.view_target(view_id) else {
+                        continue;
+                    };
+                    let Some(slot) = self.view_slot(view_id) else {
+                        continue;
+                    };
+                    let is_active = active_id == Some(view_id);
+                    let badge_info = slot.honest_badge();
+                    let show_modified_dot = badge_info.proven_modified;
+                    let mode_badge = if show_modified_dot {
+                        None
+                    } else {
+                        badge_info.short_badge
+                    };
+                    let title = slot.title().to_string();
+
+                    let tab_bg = if is_active {
+                        cx.theme().tab_active
+                    } else {
+                        cx.theme().tab
+                    };
+                    let tab_fg = if is_active {
+                        cx.theme().tab_active_foreground
+                    } else {
+                        cx.theme().tab_foreground
+                    };
+                    let active_top_color =
+                        if gid != GroupId::UNGROUPED && gcolor != GroupColor::Neutral {
+                            gaccent
+                        } else {
+                            cx.theme().primary
+                        };
+
+                    let ws_drag_tab = ws_entity.downgrade();
+                    let ws_ctx_tab = ws_entity.clone();
+                    let drag_tab_payload = DraggedTabView {
+                        workspace_entity_id: ws_entity_id,
+                        target,
+                    };
+
+                    let tab_item = div()
+                        .id(view_elem_id(*b"tabi", view_id))
+                        .role(Role::Tab)
+                        .aria_label(title.clone())
+                        .h(px(32.))
+                        .max_w(px(220.))
+                        .px_2p5()
+                        .flex()
+                        .items_center()
+                        .gap_1p5()
+                        .flex_shrink_0()
+                        .cursor_pointer()
+                        .bg(tab_bg)
+                        .text_color(tab_fg)
+                        .border_r_1()
+                        .border_color(cx.theme().border)
+                        .when(is_active, |el| {
+                            el.border_t_2().border_color(active_top_color).font_medium()
+                        })
+                        .when(!is_active && gid != GroupId::UNGROUPED, |el| {
+                            el.border_t_2().border_color(gaccent.opacity(0.45))
+                        })
+                        .when(!lifecycle_busy, |el| {
+                            el.on_drag(drag_tab_payload, move |drag, _offset, _window, cx| {
+                                cx.stop_propagation();
+                                if let Some(ws) = ws_drag_tab.upgrade() {
+                                    ws.update(cx, |this, cx| {
+                                        this.record_tab_drag_start(drag.target, cx);
+                                    });
+                                }
+                                cx.new(|_| DraggedTabGhost {
+                                    workspace: ws_drag_tab.clone(),
+                                    target: drag.target,
+                                })
+                            })
+                            .drag_over::<DraggedTabView>(move |style, drag, _w, cx| {
+                                if drag.target.view_id != view_id {
+                                    style
+                                        .border_l_2()
+                                        .border_color(cx.theme().drag_border)
+                                        .bg(cx.theme().list_hover)
+                                } else {
+                                    style
+                                }
+                            })
+                            .on_drop(cx.listener(
+                                move |this, drag: &DraggedTabView, window, cx| {
+                                    cx.stop_propagation();
+                                    this.complete_tab_drop_before_view(
+                                        *drag, gid, view_id, window, cx,
+                                    );
+                                },
+                            ))
+                        })
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.activate_view(target, window, cx);
+                        }))
+                        .when_some(mode_badge, |el, badge| {
+                            el.child(
+                                div()
+                                    .px_1()
+                                    .rounded(px(3.))
+                                    .bg(cx.theme().secondary)
+                                    .text_color(cx.theme().secondary_foreground)
+                                    .text_xs()
+                                    .child(badge),
+                            )
+                        })
+                        .child(div().text_xs().truncate().max_w(px(148.)).child(title))
+                        .when(show_modified_dot, |el| {
+                            el.child(
+                                div()
+                                    .size(px(7.))
+                                    .rounded_full()
+                                    .flex_shrink_0()
+                                    .bg(cx.theme().warning),
+                            )
+                        })
+                        .child(
+                            Button::new(view_elem_id(*b"tabx", view_id))
+                                .accessibility_id(format!("btn-close-tab-{}", view_id.key()))
+                                .accessibility_label("Close Tab")
+                                .ghost()
+                                .xsmall()
+                                .compact()
+                                .disabled(lifecycle_busy)
+                                .icon(IconName::Close)
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    cx.stop_propagation();
+                                    this.request_close_view(target, window, cx);
+                                })),
+                        )
+                        .context_menu(move |menu, window, cx| {
+                            build_tab_context_menu(menu, ws_ctx_tab.clone(), target, window, cx)
+                        });
+
+                    tab_strip = tab_strip.child(tab_item);
+                }
+            }
         }
 
+        // Trailing "+ Group" button & drop target (drop a tab to create a new group, or drop a
+        // group to move it to the end of global group order).
+        let new_group_slot = h_flex()
+            .id("tab-strip-new-group-drop")
+            .h(px(32.))
+            .px_1p5()
+            .items_center()
+            .flex_shrink_0()
+            .when(!lifecycle_busy, |el| {
+                el.drag_over::<DraggedTabView>(|style, _drag, _w, cx| {
+                    style
+                        .bg(cx.theme().primary.opacity(0.18))
+                        .border_1()
+                        .border_color(cx.theme().drag_border)
+                })
+                .on_drop(cx.listener(|this, drag: &DraggedTabView, window, cx| {
+                    cx.stop_propagation();
+                    this.complete_tab_drop_new_group(*drag, window, cx);
+                }))
+                .drag_over::<DraggedTabGroup>(|style, _drag, _w, cx| {
+                    style.border_l_2().border_color(cx.theme().drag_border)
+                })
+                .on_drop(cx.listener(
+                    |this, drag: &DraggedTabGroup, window, cx| {
+                        cx.stop_propagation();
+                        this.complete_group_drop_before(*drag, None, window, cx);
+                    },
+                ))
+            })
+            .child(
+                Button::new("tab-strip-new-group")
+                    .accessibility_id("btn-new-group")
+                    .accessibility_label("Create Tab Group")
+                    .ghost()
+                    .xsmall()
+                    .compact()
+                    .disabled(lifecycle_busy)
+                    .icon(IconName::Plus)
+                    .label("Group")
+                    .tooltip("New Tab Group from Active Tab (⌥⌘G) — or drop a tab here")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.on_create_group_from_active_tab(&CreateGroupFromActiveTab, window, cx);
+                    })),
+            );
+
+        let trailing_group_drop = div()
+            .id("tab-strip-tail-drop")
+            .flex_1()
+            .min_w(px(20.))
+            .h_full()
+            .when(!lifecycle_busy, |el| {
+                el.drag_over::<DraggedTabGroup>(|style, _drag, _w, cx| {
+                    style.border_l_2().border_color(cx.theme().drag_border)
+                })
+                .on_drop(cx.listener(
+                    |this, drag: &DraggedTabGroup, window, cx| {
+                        cx.stop_propagation();
+                        this.complete_group_drop_before(*drag, None, window, cx);
+                    },
+                ))
+            });
+
+        tab_strip = tab_strip.child(new_group_slot).child(trailing_group_drop);
         let right_controls = h_flex()
             .gap_1()
             .pl_2()
@@ -421,9 +848,12 @@ impl EditorWorkspace {
     fn render_banners(&self, cx: &mut Context<Self>) -> Vec<gpui_kit::AnyElement> {
         let mut out = Vec::new();
 
+        let active_target = self.active_view_id().and_then(|id| self.view_target(id));
+        let active_slot = self.active_slot();
+
         if let Some(err) = &self.recovery_degraded_error {
-            let can_rescue_save =
-                matches!(self.tabs.get(self.active_tab), Some(TabSlot::Editable(_)));
+            let rescue_target =
+                active_target.filter(|_| matches!(active_slot, Some(TabSlot::Editable(_))));
             out.push(
                 h_flex()
                     .w_full()
@@ -439,17 +869,83 @@ impl EditorWorkspace {
                     .child(format!(
                         "Draft recovery degraded: {err}. Save modified files explicitly to disk."
                     ))
-                    .when(can_rescue_save, |el| {
+                    .when_some(rescue_target, |el, target| {
                         el.child(
                             Button::new("banner-degraded-save-as")
                                 .xsmall()
                                 .primary()
                                 .label("Save As…")
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.prompt_save_as(this.active_tab, false, window, cx);
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    this.prompt_save_view_as(target, false, window, cx);
                                 })),
                         )
                     })
+                    .into_any_element(),
+            );
+        }
+
+        let rec_browser = self.recovery_browser_state();
+        let unplaced_total = rec_browser
+            .latest_summary
+            .unplaced_checkpoints
+            .saturating_add(rec_browser.latest_summary.unplaced_other);
+        let deferred_restore = rec_browser.deferred_on_restore;
+        if (deferred_restore > 0 || unplaced_total > 0)
+            && !self
+                .group_ui
+                .is_overflow_banner_dismissed(unplaced_total, deferred_restore)
+        {
+            let startup_note = if deferred_restore > 0 {
+                format!(
+                    " ({deferred_restore} deferred at startup due to the 1,024-tab session cap)"
+                )
+            } else {
+                String::new()
+            };
+            out.push(
+                h_flex()
+                    .id("banner-recovery-overflow")
+                    .w_full()
+                    .px_3()
+                    .py_1()
+                    .gap_2()
+                    .items_center()
+                    .justify_between()
+                    .bg(cx.theme().warning.opacity(0.16))
+                    .border_b_1()
+                    .border_color(cx.theme().border)
+                    .text_xs()
+                    .child(format!(
+                        "Recovery catalog holds {unplaced_total} unplaced record(s) ({} with checkpoints, {} admitted in workspace){startup_note}. All stored drafts remain intact.",
+                        rec_browser.latest_summary.unplaced_checkpoints,
+                        rec_browser.latest_summary.admitted,
+                    ))
+                    .child(
+                        h_flex()
+                            .gap_1p5()
+                            .child(
+                                Button::new("banner-open-recovery-browser")
+                                    .accessibility_id("btn-banner-open-recovery-browser")
+                                    .primary()
+                                    .xsmall()
+                                    .label("Browse Recovery Drafts…")
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.open_recovery_browser(None, window, cx);
+                                    })),
+                            )
+                            .child(
+                                Button::new("banner-dismiss-recovery-overflow")
+                                    .accessibility_id("btn-dismiss-recovery-overflow")
+                                    .ghost()
+                                    .xsmall()
+                                    .label("Dismiss")
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.group_ui
+                                            .dismiss_overflow_banner(unplaced_total, deferred_restore);
+                                        cx.notify();
+                                    })),
+                            ),
+                    )
                     .into_any_element(),
             );
         }
@@ -486,7 +982,7 @@ impl EditorWorkspace {
             );
         }
 
-        if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+        if let (Some(target), Some(TabSlot::Editable(ed))) = (active_target, active_slot) {
             if ed.has_disk_conflict() {
                 out.push(
                     h_flex()
@@ -509,12 +1005,8 @@ impl EditorWorkspace {
                                         .xsmall()
                                         .outline()
                                         .label("Reload from Disk")
-                                        .on_click(cx.listener(|this, _, window, cx| {
-                                            this.on_reload_active(
-                                                &ReloadActiveDocument,
-                                                window,
-                                                cx,
-                                            );
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.request_reload_view(target, window, cx);
                                         })),
                                 )
                                 .child(
@@ -522,15 +1014,8 @@ impl EditorWorkspace {
                                         .xsmall()
                                         .danger()
                                         .label("Overwrite Disk")
-                                        .on_click(cx.listener(|this, _, window, cx| {
-                                            this.save_tab(
-                                                this.active_tab,
-                                                None,
-                                                true,
-                                                false,
-                                                window,
-                                                cx,
-                                            );
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.save_view(target, None, true, false, window, cx);
                                         })),
                                 ),
                         )
@@ -560,8 +1045,8 @@ impl EditorWorkspace {
                                 .xsmall()
                                 .outline()
                                 .label("Save UTF-8 Copy As…")
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.prompt_save_as(this.active_tab, false, window, cx);
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    this.prompt_save_view_as(target, false, window, cx);
                                 })),
                         )
                         .into_any_element(),
@@ -569,7 +1054,7 @@ impl EditorWorkspace {
             }
         }
 
-        if let Some(TabSlot::Paged(pv)) = self.tabs.get(self.active_tab)
+        if let (Some(target), Some(TabSlot::Paged(pv))) = (active_target, active_slot)
             && let Some(src_err) = &pv.source_error
         {
             out.push(
@@ -590,8 +1075,8 @@ impl EditorWorkspace {
                             .xsmall()
                             .primary()
                             .label("Reload File")
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.on_reload_active(&ReloadActiveDocument, window, cx);
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.request_reload_view(target, window, cx);
                             })),
                     )
                     .into_any_element(),
@@ -602,7 +1087,7 @@ impl EditorWorkspace {
     }
 
     fn render_goto_bar(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let is_paged = matches!(self.tabs.get(self.active_tab), Some(TabSlot::Paged(_)));
+        let is_paged = matches!(self.active_slot(), Some(TabSlot::Paged(_)));
         let hint = if is_paged {
             "Paged jump: byte offset (4096, 0x1000, @8192) or :line"
         } else {
@@ -659,10 +1144,11 @@ impl EditorWorkspace {
 
     fn render_search_panel(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let is_running = self.search.is_running();
-        let can_replace = matches!(
-            self.tabs.get(self.active_tab),
-            Some(TabSlot::Editable(ed)) if !ed.is_readonly()
-        );
+        let can_replace = !self.is_lifecycle_busy()
+            && matches!(
+                self.active_slot(),
+                Some(TabSlot::Editable(ed)) if !ed.is_readonly()
+            );
         let kernel_label = match self.search.algorithm {
             SearchAlgorithm::MemchrBaseline => "Kernel: Memchr",
             SearchAlgorithm::ByteScanExperiment => "Kernel: ByteScan",
@@ -963,8 +1449,10 @@ impl EditorWorkspace {
     }
 
     fn render_active_tab_body(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let content = match self.tabs.get(self.active_tab) {
-            Some(TabSlot::Editable(ed)) => {
+        let active_target = self.active_view_id().and_then(|id| self.view_target(id));
+        let lifecycle_busy = self.is_lifecycle_busy();
+        let content = match (active_target, self.active_slot()) {
+            (_, Some(TabSlot::Editable(ed))) => {
                 let show_empty_hints =
                     ed.meta.path.is_none() && ed.committed_byte_len() == 0 && !ed.is_dirty();
                 v_flex()
@@ -972,6 +1460,7 @@ impl EditorWorkspace {
                     .child(
                         div().flex_1().min_h_0().w_full().child(
                             Editor::new(ed.editor())
+                                .readonly(ed.editor().read(cx).presentation().is_readonly())
                                 .h_full()
                                 .bordered(false)
                                 .aria_label(ed.meta.title.clone()),
@@ -994,7 +1483,7 @@ impl EditorWorkspace {
                                 .text_xs()
                                 .text_color(cx.theme().muted_foreground)
                                 .child(
-                                    "Quick Actions:  ⌘O Open File  ·  ⌘P Switch File  ·  ⇧⌘P Command Palette  ·  ⌘B Sidebar  ·  ⇧⌘D Duplicate Line  ·  ⌘/ Comment",
+                                    "Quick Actions:  ⌘O Open File  ·  ⌘P Switch File  ·  ⇧⌘P Command Palette  ·  ⌥⌘G New Tab Group  ·  ⌘B Sidebar  ·  ⇧⌘D Duplicate Line",
                                 )
                                 .child(
                                     h_flex()
@@ -1024,8 +1513,8 @@ impl EditorWorkspace {
                     })
                     .into_any_element()
             }
-            Some(TabSlot::Paged(pv)) => self.render_paged_tab(self.active_tab, pv, cx),
-            Some(TabSlot::Hydrating { stub, .. }) => v_flex()
+            (Some(target), Some(TabSlot::Paged(pv))) => self.render_paged_tab(target, pv, cx),
+            (_, Some(TabSlot::Hydrating { stub, .. })) => v_flex()
                 .size_full()
                 .items_center()
                 .justify_center()
@@ -1034,8 +1523,7 @@ impl EditorWorkspace {
                 .text_color(cx.theme().muted_foreground)
                 .child(format!("Hydrating \"{}\"…", stub.meta.title))
                 .into_any_element(),
-            Some(TabSlot::Dehydrated(stub)) => {
-                let ix = self.active_tab;
+            (Some(target), Some(TabSlot::Dehydrated(stub))) => {
                 let title = stub.meta.title.clone();
                 v_flex()
                     .size_full()
@@ -1051,32 +1539,52 @@ impl EditorWorkspace {
                             )),
                     )
                     .child(
-                        Button::new("hydrate-now-btn")
-                            .primary()
-                            .small()
-                            .label("Load Tab Now")
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                this.activate_tab(ix, window, cx);
-                            })),
+                        h_flex()
+                            .gap_2()
+                            .child(
+                                Button::new("hydrate-now-btn")
+                                    .accessibility_id("btn-hydrate-now")
+                                    .primary()
+                                    .small()
+                                    .disabled(lifecycle_busy)
+                                    .label("Load Tab Now")
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        this.retry_view_hydration(target, window, cx);
+                                    })),
+                            )
+                            .child(
+                                Button::new("dehydrated-close-btn")
+                                    .accessibility_id("btn-dehydrated-close")
+                                    .outline()
+                                    .small()
+                                    .disabled(lifecycle_busy)
+                                    .label("Close Tab")
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        this.request_close_view(target, window, cx);
+                                    })),
+                            ),
                     )
                     .into_any_element()
             }
-            Some(TabSlot::OverBudgetDraft { stub, reason }) => {
-                let doc_id = stub.doc_id;
-                let ix = self.active_tab;
-                let stub_clone = stub.clone();
+            (Some(target), Some(TabSlot::OverBudgetDraft { stub, reason })) => {
+                let has_checkpoint = stub.has_checkpoint;
+                let heading = if has_checkpoint {
+                    "Draft Protected in Recovery Storage (Hydration Budget Reached)"
+                } else {
+                    "Document Deferred by Hydration Budget"
+                };
+                let explanation = if has_checkpoint {
+                    "Your stored recovery draft remains intact in SQLite. Export a copy directly to disk without creating an EditorState, or close other tabs and retry."
+                } else {
+                    "Close other open editors to free hydration budget and retry loading this document."
+                };
                 v_flex()
                     .size_full()
                     .items_center()
                     .justify_center()
                     .p_6()
                     .gap_3()
-                    .child(
-                        div()
-                            .text_base()
-                            .font_semibold()
-                            .child("Draft Protected in Recovery Storage (Hydration Budget Reached)"),
-                    )
+                    .child(div().text_base().font_semibold().child(heading))
                     .child(
                         div()
                             .max_w(px(620.))
@@ -1089,41 +1597,57 @@ impl EditorWorkspace {
                             .max_w(px(620.))
                             .text_xs()
                             .text_color(cx.theme().muted_foreground)
-                            .child("Your unsaved draft remains intact in SQLite recovery storage. Export it directly to disk without loading an EditorState, or close other tabs and retry."),
+                            .child(explanation),
                     )
                     .child(
                         h_flex()
                             .gap_2()
+                            .when(has_checkpoint, |el| {
+                                el.child(
+                                    Button::new("rescue-export-draft")
+                                        .accessibility_id("btn-rescue-export-draft")
+                                        .primary()
+                                        .small()
+                                        .label("Export / Rescue Save Draft As…")
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.export_view_draft_copy(target, window, cx);
+                                        })),
+                                )
+                            })
                             .child(
-                                Button::new("rescue-export-draft")
-                                    .accessibility_id("btn-rescue-export-draft")
-                                    .primary()
+                                Button::new("retry-hydrate-draft")
+                                    .accessibility_id("btn-retry-hydrate-draft")
+                                    .outline()
                                     .small()
-                                    .label("Export / Rescue Save Draft As…")
+                                    .disabled(lifecycle_busy)
+                                    .label("Retry Hydrate")
                                     .on_click(cx.listener(move |this, _, window, cx| {
-                                        this.export_over_budget_draft(doc_id, window, cx);
+                                        this.retry_view_hydration(target, window, cx);
                                     })),
                             )
                             .child(
-                                Button::new("retry-hydrate-draft")
-                                    .outline()
+                                Button::new("overbudget-close-tab")
+                                    .accessibility_id("btn-overbudget-close-tab")
+                                    .ghost()
                                     .small()
-                                    .label("Retry Hydrate")
+                                    .disabled(lifecycle_busy)
+                                    .label("Close Tab")
                                     .on_click(cx.listener(move |this, _, window, cx| {
-                                        this.start_hydrating_stub(
-                                            ix,
-                                            stub_clone.clone(),
-                                            window,
-                                            cx,
-                                        );
+                                        this.request_close_view(target, window, cx);
                                     })),
                             ),
                     )
                     .into_any_element()
             }
-            Some(TabSlot::Failed { meta, error, .. }) => {
-                let ix = self.active_tab;
-                let can_retry = meta.path.is_some();
+            (Some(target), Some(TabSlot::Failed { stub, error })) => {
+                let has_checkpoint = stub.has_checkpoint;
+                let has_disk_path = stub.meta.path.is_some();
+                let can_retry = has_checkpoint || has_disk_path;
+                let title = if stub.meta.title.is_empty() {
+                    "untitled"
+                } else {
+                    stub.meta.title.as_str()
+                };
                 v_flex()
                     .size_full()
                     .items_center()
@@ -1135,7 +1659,7 @@ impl EditorWorkspace {
                             .text_base()
                             .font_semibold()
                             .text_color(cx.theme().danger)
-                            .child(format!("Unable to Open \"{}\"", meta.title)),
+                            .child(format!("Unable to Open \"{title}\"")),
                     )
                     .child(
                         div()
@@ -1144,37 +1668,78 @@ impl EditorWorkspace {
                             .text_color(cx.theme().muted_foreground)
                             .child(error.clone()),
                     )
+                    .when(has_checkpoint, |el| {
+                        el.child(
+                            div()
+                                .max_w(px(580.))
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground)
+                                .child(
+                                    "A recovery checkpoint exists for this tab. Retry Hydration retries the stored recovery source without substituting disk contents.",
+                                ),
+                        )
+                    })
                     .child(
                         h_flex()
                             .gap_2()
+                            .flex_wrap()
                             .when(can_retry, |el| {
                                 el.child(
                                     Button::new("failed-tab-retry")
+                                        .accessibility_id("btn-failed-tab-retry")
                                         .primary()
                                         .small()
-                                        .label("Retry Open")
+                                        .disabled(lifecycle_busy)
+                                        .label(if has_checkpoint {
+                                            "Retry Hydration"
+                                        } else {
+                                            "Retry Open"
+                                        })
                                         .on_click(cx.listener(move |this, _, window, cx| {
-                                            this.on_reload_active(
-                                                &ReloadActiveDocument,
-                                                window,
-                                                cx,
-                                            );
+                                            this.retry_view_hydration(target, window, cx);
+                                        })),
+                                )
+                            })
+                            .when(has_checkpoint, |el| {
+                                el.child(
+                                    Button::new("failed-tab-export")
+                                        .accessibility_id("btn-failed-tab-export")
+                                        .outline()
+                                        .small()
+                                        .label("Export Draft Copy…")
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.export_view_draft_copy(target, window, cx);
+                                        })),
+                                )
+                            })
+                            .when(has_disk_path && has_checkpoint, |el| {
+                                el.child(
+                                    Button::new("failed-tab-reload-disk")
+                                        .accessibility_id("btn-failed-tab-reload-disk")
+                                        .danger()
+                                        .small()
+                                        .disabled(lifecycle_busy)
+                                        .label("Reload Clean Disk…")
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            this.request_reload_view(target, window, cx);
                                         })),
                                 )
                             })
                             .child(
                                 Button::new("failed-tab-close")
+                                    .accessibility_id("btn-failed-tab-close")
                                     .outline()
                                     .small()
+                                    .disabled(lifecycle_busy)
                                     .label("Close Tab")
                                     .on_click(cx.listener(move |this, _, window, cx| {
-                                        this.close_tab_confirmed(ix, false, window, cx);
+                                        this.request_close_view(target, window, cx);
                                     })),
                             ),
                     )
                     .into_any_element()
             }
-            None => v_flex()
+            _ => v_flex()
                 .size_full()
                 .items_center()
                 .justify_center()
@@ -1231,7 +1796,7 @@ impl EditorWorkspace {
 
     fn render_paged_tab(
         &self,
-        tab_index: usize,
+        target: ViewTarget,
         pv: &PagedTabState,
         cx: &mut Context<Self>,
     ) -> gpui_kit::AnyElement {
@@ -1301,7 +1866,7 @@ impl EditorWorkspace {
                     .disabled(at_start)
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.request_paged_viewport(
-                            tab_index,
+                            target,
                             editor_services::ViewportAnchor::ByteOffset(0),
                             window,
                             cx,
@@ -1317,7 +1882,7 @@ impl EditorWorkspace {
                     .label("Prev 64K")
                     .disabled(at_start)
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.request_paged_viewport(tab_index, prev_anchor.clone(), window, cx);
+                        this.request_paged_viewport(target, prev_anchor.clone(), window, cx);
                     })),
             )
             .child(
@@ -1329,7 +1894,7 @@ impl EditorWorkspace {
                     .icon(IconName::ChevronRight)
                     .disabled(at_end)
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.request_paged_viewport(tab_index, next_anchor.clone(), window, cx);
+                        this.request_paged_viewport(target, next_anchor.clone(), window, cx);
                     })),
             )
             .child(
@@ -1340,7 +1905,7 @@ impl EditorWorkspace {
                     .label("End ⟫")
                     .disabled(at_end)
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.request_paged_viewport(tab_index, end_anchor.clone(), window, cx);
+                        this.request_paged_viewport(target, end_anchor.clone(), window, cx);
                     })),
             )
             .child(
@@ -1360,8 +1925,8 @@ impl EditorWorkspace {
                     .xsmall()
                     .icon(IconName::RefreshCw)
                     .tooltip("Reload Paged Source")
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.on_reload_active(&ReloadActiveDocument, window, cx);
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.request_reload_view(target, window, cx);
                     })),
             )
             .when(is_lossy, |el| {
@@ -1399,7 +1964,6 @@ impl EditorWorkspace {
             );
 
         let mono = cx.theme().mono_font_family.clone();
-        let doc_id = pv.doc_id;
         let scroll_handle = pv.scroll_handle.clone();
         let item_sizes = pv.segment_item_sizes.clone();
 
@@ -1432,7 +1996,7 @@ impl EditorWorkspace {
                     .font_family(mono.clone())
                     .text_xs()
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.request_paged_viewport(tab_index, prev_a.clone(), window, cx);
+                        this.request_paged_viewport(target, prev_a.clone(), window, cx);
                     }))
                     .child(format!(
                         "↑ Load previous 64 KiB slice (before byte 0x{:X})",
@@ -1453,7 +2017,7 @@ impl EditorWorkspace {
                     .font_family(mono.clone())
                     .text_xs()
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.request_paged_viewport(tab_index, next_a.clone(), window, cx);
+                        this.request_paged_viewport(target, next_a.clone(), window, cx);
                     }))
                     .child(format!(
                         "↓ Load next 64 KiB slice (from byte 0x{:X} of {})",
@@ -1464,12 +2028,13 @@ impl EditorWorkspace {
 
             let vlist = v_virtual_list(
                 entity,
-                ("paged-segments-vlist", doc_id.0 as u64),
+                view_elem_id(*b"pgvl", target.view_id),
                 item_sizes,
                 move |this, visible_range: Range<usize>, _window, cx| {
-                    let Some(TabSlot::Paged(pv_now)) =
-                        this.tabs.iter().find(|s| s.doc_id() == doc_id)
-                    else {
+                    if this.session_layout().resolve(target).is_err() {
+                        return Vec::new();
+                    }
+                    let Some(TabSlot::Paged(pv_now)) = this.view_slot(target.view_id) else {
                         return Vec::new();
                     };
                     let Some(slice_now) = &pv_now.current_slice else {
@@ -1622,8 +2187,9 @@ impl EditorWorkspace {
     fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let entity_open = cx.entity();
         let entity_recent = cx.entity();
-        let open_count = self.tabs.len();
+        let open_count = self.ordered_view_ids().len();
         let recent_count = self.shell_state.recent_files.len();
+        let lifecycle_busy = self.is_lifecycle_busy();
 
         let open_item_sizes: Rc<Vec<Size<gpui_kit::Pixels>>> =
             Rc::new(vec![size(px(236.), px(26.)); open_count]);
@@ -1647,16 +2213,41 @@ impl EditorWorkspace {
                     .child(format!("OPEN EDITORS ({open_count})")),
             )
             .child(
-                Button::new("sidebar-new-tab")
-                    .accessibility_id("btn-sidebar-new-tab")
-                    .ghost()
-                    .xsmall()
-                    .compact()
-                    .icon(IconName::Plus)
-                    .tooltip("New Tab (⌘N)")
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.create_untitled_tab(true, window, cx);
-                    })),
+                h_flex()
+                    .gap_0p5()
+                    .items_center()
+                    .child(
+                        Button::new("sidebar-new-group")
+                            .accessibility_id("btn-sidebar-new-group")
+                            .accessibility_label("Create Tab Group")
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .disabled(lifecycle_busy)
+                            .label("+Grp")
+                            .tooltip("New Tab Group from Active Tab (⌥⌘G)")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.on_create_group_from_active_tab(
+                                    &CreateGroupFromActiveTab,
+                                    window,
+                                    cx,
+                                );
+                            })),
+                    )
+                    .child(
+                        Button::new("sidebar-new-tab")
+                            .accessibility_id("btn-sidebar-new-tab")
+                            .accessibility_label("New Tab")
+                            .ghost()
+                            .xsmall()
+                            .compact()
+                            .disabled(lifecycle_busy)
+                            .icon(IconName::Plus)
+                            .tooltip("New Tab (⌘N)")
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.create_untitled_tab(true, window, cx);
+                            })),
+                    ),
             );
 
         let open_list = v_virtual_list(
@@ -1664,25 +2255,46 @@ impl EditorWorkspace {
             "sidebar-open-editors-vlist",
             open_item_sizes,
             move |this, visible_range: Range<usize>, _window, cx| {
-                let tab_paths: Vec<Option<&Path>> =
-                    this.tabs.iter().map(|s| s.meta().path.as_deref()).collect();
-                let hints = disambiguate_paths(&tab_paths);
+                let ordered = this.ordered_view_ids();
+                let active_id = this.active_view_id();
+                let session = this.session_layout();
+                let has_custom_groups = session.tree.groups.len() > 1;
+                let is_dark = cx.theme().mode.is_dark();
+                let busy = this.is_lifecycle_busy();
+                let ws_ctx_base = cx.entity();
+
+                let tab_paths: Vec<Option<&Path>> = ordered
+                    .iter()
+                    .map(|&vid| this.view_slot(vid).and_then(|s| s.meta().path.as_deref()))
+                    .collect();
 
                 visible_range
                     .filter_map(|ix| {
-                        let slot = this.tabs.get(ix)?;
-                        let is_active = ix == this.active_tab;
+                        let view_id = *ordered.get(ix)?;
+                        let target = this.view_target(view_id)?;
+                        let lv = session.view(view_id)?;
+                        let slot = this.view_slot(view_id)?;
+                        let is_active = active_id == Some(view_id);
                         let title = slot.title().to_string();
-                        let parent_hint = hints.get(ix).cloned().unwrap_or_default();
+                        let maybe_path = tab_paths.get(ix).copied().flatten();
+                        let parent_hint = disambiguate_single_path(maybe_path, &tab_paths);
                         let badge = slot.honest_badge();
+                        let grp_info = session.group(lv.group_id);
+                        let grp_color = grp_info.map(|g| g.color).unwrap_or(GroupColor::Neutral);
+                        let grp_dot = group_color_hsla(grp_color, is_dark);
+                        let custom_grp_tag = grp_info
+                            .filter(|g| g.id != GroupId::UNGROUPED)
+                            .map(|g| g.name.clone());
+                        let show_group_dot = lv.group_id != GroupId::UNGROUPED || has_custom_groups;
+                        let ws_row_ctx = ws_ctx_base.clone();
 
                         Some(
                             h_flex()
-                                .id(("sidebar-open-row", ix))
+                                .id(view_elem_id(*b"sbar", view_id))
                                 .h(px(26.))
                                 .w_full()
                                 .px_2()
-                                .gap_1p5()
+                                .gap_1()
                                 .items_center()
                                 .cursor_pointer()
                                 .text_xs()
@@ -1694,8 +2306,17 @@ impl EditorWorkspace {
                                 })
                                 .hover(|el| el.bg(cx.theme().list_hover))
                                 .on_click(cx.listener(move |this, _, window, cx| {
-                                    this.activate_tab(ix, window, cx);
+                                    this.activate_view(target, window, cx);
                                 }))
+                                .when(show_group_dot, |el| {
+                                    el.child(
+                                        div()
+                                            .size(px(6.))
+                                            .rounded_full()
+                                            .flex_shrink_0()
+                                            .bg(grp_dot),
+                                    )
+                                })
                                 .when(badge.proven_modified, |el| {
                                     el.child(
                                         div()
@@ -1723,6 +2344,19 @@ impl EditorWorkspace {
                                             )
                                         }),
                                 )
+                                .when_some(custom_grp_tag, |el, gtag| {
+                                    el.child(
+                                        div()
+                                            .max_w(px(52.))
+                                            .px_1()
+                                            .rounded(px(3.))
+                                            .bg(grp_dot.opacity(0.18))
+                                            .text_color(cx.theme().foreground)
+                                            .truncate()
+                                            .flex_shrink_0()
+                                            .child(gtag),
+                                    )
+                                })
                                 .when_some(
                                     badge.short_badge.filter(|_| !badge.proven_modified),
                                     |el, b| {
@@ -1738,17 +2372,31 @@ impl EditorWorkspace {
                                     },
                                 )
                                 .child(
-                                    Button::new(("sidebar-close-tab", ix))
-                                        .accessibility_id(format!("btn-sidebar-close-{ix}"))
+                                    Button::new(view_elem_id(*b"sbcl", view_id))
+                                        .accessibility_id(format!(
+                                            "btn-sidebar-close-{}",
+                                            view_id.key()
+                                        ))
+                                        .accessibility_label("Close Tab")
                                         .ghost()
                                         .xsmall()
                                         .compact()
+                                        .disabled(busy)
                                         .icon(IconName::Close)
                                         .on_click(cx.listener(move |this, _, window, cx| {
                                             cx.stop_propagation();
-                                            this.request_close_tab(ix, window, cx);
+                                            this.request_close_view(target, window, cx);
                                         })),
-                                ),
+                                )
+                                .context_menu(move |menu, window, cx| {
+                                    build_tab_context_menu(
+                                        menu,
+                                        ws_row_ctx.clone(),
+                                        target,
+                                        window,
+                                        cx,
+                                    )
+                                }),
                         )
                     })
                     .collect()
@@ -1825,16 +2473,18 @@ impl EditorWorkspace {
                                 .map(|p| Some(p.as_path()))
                                 .collect();
                             let hints = disambiguate_paths(&recent_refs);
+                            let open_paths: HashSet<&Path> = this
+                                .ordered_view_ids()
+                                .iter()
+                                .filter_map(|&vid| this.view_slot(vid)?.meta().path.as_deref())
+                                .collect();
 
                             visible_range
                                 .filter_map(|ix| {
                                     let path = this.shell_state.recent_files.get(ix)?.clone();
                                     let name = file_name_str(&path);
                                     let dir_hint = hints.get(ix).cloned().unwrap_or_default();
-                                    let is_open = this
-                                        .tabs
-                                        .iter()
-                                        .any(|s| s.meta().path.as_ref() == Some(&path));
+                                    let is_open = open_paths.contains(path.as_path());
 
                                     Some(
                                         h_flex()
@@ -1915,14 +2565,25 @@ impl EditorWorkspace {
 
         match effective.mode {
             PaletteMode::Files => {
-                // Group 1: Open Editors (metadata-only; zero disk stat / zero hydration while filtering!)
-                let tab_paths: Vec<Option<&Path>> =
-                    self.tabs.iter().map(|s| s.meta().path.as_deref()).collect();
+                // Group 1: Open Editors (metadata-only; includes collapsed group members; zero disk I/O / zero hydration!)
+                let ordered = self.ordered_view_ids();
+                let active_id = self.active_view_id();
+                let session = self.session_layout();
+                let tab_paths: Vec<Option<&Path>> = ordered
+                    .iter()
+                    .map(|&vid| self.view_slot(vid).and_then(|s| s.meta().path.as_deref()))
+                    .collect();
                 let tab_hints = disambiguate_paths(&tab_paths);
 
                 let mut open_group = CommandGroup::new().label("Open Editors");
                 let mut open_targets = Vec::new();
-                for (ix, slot) in self.tabs.iter().enumerate() {
+                for (ix, &vid) in ordered.iter().enumerate() {
+                    let Some(target) = self.view_target(vid) else {
+                        continue;
+                    };
+                    let Some(slot) = self.view_slot(vid) else {
+                        continue;
+                    };
                     let title = slot.title();
                     let hint = tab_hints.get(ix).map(String::as_str).unwrap_or("");
                     let path_str = slot
@@ -1945,18 +2606,37 @@ impl EditorWorkspace {
                     } else {
                         ""
                     };
+                    let (grp_suffix, grp_kw) = session
+                        .view(vid)
+                        .and_then(|lv| session.group(lv.group_id))
+                        .map(|g| {
+                            let sfx = if g.id != GroupId::UNGROUPED {
+                                if g.collapsed {
+                                    format!(" · [{} · collapsed]", g.name)
+                                } else {
+                                    format!(" · [{}]", g.name)
+                                }
+                            } else if g.collapsed {
+                                " · [Ungrouped · collapsed]".to_string()
+                            } else {
+                                String::new()
+                            };
+                            (sfx, g.name.clone())
+                        })
+                        .unwrap_or_default();
+
                     let label = if hint.is_empty() {
-                        format!("{title}{suffix}")
+                        format!("{title}{suffix}{grp_suffix}")
                     } else {
-                        format!("{title} — {hint}{suffix}")
+                        format!("{title} — {hint}{suffix}{grp_suffix}")
                     };
-                    if matches_palette_filter(filter, &label, &[&path_str]) {
+                    if matches_palette_filter(filter, &label, &[&path_str, &grp_kw]) {
                         open_group = open_group.item(
                             CommandItem::new()
                                 .label(label)
-                                .checked(ix == self.active_tab),
+                                .checked(active_id == Some(vid)),
                         );
-                        open_targets.push(PaletteCommandTarget::ActivateOpenTab(ix));
+                        open_targets.push(PaletteCommandTarget::ActivateOpenTab(target));
                     }
                 }
                 if !open_targets.is_empty() {
@@ -1971,15 +2651,15 @@ impl EditorWorkspace {
                     .map(|p| Some(p.as_path()))
                     .collect();
                 let recent_hints = disambiguate_paths(&recent_refs);
+                let open_paths: HashSet<&Path> = ordered
+                    .iter()
+                    .filter_map(|&vid| self.view_slot(vid)?.meta().path.as_deref())
+                    .collect();
 
                 let mut recent_group = CommandGroup::new().label("Recent Files");
                 let mut recent_targets = Vec::new();
                 for (ix, path) in self.shell_state.recent_files.iter().enumerate() {
-                    let already_open = self
-                        .tabs
-                        .iter()
-                        .any(|s| s.meta().path.as_ref() == Some(path));
-                    if already_open {
+                    if open_paths.contains(path.as_path()) {
                         continue;
                     }
                     let name = file_name_str(path);
@@ -2001,17 +2681,20 @@ impl EditorWorkspace {
             }
 
             PaletteMode::Commands => {
-                let active_ed = match self.tabs.get(self.active_tab) {
+                let lifecycle_busy = self.is_lifecycle_busy();
+                let origin_target = self
+                    .palette_origin()
+                    .and_then(|o| o.view)
+                    .filter(|t| self.session_layout().resolve(*t).is_ok())
+                    .or_else(|| self.active_view_id().and_then(|id| self.view_target(id)));
+                let origin_slot = origin_target.and_then(|t| self.view_slot(t.view_id));
+                let active_ed = match origin_slot {
                     Some(TabSlot::Editable(ed)) => Some(ed),
                     _ => None,
                 };
-                let can_edit = active_ed.is_some_and(|ed| !ed.is_readonly());
-                let has_disk_path = self
-                    .tabs
-                    .get(self.active_tab)
-                    .is_some_and(|s| s.meta().path.is_some());
+                let can_edit = !lifecycle_busy && active_ed.is_some_and(|ed| !ed.is_readonly());
+                let has_disk_path = origin_slot.is_some_and(|s| s.meta().path.is_some());
                 let prefs = self.current_view_prefs();
-
                 let push_cmd = |group: &mut CommandGroup,
                                 targets: &mut Vec<PaletteCommandTarget>,
                                 label: String,
@@ -2184,7 +2867,7 @@ impl EditorWorkspace {
                     "File: Save As…  (⇧⌘S)".into(),
                     &["save as", "export"],
                     false,
-                    active_ed.is_none(),
+                    lifecycle_busy || active_ed.is_none(),
                     PaletteCommandTarget::SaveFileAs,
                 );
                 push_cmd(
@@ -2193,7 +2876,7 @@ impl EditorWorkspace {
                     "File: Reload from Disk  (⌘R)".into(),
                     &["reload", "revert disk"],
                     false,
-                    !has_disk_path,
+                    lifecycle_busy || !has_disk_path,
                     PaletteCommandTarget::ReloadFromDisk,
                 );
                 push_cmd(
@@ -2202,7 +2885,7 @@ impl EditorWorkspace {
                     "File: Reopen Closed Tab  (⇧⌘T)".into(),
                     &["reopen", "closed"],
                     false,
-                    self.recently_closed.is_empty(),
+                    lifecycle_busy || self.recently_closed_count() == 0,
                     PaletteCommandTarget::ReopenClosedTab,
                 );
                 push_cmd(
@@ -2211,7 +2894,7 @@ impl EditorWorkspace {
                     "File: Close Active Tab  (⌘W)".into(),
                     &["close tab"],
                     false,
-                    self.tabs.is_empty(),
+                    lifecycle_busy || origin_target.is_none(),
                     PaletteCommandTarget::CloseActiveTab,
                 );
                 push_cmd(
@@ -2367,7 +3050,7 @@ impl EditorWorkspace {
                     "Language: Auto Detect Syntax".into(),
                     &["language", "syntax", "auto detect"],
                     active_ed.is_some() && cur_lang_override.is_none(),
-                    active_ed.is_none(),
+                    lifecycle_busy || active_ed.is_none(),
                     PaletteCommandTarget::SetLanguageAuto,
                 );
                 for entry in SUPPORTED_LANGUAGES {
@@ -2377,12 +3060,272 @@ impl EditorWorkspace {
                         format!("Language: Set Syntax to {}", entry.label),
                         &["language", "syntax", entry.id],
                         cur_lang_override.is_some_and(|ov| ov.eq_ignore_ascii_case(entry.id)),
-                        active_ed.is_none(),
+                        lifecycle_busy || active_ed.is_none(),
                         PaletteCommandTarget::SetLanguage(entry.id),
                     );
                 }
                 if !fmt_targets.is_empty() {
                     groups.push((fmt_group, fmt_targets));
+                }
+
+                // 5. Tab Groups & Membership
+                let mut grp_section = CommandGroup::new().label("Tab Groups");
+                let mut grp_targets = Vec::new();
+                let layout_now = self.session_layout();
+                let origin_group_id = origin_target
+                    .and_then(|t| layout_now.view(t.view_id).map(|v| v.group_id))
+                    .unwrap_or_else(|| layout_now.active_group());
+                let origin_group_meta = layout_now
+                    .group(origin_group_id)
+                    .map(|g| (g.id, g.name.clone(), g.color, g.collapsed));
+                let all_groups_meta: Vec<(GroupId, String, GroupColor)> = layout_now
+                    .tree
+                    .groups
+                    .iter()
+                    .map(|g| (g.id, g.name.clone(), g.color))
+                    .collect();
+                let can_tab_earlier = origin_target
+                    .and_then(|t| prev_view_anchor_in_group(layout_now, t))
+                    .is_some();
+                let can_tab_later = origin_target
+                    .and_then(|t| next_view_anchor_in_group(layout_now, t))
+                    .is_some();
+                let can_grp_earlier = prev_group_anchor(layout_now, origin_group_id).is_some();
+                let can_grp_later = next_group_anchor(layout_now, origin_group_id).is_some();
+                let grp_member_count = layout_now
+                    .pane()
+                    .tabs
+                    .iter()
+                    .filter(|id| {
+                        layout_now
+                            .view(**id)
+                            .is_some_and(|v| v.group_id == origin_group_id)
+                    })
+                    .count();
+
+                push_cmd(
+                    &mut grp_section,
+                    &mut grp_targets,
+                    "Group: New Group from Current Tab…  (⌥⌘G)".into(),
+                    &["group", "create", "new group", "tab"],
+                    false,
+                    lifecycle_busy,
+                    PaletteCommandTarget::GroupUi(GroupPaletteAction::PromptCreateGroup {
+                        initial_view: origin_target,
+                    }),
+                );
+                push_cmd(
+                    &mut grp_section,
+                    &mut grp_targets,
+                    "Group: New Empty Group…  (⇧⌥⌘G)".into(),
+                    &["group", "create", "empty"],
+                    false,
+                    lifecycle_busy,
+                    PaletteCommandTarget::GroupUi(GroupPaletteAction::PromptCreateGroup {
+                        initial_view: None,
+                    }),
+                );
+                if let Some((gid, gname, gcolor, gcollapsed)) = origin_group_meta {
+                    push_cmd(
+                        &mut grp_section,
+                        &mut grp_targets,
+                        if gcollapsed {
+                            format!("Group: Expand \"{gname}\"  (⌥⌘M)")
+                        } else {
+                            format!("Group: Collapse \"{gname}\"  (⌥⌘M)")
+                        },
+                        &["group", "collapse", "expand", "fold", &gname],
+                        gcollapsed,
+                        lifecycle_busy,
+                        PaletteCommandTarget::GroupUi(GroupPaletteAction::SetGroupCollapsed {
+                            group: gid,
+                            collapsed: !gcollapsed,
+                        }),
+                    );
+                    if gid != GroupId::UNGROUPED {
+                        push_cmd(
+                            &mut grp_section,
+                            &mut grp_targets,
+                            format!("Group: Rename \"{gname}\"…  (⌥⌘R)"),
+                            &["group", "rename", "title", &gname],
+                            false,
+                            lifecycle_busy,
+                            PaletteCommandTarget::GroupUi(GroupPaletteAction::PromptRenameGroup {
+                                group: gid,
+                            }),
+                        );
+                        for color in GroupColor::ALL {
+                            push_cmd(
+                                &mut grp_section,
+                                &mut grp_targets,
+                                format!("Group: Set \"{gname}\" Color to {}", color.label()),
+                                &["group", "color", color.label(), &gname],
+                                gcolor == color,
+                                lifecycle_busy,
+                                PaletteCommandTarget::GroupUi(GroupPaletteAction::SetGroupColor {
+                                    group: gid,
+                                    color,
+                                }),
+                            );
+                        }
+                    }
+                    push_cmd(
+                        &mut grp_section,
+                        &mut grp_targets,
+                        format!("Group: Move Group \"{gname}\" Earlier  (⌥⌘;)"),
+                        &["group", "reorder", "earlier", "left", &gname],
+                        false,
+                        lifecycle_busy || !can_grp_earlier,
+                        PaletteCommandTarget::GroupUi(GroupPaletteAction::MoveGroupEarlier {
+                            group: gid,
+                        }),
+                    );
+                    push_cmd(
+                        &mut grp_section,
+                        &mut grp_targets,
+                        format!("Group: Move Group \"{gname}\" Later  (⌥⌘')"),
+                        &["group", "reorder", "later", "right", &gname],
+                        false,
+                        lifecycle_busy || !can_grp_later,
+                        PaletteCommandTarget::GroupUi(GroupPaletteAction::MoveGroupLater {
+                            group: gid,
+                        }),
+                    );
+                    if gid != GroupId::UNGROUPED {
+                        push_cmd(
+                            &mut grp_section,
+                            &mut grp_targets,
+                            format!(
+                                "Group: Remove Group \"{gname}\" (Keep Tabs Open in Ungrouped)  (⇧⌥⌘U)"
+                            ),
+                            &["group", "remove", "ungroup", "keep tabs", &gname],
+                            false,
+                            lifecycle_busy,
+                            PaletteCommandTarget::GroupUi(
+                                GroupPaletteAction::RemoveGroupKeepTabs { group: gid },
+                            ),
+                        );
+                    }
+                    push_cmd(
+                        &mut grp_section,
+                        &mut grp_targets,
+                        format!("Group: Close All Tabs in \"{gname}\"…  (⌥⌘W)"),
+                        &["group", "close group", "close tabs", &gname],
+                        false,
+                        lifecycle_busy || grp_member_count == 0,
+                        PaletteCommandTarget::GroupUi(GroupPaletteAction::CloseGroupTabs {
+                            group: gid,
+                        }),
+                    );
+                }
+                if let Some(target) = origin_target {
+                    push_cmd(
+                        &mut grp_section,
+                        &mut grp_targets,
+                        "Group: Move Current Tab Earlier in Group  (⌥⌘[)".into(),
+                        &["tab", "move", "reorder", "earlier", "left"],
+                        false,
+                        lifecycle_busy || !can_tab_earlier,
+                        PaletteCommandTarget::GroupUi(GroupPaletteAction::MoveViewEarlierInGroup {
+                            target,
+                        }),
+                    );
+                    push_cmd(
+                        &mut grp_section,
+                        &mut grp_targets,
+                        "Group: Move Current Tab Later in Group  (⌥⌘])".into(),
+                        &["tab", "move", "reorder", "later", "right"],
+                        false,
+                        lifecycle_busy || !can_tab_later,
+                        PaletteCommandTarget::GroupUi(GroupPaletteAction::MoveViewLaterInGroup {
+                            target,
+                        }),
+                    );
+                    for (gid, gname, _) in &all_groups_meta {
+                        push_cmd(
+                            &mut grp_section,
+                            &mut grp_targets,
+                            format!("Group: Move Current Tab to \"{gname}\""),
+                            &["group", "move tab", "assign", gname.as_str()],
+                            *gid == origin_group_id,
+                            lifecycle_busy,
+                            PaletteCommandTarget::GroupUi(GroupPaletteAction::MoveViewToGroup {
+                                target,
+                                group: *gid,
+                            }),
+                        );
+                    }
+                }
+                if !grp_targets.is_empty() {
+                    groups.push((grp_section, grp_targets));
+                }
+
+                // 6. Recovery & Draft Catalog
+                let mut rec_section = CommandGroup::new().label("Recovery & Draft Catalog");
+                let mut rec_targets = Vec::new();
+                let rec_summary = &self.recovery_browser_state().latest_summary;
+                let rec_unplaced = rec_summary
+                    .unplaced_checkpoints
+                    .saturating_add(rec_summary.unplaced_other);
+                let catalog_label = if rec_unplaced > 0 {
+                    format!(
+                        "Recovery: Browse Draft Catalog ({rec_unplaced} deferred / {} total)…  (⌥⌘B)",
+                        rec_summary.total_eligible
+                    )
+                } else {
+                    "Recovery: Browse Stored Drafts & Overflow Catalog…  (⌥⌘B)".to_string()
+                };
+                push_cmd(
+                    &mut rec_section,
+                    &mut rec_targets,
+                    catalog_label,
+                    &[
+                        "recovery", "catalog", "drafts", "overflow", "1024", "export",
+                    ],
+                    false,
+                    false,
+                    PaletteCommandTarget::GroupUi(GroupPaletteAction::OpenRecoveryBrowser),
+                );
+                if let (Some(target), Some(slot)) = (origin_target, origin_slot) {
+                    if matches!(
+                        slot,
+                        TabSlot::Dehydrated(_)
+                            | TabSlot::OverBudgetDraft { .. }
+                            | TabSlot::Failed { .. }
+                    ) {
+                        push_cmd(
+                            &mut rec_section,
+                            &mut rec_targets,
+                            "Recovery: Retry Hydrating Current Tab".into(),
+                            &["recovery", "retry", "hydrate"],
+                            false,
+                            lifecycle_busy,
+                            PaletteCommandTarget::GroupUi(GroupPaletteAction::RetryHydration {
+                                target,
+                            }),
+                        );
+                    }
+                    if slot.has_checkpoint()
+                        || matches!(
+                            slot,
+                            TabSlot::OverBudgetDraft { .. } | TabSlot::Failed { .. }
+                        )
+                    {
+                        push_cmd(
+                            &mut rec_section,
+                            &mut rec_targets,
+                            "Recovery: Export Stored Draft Copy…".into(),
+                            &["recovery", "export", "rescue", "copy"],
+                            false,
+                            false,
+                            PaletteCommandTarget::GroupUi(GroupPaletteAction::ExportDraftCopy {
+                                target,
+                            }),
+                        );
+                    }
+                }
+                if !rec_targets.is_empty() {
+                    groups.push((rec_section, rec_targets));
                 }
             }
         }
@@ -2489,12 +3432,12 @@ impl EditorWorkspace {
         let hydrated_bytes = self.hydrated_content_bytes();
         let cache_stats = self.paging_service.stats();
         let prefs = self.current_view_prefs();
-
-        let action_focus = match self.tabs.get(self.active_tab) {
+        let lifecycle_busy = self.is_lifecycle_busy();
+        let active_slot = self.active_slot();
+        let action_focus = match active_slot {
             Some(TabSlot::Editable(ed)) => ed.editor().read(cx).focus_handle(cx),
             _ => self.focus_handle.clone(),
         };
-
         let flash_msg = self
             .status_flash
             .as_ref()
@@ -2508,10 +3451,10 @@ impl EditorWorkspace {
         let mut auto_detected_label = "Plain Text";
 
         let (mode_label, path_or_state, rev_info, cursor_info, lang_label, eol_label, enc_label) =
-            match self.tabs.get(self.active_tab) {
+            match active_slot {
                 Some(TabSlot::Editable(ed)) => {
-                    is_editable_slot = true;
-                    can_change_format = !ed.is_readonly();
+                    is_editable_slot = !lifecycle_busy;
+                    can_change_format = !lifecycle_busy && !ed.is_readonly();
                     cur_eol = ed.meta.line_ending;
                     cur_enc = ed.meta.encoding;
                     cur_lang_override = ed.meta.language_override.clone();
@@ -2751,6 +3694,29 @@ impl EditorWorkspace {
                         !can_change_format,
                     )
             });
+        let active_group_id = self.session_layout().active_group();
+        let active_group_label = self
+            .session_layout()
+            .group(active_group_id)
+            .map(|g| {
+                if g.collapsed {
+                    format!("Grp: {} (collapsed)", g.name)
+                } else {
+                    format!("Grp: {}", g.name)
+                }
+            })
+            .unwrap_or_else(|| "Grp: Ungrouped".to_string());
+        let ws_status_grp = cx.entity();
+        let group_status_btn = Button::new("status-group")
+            .accessibility_id("btn-status-group")
+            .ghost()
+            .xsmall()
+            .compact()
+            .label(active_group_label)
+            .tooltip("Active Tab Group Options")
+            .dropdown_menu_with_anchor(Anchor::BottomRight, move |menu, window, cx| {
+                build_group_menu(menu, ws_status_grp.clone(), active_group_id, window, cx)
+            });
 
         h_flex()
             .id("workspace-status-bar")
@@ -2839,6 +3805,7 @@ impl EditorWorkspace {
                         this.on_toggle_show_whitespace(&ToggleShowWhitespace, window, cx);
                     })),
             )
+            .child(group_status_btn)
             .child(indent_btn)
             .child(lang_btn)
             .child(eol_btn)

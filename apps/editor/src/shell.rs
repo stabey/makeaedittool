@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Component, Path, PathBuf};
 
 use editor_services::{
-    DocMeta, EncodingSpec, LineEnding, MAX_RECENT_FILES, ShellTheme, UiShellState,
+    DocMeta, EncodingSpec, LineEnding, MAX_RECENT_FILES, ShellTheme, UiShellState, ViewTarget,
 };
 
 use crate::cli::InitialTheme;
@@ -246,6 +246,55 @@ pub fn disambiguate_paths(paths: &[Option<&Path>]) -> Vec<String> {
     out
 }
 
+/// Disambiguates a single path against `paths` without allocating hints for unrendered rows
+/// during 1024-tab virtualized sidebar scrolling. Zero disk I/O.
+pub fn disambiguate_single_path(maybe_path: Option<&Path>, paths: &[Option<&Path>]) -> String {
+    let Some(path) = maybe_path else {
+        return String::new();
+    };
+    let Some(name_os) = path.file_name().filter(|n| !n.is_empty()) else {
+        let comps = parent_components(path);
+        if comps.is_empty() {
+            return String::new();
+        }
+        let take = comps.len().min(2);
+        return comps[comps.len() - take..].join("/");
+    };
+    let duplicate_name = paths.iter().flatten().any(|other| {
+        !std::ptr::eq(*other, path)
+            && *other != path
+            && other.file_name().is_some_and(|n| n == name_os)
+    });
+    let comps = parent_components(path);
+    if comps.is_empty() {
+        return String::new();
+    }
+    if !duplicate_name {
+        let take = comps.len().min(2);
+        return comps[comps.len() - take..].join("/");
+    }
+    let mut depth = 1usize;
+    while depth < comps.len() && depth < 4 {
+        let candidate_suffix = &comps[comps.len() - depth..];
+        let collides = paths.iter().flatten().any(|other| {
+            !std::ptr::eq(*other, path)
+                && *other != path
+                && other.file_name().is_some_and(|n| n == name_os)
+                && {
+                    let other_comps = parent_components(other);
+                    other_comps.len() >= depth
+                        && &other_comps[other_comps.len() - depth..] == candidate_suffix
+                }
+        });
+        if !collides {
+            break;
+        }
+        depth += 1;
+    }
+    let take = depth.min(comps.len());
+    comps[comps.len() - take..].join("/")
+}
+
 pub fn file_name_str(path: &Path) -> String {
     path.file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -319,7 +368,8 @@ pub fn matches_palette_filter(filter: &str, label: &str, keywords: &[&str]) -> b
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PaletteCommandTarget {
-    ActivateOpenTab(usize),
+    ActivateOpenTab(ViewTarget),
+    GroupUi(crate::group_ui::GroupPaletteAction),
     OpenRecentPath(PathBuf),
     SwitchToFileMode,
     NewTab,
@@ -473,6 +523,12 @@ mod tests {
         assert_eq!(labels[1], "beta/src");
         assert_eq!(labels[2], "nonexistent_root/alpha");
         assert_eq!(labels[3], "");
+        for (ix, candidate) in [Some(p1), Some(p2), Some(p3), None].iter().enumerate() {
+            assert_eq!(
+                disambiguate_single_path(*candidate, &[Some(p1), Some(p2), Some(p3), None]),
+                labels[ix]
+            );
+        }
     }
 
     #[test]

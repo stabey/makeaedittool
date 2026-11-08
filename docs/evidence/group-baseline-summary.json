@@ -1,0 +1,366 @@
+{
+  "baseline_version": "pre-tab-group-migration",
+  "date": "2026-11-08",
+  "git_revision": "9be22ff184ff906c47b648dd769caee034312602",
+  "platform": {
+    "os": "macOS 27.2.0 (Darwin arm64)",
+    "kernel": "Darwin Kernel Version 27.2.0: Wed Oct 14 23:47:07 PDT 2026; root:xnu-13432.41.4~25/RELEASE_ARM64_T8132",
+    "cpu": "Apple M4",
+    "ram_bytes": 34359738368,
+    "ram_gib": 32.0
+  },
+  "binaries": {
+    "editor": {
+      "path": "target/release/editor",
+      "sha256": "b8e6f545606fa603a3fa698db10fb5bbc9d84a4ed4ecacdcaf603c13f66245f7",
+      "version": "editor 0.1.0"
+    },
+    "editor_services": {
+      "path": "target/release/editor-services",
+      "sha256": "779973e990befd8ac20f42961f266c3128357c40bd1a365e10232cd70b5e06a8"
+    }
+  },
+  "scenario_definitions": {
+    "service_lazy_session": "Headless CLI SQLite recovery worker session benchmark (editor-services session-bench); measures metadata scan & single active draft hydrate without GUI window or AppKit runloop.",
+    "native_startup_recovery": "Native GPUI Kit desktop GUI process (editor --smoke=startup); initializes GPUI/Metal window, attaches SQLite recovery worker, reconstructs SessionManifest with N tabs, hydrates exactly 1 active tab (leaving N-1 tabs lazy stubs), pumps draw frame, requests clean shutdown, waits for durable ACK, emits report, quits.",
+    "native_usability": "Native GPUI Kit GUI usability verification (editor --smoke=usability); exercises palette, switcher, metadata-only preferences, CRLF line operations, BOM format changes, MRU persistence.",
+    "native_full": "Native GPUI Kit GUI full functional verification (editor --smoke=full); exercises programmatic editing, undo/redo, search, CRLF/BOM roundtrip, paged view, and clean shutdown."
+  },
+  "service_measurements": {
+    "service_100_tabs": {
+      "command": "target/release/editor-services session-bench <DIR> 100",
+      "tabs": 100,
+      "hydrated_documents": 1,
+      "inactive_hydrated": 0,
+      "active_bytes": 69632,
+      "runs": [
+        {
+          "run": 1,
+          "real_sec": 0.08,
+          "max_rss_bytes": 17907712,
+          "peak_footprint_bytes": 15270296,
+          "metadata_us": 532,
+          "active_hydrate_us": 232
+        },
+        {
+          "run": 2,
+          "real_sec": 0.06,
+          "max_rss_bytes": 17907712,
+          "peak_footprint_bytes": 15270296,
+          "metadata_us": 184,
+          "active_hydrate_us": 215
+        },
+        {
+          "run": 3,
+          "real_sec": 0.06,
+          "max_rss_bytes": 17858560,
+          "peak_footprint_bytes": 15221144,
+          "metadata_us": 184,
+          "active_hydrate_us": 215
+        }
+      ],
+      "mean_real_sec": 0.067,
+      "mean_max_rss_mib": 17.06,
+      "mean_peak_footprint_mib": 14.55
+    },
+    "service_128_tabs_closest_supported": {
+      "command": "target/release/editor-services session-bench <DIR> 128",
+      "note": "Upper bound accepted by session-bench (1..128 tabs)",
+      "tabs": 128,
+      "hydrated_documents": 1,
+      "inactive_hydrated": 0,
+      "active_bytes": 69632,
+      "runs": [
+        {
+          "run": 1,
+          "real_sec": 0.08,
+          "max_rss_bytes": 20840448,
+          "peak_footprint_bytes": 18203032,
+          "metadata_us": 217,
+          "active_hydrate_us": 214
+        },
+        {
+          "run": 2,
+          "real_sec": 0.08,
+          "max_rss_bytes": 20791296,
+          "peak_footprint_bytes": 18153880,
+          "metadata_us": 208,
+          "active_hydrate_us": 218
+        },
+        {
+          "run": 3,
+          "real_sec": 0.08,
+          "max_rss_bytes": 20840448,
+          "peak_footprint_bytes": 18203032,
+          "metadata_us": 212,
+          "active_hydrate_us": 217
+        }
+      ],
+      "mean_real_sec": 0.08,
+      "mean_max_rss_mib": 19.86,
+      "mean_peak_footprint_mib": 17.34
+    },
+    "service_1024_tabs_gap": {
+      "command": "target/release/editor-services session-bench <DIR> 1024",
+      "status": "UNSUPPORTED_BY_CLI",
+      "exit_code": 1,
+      "error_message": "error: session benchmark accepts 1..128 tabs"
+    }
+  },
+  "native_gui_measurements": {
+    "native_100_tabs": {
+      "scenario": "startup",
+      "tabs": 100,
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "paged_tab_count": 0,
+      "runs": [
+        {
+          "run": 1,
+          "real_sec": 0.42,
+          "max_rss_bytes": 122454016,
+          "max_rss_mib": 116.78,
+          "peak_footprint_bytes": 118866976,
+          "peak_footprint_mib": 113.36,
+          "total_elapsed_ms": 401.3,
+          "process_to_window_ms": 247.87,
+          "first_interactive_ms": 251.32,
+          "recovery_manifest_ms": 313.45,
+          "passed": true
+        },
+        {
+          "run": 2,
+          "real_sec": 0.29,
+          "max_rss_bytes": 122437632,
+          "max_rss_mib": 116.77,
+          "peak_footprint_bytes": 118899792,
+          "peak_footprint_mib": 113.39,
+          "total_elapsed_ms": 282.94,
+          "process_to_window_ms": 177.19,
+          "first_interactive_ms": 177.51,
+          "recovery_manifest_ms": 205.58,
+          "passed": true
+        },
+        {
+          "run": 3,
+          "real_sec": 0.28,
+          "max_rss_bytes": 121913344,
+          "max_rss_mib": 116.27,
+          "peak_footprint_bytes": 118342688,
+          "peak_footprint_mib": 112.86,
+          "total_elapsed_ms": 276.18,
+          "process_to_window_ms": 172.45,
+          "first_interactive_ms": 172.77,
+          "recovery_manifest_ms": 201.51,
+          "passed": true
+        }
+      ],
+      "mean_real_sec": 0.33,
+      "mean_max_rss_mib": 116.61,
+      "mean_peak_footprint_mib": 113.2,
+      "mean_total_elapsed_ms": 320.14
+    },
+    "native_128_tabs_closest_supported_cli_seed": {
+      "scenario": "startup",
+      "tabs": 128,
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "paged_tab_count": 0,
+      "runs": [
+        {
+          "run": 1,
+          "real_sec": 0.38,
+          "max_rss_bytes": 124649472,
+          "max_rss_mib": 118.88,
+          "peak_footprint_bytes": 121144400,
+          "peak_footprint_mib": 115.53,
+          "total_elapsed_ms": 364.41,
+          "process_to_window_ms": 215.95,
+          "first_interactive_ms": 219.66,
+          "recovery_manifest_ms": 295.2,
+          "passed": true
+        },
+        {
+          "run": 2,
+          "real_sec": 0.28,
+          "max_rss_bytes": 125403136,
+          "max_rss_mib": 119.59,
+          "peak_footprint_bytes": 121865296,
+          "peak_footprint_mib": 116.22,
+          "total_elapsed_ms": 277.42,
+          "process_to_window_ms": 172.87,
+          "first_interactive_ms": 173.22,
+          "recovery_manifest_ms": 202.79,
+          "passed": true
+        },
+        {
+          "run": 3,
+          "real_sec": 0.29,
+          "max_rss_bytes": 125337600,
+          "max_rss_mib": 119.53,
+          "peak_footprint_bytes": 121816120,
+          "peak_footprint_mib": 116.17,
+          "total_elapsed_ms": 281.51,
+          "process_to_window_ms": 173.37,
+          "first_interactive_ms": 173.69,
+          "recovery_manifest_ms": 202.94,
+          "passed": true
+        }
+      ],
+      "mean_real_sec": 0.317,
+      "mean_max_rss_mib": 119.33,
+      "mean_peak_footprint_mib": 115.97,
+      "mean_total_elapsed_ms": 307.78
+    },
+    "native_1024_tabs": {
+      "scenario": "startup",
+      "tabs": 1024,
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "paged_tab_count": 0,
+      "runs": [
+        {
+          "run": 1,
+          "real_sec": 0.46,
+          "max_rss_bytes": 176111616,
+          "max_rss_mib": 167.95,
+          "peak_footprint_bytes": 172541056,
+          "peak_footprint_mib": 164.55,
+          "total_elapsed_ms": 425.47,
+          "process_to_window_ms": 216.28,
+          "first_interactive_ms": 219.86,
+          "recovery_manifest_ms": 297.86,
+          "passed": true
+        },
+        {
+          "run": 2,
+          "real_sec": 0.37,
+          "max_rss_bytes": 175685632,
+          "max_rss_mib": 167.55,
+          "peak_footprint_bytes": 172082232,
+          "peak_footprint_mib": 164.11,
+          "total_elapsed_ms": 350.35,
+          "process_to_window_ms": 171.57,
+          "first_interactive_ms": 171.89,
+          "recovery_manifest_ms": 218.45,
+          "passed": true
+        },
+        {
+          "run": 3,
+          "real_sec": 0.37,
+          "max_rss_bytes": 176340992,
+          "max_rss_mib": 168.17,
+          "peak_footprint_bytes": 172770408,
+          "peak_footprint_mib": 164.77,
+          "total_elapsed_ms": 350.53,
+          "process_to_window_ms": 172.4,
+          "first_interactive_ms": 172.72,
+          "recovery_manifest_ms": 218.95,
+          "passed": true
+        }
+      ],
+      "mean_real_sec": 0.4,
+      "mean_max_rss_mib": 167.89,
+      "mean_peak_footprint_mib": 164.48,
+      "mean_total_elapsed_ms": 375.45
+    },
+    "native_usability": {
+      "scenario": "usability",
+      "tabs": 10,
+      "hydrated_editor_count": 9,
+      "hydrated_content_bytes": 108,
+      "real_sec": 0.67,
+      "max_rss_bytes": 158384128,
+      "max_rss_mib": 151.05,
+      "peak_footprint_bytes": 154371080,
+      "peak_footprint_mib": 147.22,
+      "total_elapsed_ms": 646.65,
+      "process_to_window_ms": 217.86,
+      "first_interactive_ms": 221.4,
+      "recovery_manifest_ms": 285.79,
+      "passed": true
+    },
+    "native_full": {
+      "scenario": "full",
+      "tabs": 4,
+      "hydrated_editor_count": 3,
+      "hydrated_content_bytes": 104,
+      "paged_tab_count": 1,
+      "real_sec": 1.45,
+      "max_rss_bytes": 216121344,
+      "max_rss_mib": 206.11,
+      "peak_footprint_bytes": 198788224,
+      "peak_footprint_mib": 189.58,
+      "total_elapsed_ms": 1433.78,
+      "typing_submit_p50_ms": 0.0685,
+      "typing_submit_p95_ms": 0.0806,
+      "large_paste_64k_submit_ms": 1.3783,
+      "paged_streaming_search_matches": 72,
+      "passed": true
+    }
+  },
+  "missing_metrics_and_gaps": {
+    "tab_switch_timing": "UNMEASURED / UNINSTRUMENTED in existing native smoke runner. SmokeReport records process_to_window_ms, first_interactive_ms, recovery_manifest_ms, total_elapsed_ms, but does not provide per-tab switch latency probes.",
+    "display_screen_scanout": "process_to_window_ms and first_interactive_ms measure internal Rust/AppKit window creation and initial editor construction timestamps, not physical display frame presentation or CoreText/Metal scanout latency.",
+    "exact_1024_cli_generation_gap": "editor-services session-bench rejects tab count > 128 (error: session benchmark accepts 1..128 tabs). Exact 1024 tabs cannot be generated via existing CLI benchmarking flags. Passing 1024 file paths to editor CLI attempts eager disk hydration, violating lazy admission. The native recovery engine and SQLite schema successfully recover and lazily manage 1024 tabs when present in the recovery database.",
+    "closest_supported_explicit_cli_scenario": "editor-services session-bench <DIR> 128 (128 tabs), followed by editor --smoke=startup using the 128-tab database."
+  },
+  "scratch_cleanup_directories": [
+    ".smoke-data/group-baseline-service-100",
+    ".smoke-data/group-baseline-service-128",
+    ".smoke-data/group-baseline-service-1024",
+    ".smoke-data/group-baseline-native-100",
+    ".smoke-data/group-baseline-native-128",
+    ".smoke-data/group-baseline-native-1024",
+    ".smoke-data/group-baseline-usability",
+    ".smoke-data/group-baseline-full"
+  ],
+  "provenance_notes": {
+    "binary_hashes": "AUTHORITATIVE",
+    "source_git_binding": "UNVERIFIED (tested binaries were pre-existing target/release/ artifacts; revision 9be22ff184ff906c47b648dd769caee034312602 represents source checkout HEAD at verification time, not proven binary build provenance)",
+    "cargo_lock_sha256": "8c27047cb035d99910d7d3baaf109ab692ae4997ad31ec6eac6ed538a9ebcf43"
+  },
+  "exact1024_database_generation": {
+    "method": "Synthesized from verified 128-tab release base seed (.smoke-data/group-baseline-native-128/seed/session-*.sqlite3) generated by editor-services session-bench ... 128, backed up and populated to 1024 tabs via Python script, then committed with PRAGMA wal_checkpoint(TRUNCATE).",
+    "generation_commands": [
+      "mkdir -p .smoke-data/group-baseline-native-128/seed",
+      "target/release/editor-services session-bench .smoke-data/group-baseline-native-128/seed 128",
+      "sqlite3 .smoke-data/group-baseline-native-128/seed/session-*.sqlite3 \"PRAGMA wal_checkpoint(TRUNCATE);\"",
+      "mkdir -p .smoke-data/group-baseline-native-1024/seed",
+      "python3 script inserting rows 128..1023 into documents, windows_views, recovery_heads, and checkpoint_chunks",
+      "sqlite3 .smoke-data/group-baseline-native-1024/seed/seed1024.sqlite3 \"PRAGMA wal_checkpoint(TRUNCATE);\"",
+      "cp to .smoke-data/group-baseline-native-1024/run{1,2,3}/recovery.sqlite3"
+    ],
+    "durable_heads_vs_metadata": {
+      "documents_rows": 1024,
+      "windows_views_rows": 1024,
+      "recovery_heads_rows": 1024,
+      "checkpoint_chunks_rows": 1024,
+      "real_durable_heads_breakdown": "All 1024 documents have valid durable heads (checkpoint_rev=1, durable_rev=1, byte_len=69632, BLAKE3 checksum 97bce3bbb64416ad7bfd7e44d98050ec6f34b4986c66d7dc9e5b2f058b4fd135) backed by matching real payloads in checkpoint_chunks; these are not metadata-only or ghost rows."
+    },
+    "active_draft": {
+      "document_id": "68a18423bc8346a3949db715ab53ed54",
+      "title": "Draft 0",
+      "byte_length": 69632,
+      "content_description": "4096 repetitions of \"draft \u4e2d\u6587\ud83d\ude42\n\"",
+      "hydration_behavior": "Only Draft 0 is hydrated on native startup into EditorState (hydrated_editor_count=1, hydrated_content_bytes=69632). Inactive tabs 1..1023 remain lazy TabSlot::Dehydrated stubs."
+    },
+    "raw_v1_fixtures_preserved": {
+      "seed_100_tabs": {
+        "path": ".smoke-data/group-baseline-native-100/seed/session-a7266698-3f42-4de1-8720-2a42f4c50450.sqlite3",
+        "bytes": 7122944,
+        "sha256": "b1a426dbeb41ef1a68c693b3e00e272d9ea97fe3ad7d1a284d8eb438e587003d"
+      },
+      "seed_128_tabs": {
+        "path": ".smoke-data/group-baseline-native-128/seed/session-f18945f1-38dd-459a-bceb-d66951d15666.sqlite3",
+        "bytes": 9125888,
+        "sha256": "2588636ac492ba5400ff523b5bc05cf75bc116b424120b6f52de184e49152ef8"
+      },
+      "seed_1024_tabs": {
+        "path": ".smoke-data/group-baseline-native-1024/seed/seed1024.sqlite3",
+        "bytes": 72491008,
+        "sha256": "f4c04d2187f78efe358e82c49b7739691129139ae7ae366e0b293437dcad4dc9"
+      }
+    }
+  }
+}

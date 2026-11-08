@@ -1,0 +1,19 @@
+SMOKE_REPORT_JSON:{"scenario":"usability","in_app_checks_passed":true,"clean_shutdown_requested":true,"shutdown_durable_ack_observed":true,"passed":true,"failure_reason":null,"process_to_window_ms":180.842,"first_interactive_ms":181.175084,"recovery_manifest_ms":215.1555,"total_elapsed_ms":956.393792,"final_tab_count":10,"hydrated_editor_count":9,"hydrated_content_bytes":108,"paged_tab_count":0,"committed_revisions_observed":[],"typing_latency_label":"submission-only, not screen latency","typing_doc_bytes":0,"typing_sample_count":0,"typing_submit_p50_ms":0.0,"typing_submit_p95_ms":0.0,"typing_submit_max_ms":0.0,"large_paste_64k_submit_ms":null,"atomic_batch_single_undo_verified":false,"stale_revision_rejected":false,"chained_programmatic_edits_verified":false,"pending_native_edit_guard_verified":false,"replace_preserves_done_search_verified":false,"unicode_search_verified":false,"crlf_bom_roundtrip_verified":false,"reopen_closed_tab_verified":false,"discard_reload_durable_verified":false,"post_shutdown_manifest_verified":true,"clean_untitled_restart_verified":false,"paged_streaming_search_matches":0,"kernel_parity_verified":false,"palette_undo_select_all_focus_verified":true,"settings_nondirty_and_lazy_apply_verified":true,"switcher_metadata_only_verified":true,"crlf_line_ops_single_undo_verified":true,"empty_untitled_prefs_layout_verified":true,"format_flip_back_and_inflight_save_verified":true,"format_only_bom_restart_and_save_verified":true,"mru_persistence_verified":true,"shell_persistence_warning":null,"group_metadata_mutations_verified":false,"group_undo_preserved_verified":false,"group_cancel_restores_editability_verified":false,"group_native_pending_guard_verified":false,"group_close_reopen_verified":false,"group_restart_layout_verified":false,"group_batch_open_verified":false,"startup_restart_layout_verified":false,"startup_metadata_view_count":0,"startup_group_count":0,"startup_inactive_hydrated_count":0,"startup_cli_overflow_active_hydrated_verified":false}
+        0.97 real         0.22 user         0.06 sys
+           164397056  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               11021  page reclaims
+                   0  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                 118  voluntary context switches
+                3126  involuntary context switches
+          2920526904  instructions retired
+           933168416  cycles elapsed
+           159663136  peak memory footprint

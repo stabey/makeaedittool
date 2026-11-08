@@ -655,6 +655,7 @@ pub struct EditorAdapter {
     pub visible_revision: Revision,
     pub queued_revision: Revision,
     pub durable_revision: Revision,
+    pub(crate) has_checkpoint: bool,
 
     dirty: DirtyTracker,
     has_undo_history: bool,
@@ -723,13 +724,8 @@ impl EditorAdapter {
             state.create_range_decorations_collection(Vec::new(), cx)
         });
 
-        let initial_content_dirty = if params.is_clean_at_load {
-            false
-        } else if let Some(saved_id) = params.meta.saved_identity {
-            !saved_id.matches_rope(&committed_rope)
-        } else {
-            committed_rope.len() > 0
-        };
+        // Load callers compare the worker-computed identity; never hash the full buffer here.
+        let initial_content_dirty = !params.is_clean_at_load;
 
         let saved_revision = if !initial_content_dirty && !params.disk_conflict {
             Some(params.initial_rev)
@@ -758,6 +754,7 @@ impl EditorAdapter {
             visible_revision: params.initial_rev,
             queued_revision: params.durable_rev,
             durable_revision: params.durable_rev,
+            has_checkpoint: false,
             dirty,
             has_undo_history: false,
             last_activated_tick: params.activation_tick,
@@ -814,6 +811,10 @@ impl EditorAdapter {
     #[inline]
     pub fn current_text_seq(&self) -> u64 {
         self.dirty.text_seq()
+    }
+
+    pub(crate) fn has_pending_native_edit(&self, cx: &App) -> bool {
+        !ropes_are_instances(self.editor.read(cx).text(), &self.committed_rope)
     }
 
     #[inline]
@@ -1026,6 +1027,9 @@ impl EditorAdapter {
     }
 
     pub fn mark_durable_ack(&mut self, lifecycle_gen: LifecycleGen, durable_rev: Revision) {
+        if lifecycle_gen == self.lifecycle_gen {
+            self.has_checkpoint = true;
+        }
         if lifecycle_gen == self.lifecycle_gen && durable_rev > self.durable_revision {
             self.durable_revision = durable_rev;
             if self.queued_revision < durable_rev {

@@ -1,0 +1,45 @@
+=== Native UI Event & State Evidence Log ===
+Date: 2026-11-08
+Target Binary: .smoke-data/group-final-bin/editor (immutable snapshot of intermediate build)
+SHA-256: 42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8
+
+1. Display Server & Pixel Capture Status: UNVERIFIED
+- Attempted display wake: caffeinate -u -t 5.
+- screencapture -x captured a 5120x2880 surface containing 100% uniform black RGB(0,0,0) pixels across the frame.
+- ScreenCaptureKit desktopIndependentWindow capture attempted via macOS 15+ API:
+  Result: Error Domain=com.apple.ScreenCaptureKit.SCStreamErrorDomain Code=-3811 "Failed to start stream due to audio/video capture failure"
+- Determination: Physical desktop rendering and pixel-level display remain strictly UNVERIFIED due to macOS display server session permissions / uncomposited headless video capture state. In accordance with role contract, no pixel-level visual claims are made.
+
+2. OS-Level Keystroke Injection via AppleScript: EFFECT NOT PROVEN
+- Fixture: .smoke-data/group-final-fixture-1000-keep/recovery.sqlite3 (1000 drafts in Group 0).
+- Action Attempted: Launched editor (PID 46242), dispatched keystrokes via AppleScript System Events:
+  - Cmd+Alt+W (CloseCurrentGroupTabs)
+  - Return (intended Keep & Close)
+- Observed SQLite State (Actual Observed Ground Truth):
+  Query: SELECT state, count(*) FROM documents GROUP BY state;
+  Result: state 0, count 1000.
+- Observation: Zero documents transitioned to state 1 (closed). All 1000 documents remained in state 0.
+- Fact: The dispatched OS keystrokes were NOT proven to have been received or executed by the GPUI window. The intended Keep operation did NOT commit. External IPC keystroke injection cannot be claimed as successful behavior without observed internal state change.
+
+3. Close Cancel via OS Keystroke: NOT PROVEN
+- Action Attempted: Dispatched Cmd+Alt+W followed by Escape to PID 46176.
+- Observation: State remained unchanged (1000 documents in state 0).
+- Fact: Because state was identical before and after, an unchanged state cannot distinguish between "dialog opened and canceled" vs. "keystroke was dropped/ignored and dialog never opened". Cancel via OS keystroke is NOT PROVEN by state.
+
+4. Recovery Catalog via OS Keystroke: UNVERIFIED
+- Action Attempted: Dispatched Cmd+Alt+B followed by Escape to PID 46323.
+- Observation: No persistent storage, database, or observable state change occurred.
+- Fact: Recovery browser opening via external OS keystrokes remains UNVERIFIED. Claims of UI overlays mounting or querying without observable state change are unproven.
+
+5. Keyboard Group Shortcuts via OS Keystrokes: UNVERIFIED
+- Action Attempted: Dispatched Cmd+Alt+C, Cmd+Alt+M, Cmd+Alt+], Cmd+Alt+Shift+] to PID 46410.
+- Observation: No layout change in SQLite was observed from external keystroke injection alone.
+- Fact: Group shortcut execution via external OS keystrokes remains UNVERIFIED.
+
+6. Drag Cancellation via Workspace Escape: NOT EXECUTED
+- Drag interactions were inspected in source code (apps/editor/src/group_ui.rs:432-436), but interactive pointer drag was NOT executed via physical HID hardware.
+- Fact: Source code inspection is NOT execution. Drag and drop remains UNVERIFIED.
+
+7. Boundary Summary:
+- Dispatched AppleScript IPC keystrokes did NOT produce proven state transitions.
+- The only proven native behaviors are those directly executed and verified through the in-app native smoke runner (--smoke=groups, --smoke=full, --smoke=usability, --smoke=startup), which validates state transitions, focus, and SQLite recovery synchronously within the application runloop.

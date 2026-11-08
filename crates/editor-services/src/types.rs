@@ -22,7 +22,9 @@ impl DocumentId {
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Revision(pub u64);
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+)]
 pub struct LifecycleGen(pub u64);
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceGeneration(pub u64);
@@ -139,32 +141,10 @@ pub struct DocMeta {
     pub readonly_reason: Option<ReadOnlyReason>,
     pub paged: bool,
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ViewState {
     pub cursor_byte: u64,
     pub scroll_byte: u64,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TabLayoutRecord {
-    pub doc_id: DocumentId,
-    pub lifecycle_gen: LifecycleGen,
-    pub meta: DocMeta,
-    pub view: ViewState,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionTabStub {
-    pub doc_id: DocumentId,
-    pub lifecycle_gen: LifecycleGen,
-    pub durable_rev: Revision,
-    pub meta: DocMeta,
-    pub view: ViewState,
-    pub has_checkpoint: bool,
-}
-#[derive(Clone, Debug, Default)]
-pub struct SessionManifest {
-    pub tabs: Vec<SessionTabStub>,
-    pub active_doc: Option<DocumentId>,
-    pub warnings: Vec<RecoveryWarning>,
 }
 #[derive(Clone, Debug)]
 pub struct RecoveryWarning {

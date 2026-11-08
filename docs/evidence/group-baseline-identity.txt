@@ -1,0 +1,26 @@
+=== Binary Execution Identity & Build Progression ===
+Date: 2026-11-08
+Host OS: macOS 27.2.0 (Darwin 27.2.0 arm64 Darwin Kernel Version 27.2.0: Wed Oct 14 23:47:07 PDT 2026; root:xnu-13432.41.4~25/RELEASE_ARM64_T8132)
+Hardware: Apple M4 / 32 GiB RAM (34359738368 bytes)
+
+1. Initial Baseline Binaries (Pre-Change Baseline):
+target/release/editor:
+  sha256: b8e6f545606fa603a3fa698db10fb5bbc9d84a4ed4ecacdcaf603c13f66245f7
+  version: editor 0.1.0
+target/release/editor-services:
+  sha256: 779973e990befd8ac20f42961f266c3128357c40bd1a365e10232cd70b5e06a8
+
+2. Intermediate Performance Snapshot Binaries (Preserved in .smoke-data/group-final-bin/):
+editor:
+  sha256: 42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8
+editor-services:
+  sha256: fca076fe18be3ad3f20987957acd3b18c3480878fda7c86f55d6110e6cd81ab6
+
+3. Final Verified Release Binaries (Main Rebuild with Core Frame Pump & Safety Gates):
+target/release/editor:
+  sha256: ce487170095a8a190f398d24490abbddbf456eeab5f2e9ff74ad7e8f7fcd81e3
+  version: editor 0.1.0
+  status: AUTHORITATIVE
+target/release/editor-services:
+  sha256: a665b55964b20791d263d4a5d0b797de68b47314437f836519963f178fe5d1b7
+  status: AUTHORITATIVE

@@ -140,3 +140,22 @@ CI设计与实现经`CiDesignReview`评审。`actionlint 1.7.12`发现并修复�
 独立验证器运行了**下载的**Mac ARM产物，而非本地旧二进制：`--smoke=usability`及`--smoke=full`均报告`passed=true`、`in_app_checks_passed=true`、`shutdown_durable_ack_observed=true`。数据目录隔离，未使用默认用户数据；完整场景覆盖事务/撤销、过期版本拒绝、Unicode搜索、CRLF/BOM、关闭重开、丢弃恢复及分页搜索72处匹配。程序化原生窗口smoke不等于硬件输入、拖拽或真实IME验收。
 
 最终证据：[ci-verification.json](evidence/ci-verification.json)、[ci-native-usability.json](evidence/ci-native-usability.json)、[ci-native-full.json](evidence/ci-native-full.json)、`ci-final-*.txt`。Windows/Linux保存仍为Unsupported；各自ZIP带`EXPERIMENTAL-CANNOT-SAVE.txt`。其他平台原生GUI、签名/公证、安装包与正式Release发布不在此次已验证范围。
+
+## 单窗格标签组与版本2会话
+
+最终本地执行`cargo fmt --all && cargo test --locked --workspace && cargo build --locked --release --workspace`通过：122测试。最终二进制及每条测量命令见[group-accepted-summary.json](evidence/group-accepted-summary.json)；editor SHA-256为`0d439c7f069065828326b87cbff836143228ef91daf0ece720ec4f32b524c896`。
+
+实际原生窗口运行通过：[标签组](evidence/group-accepted-groups.json)、[1000草稿整组操作](evidence/group-accepted-bulk.json)、[完整功能](evidence/group-accepted-full.json)、[日常功能](evidence/group-accepted-usability.json)、[启动](evidence/group-accepted-startup.json)。均为独立数据目录，`passed`与退出持久化ACK为true。各分支未执行的公共布尔字段为false，不冒充覆盖。
+
+- 标签组：批量打开的首路径失败、后续有效路径与去重；分组元数据不改正文/撤销；关闭冻结、取消恢复、原生待提交编辑保护、关闭重开及重启布局。
+- 使用GPUI公开API对已绘制窗口派发真实鼠标事件，执行标签跨组、组重排、标签锚点拖放及Esc中止；通过快捷键输入组名、重命名、折叠、打开恢复目录并检查弹层焦点恢复。小会话及1000草稿会话均通过三项native UI标志。
+- 1000草稿只hydrate活动正文，真实窗口动作打开汇总对话框；一次取消保留身份、布局、checkpoint与可编辑状态，一次保留关闭等待ACK后留下新空白。主协调者另以只读SQLite查询确认：`state=1`为1000条，`state=0`为1条。重启逐条检查关闭状态、恢复头和原位置。
+- 100/1024标签各三次迁移与重启通过，始终只hydrate一个69632字节正文；[满容量CLI打开](evidence/group-accepted-overflow.json)仍正确hydrate原活动文档。
+
+失败与修复保留，不只记录通过：
+
+1. 中间Groups smoke因Undo派发前缺少真实帧而超时；补帧后通过，未放宽文本/撤销断言。[原失败](evidence/group-final-smoke-groups.json)与[修复后中间版本](evidence/group-final-smoke-groups-ce4871.json)分别保留。
+2. [1000草稿首次失败](evidence/group-native-bulk.json)暴露真实产品问题：Kit的Editor默认readonly=false，重绘覆盖生命周期冻结。渲染现在显式传入当前readonly，回归检查在绘制后尝试原生输入并要求正文、版本和撤销不变；最终正常及批量场景均通过。
+3. 对抗审查发现未来布局额外字段可能被serde忽略，以及旧损坏快照可能在轮换时被清理。修复在写连接前检查两个布局头的未知字段，并在轮换前保存已知格式损坏原始字节；新增回归覆盖不改DB/WAL、事务回滚与两次写入后保留。针对性复审无剩余阻断；复审者未运行测试，测试由主协调者执行。
+
+外部AppleScript发送成功曾被验证器误报为操作成功，已撤回并纠正[group-final-ui-interactions.txt](evidence/group-final-ui-interactions.txt)。当时数据库仍为1000条Open，不能证明关闭或取消。上述最终验证改用窗口命中测试和实际状态断言；仍不宣称物理HID、真实IME或像素级呈现验收。桌面截屏全黑，ScreenCaptureKit窗口捕获失败`-3811`。

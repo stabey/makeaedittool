@@ -30,6 +30,8 @@ pub enum SmokeScenario {
     /// End-to-end daily usability verification: command palette focus, switcher/sidebar metadata-only,
     /// lazy view prefs, CRLF single-undo line ops, format-only BOM restart/save, flip-back & save-in-flight, MRU.
     Usability,
+    /// Native group mutations, frozen lifecycle cancellation and durable layout restart.
+    Groups,
 }
 
 #[derive(Clone, Debug)]
@@ -124,7 +126,7 @@ pub fn help_text() -> &'static str {
         "    --max-hydrated-bytes <BYTES>    Aggregate ordinary-editor content admission cap (default: 268435456)\n",
         "    --max-hydrated-editors <COUNT>  Hard max simultaneously hydrated EditorState tabs (default: 128)\n",
         "    --editable-byte-limit <BYTES>   Override editable vs paged file routing threshold (<= 64 MiB)\n",
-        "    --smoke[=<full|startup|usability>] Run scripted in-app native verification and exit cleanly\n",
+        "    --smoke[=<full|startup|usability|groups>] Run scripted in-app native verification and exit cleanly\n",
         "    --smoke-report <PATH>           Write structured smoke evidence JSON (IDs/revisions/timings, no full text)\n",
         "    -h, --help                      Print help information\n",
         "    -V, --version                   Print version information\n"
@@ -200,9 +202,10 @@ impl CliArgs {
                         "full" | "default" => SmokeScenario::Full,
                         "startup" | "startup-check" => SmokeScenario::StartupCheck,
                         "usability" => SmokeScenario::Usability,
+                        "groups" => SmokeScenario::Groups,
                         other => {
                             return Err(format!(
-                                "unknown --smoke mode '{other}' (expected 'full', 'startup', or 'usability')"
+                                "unknown --smoke mode '{other}' (expected 'full', 'startup', 'usability', or 'groups')"
                             ));
                         }
                     });

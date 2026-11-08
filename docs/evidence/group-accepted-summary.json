@@ -1,0 +1,362 @@
+{
+  "binary_sha256": {
+    "editor": "0d439c7f069065828326b87cbff836143228ef91daf0ece720ec4f32b524c896",
+    "editor-services": "a665b55964b20791d263d4a5d0b797de68b47314437f836519963f178fe5d1b7"
+  },
+  "cache_state": "OS cache not cleared; unspecified/warm",
+  "measurement": "whole process including shutdown, not screen latency",
+  "runs": [
+    {
+      "label": "groups",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-groups",
+        "--smoke=groups",
+        "--smoke-report",
+        "docs/evidence/group-accepted-groups.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 4.89,
+      "peak_rss_bytes": 134135808,
+      "report": "docs/evidence/group-accepted-groups.json",
+      "hydrated_editor_count": 5,
+      "hydrated_content_bytes": 103,
+      "final_tab_count": 5
+    },
+    {
+      "label": "bulk",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-bulk",
+        "--smoke=groups",
+        "--smoke-report",
+        "docs/evidence/group-accepted-bulk.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 4.15,
+      "peak_rss_bytes": 199557120,
+      "report": "docs/evidence/group-accepted-bulk.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 0,
+      "final_tab_count": 1
+    },
+    {
+      "label": "full",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-full",
+        "--smoke=full",
+        "--smoke-report",
+        "docs/evidence/group-accepted-full.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 2.01,
+      "peak_rss_bytes": 224460800,
+      "report": "docs/evidence/group-accepted-full.json",
+      "hydrated_editor_count": 3,
+      "hydrated_content_bytes": 104,
+      "final_tab_count": 4
+    },
+    {
+      "label": "usability",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-usability",
+        "--smoke=usability",
+        "--smoke-report",
+        "docs/evidence/group-accepted-usability.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.63,
+      "peak_rss_bytes": 164134912,
+      "report": "docs/evidence/group-accepted-usability.json",
+      "hydrated_editor_count": 9,
+      "hydrated_content_bytes": 108,
+      "final_tab_count": 10
+    },
+    {
+      "label": "startup",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-startup",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-startup.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.34,
+      "peak_rss_bytes": 112967680,
+      "report": "docs/evidence/group-accepted-startup.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 0,
+      "final_tab_count": 1
+    }
+  ],
+  "performance_runs": [
+    {
+      "label": "100-migration-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-100-1",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-100-migration-1.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.34,
+      "peak_rss_bytes": 124420096,
+      "report": "docs/evidence/group-accepted-100-migration-1.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 100
+    },
+    {
+      "label": "100-restart-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-100-1",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-100-restart-1.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.35,
+      "peak_rss_bytes": 124223488,
+      "report": "docs/evidence/group-accepted-100-restart-1.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 100
+    },
+    {
+      "label": "100-migration-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-100-2",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-100-migration-2.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.34,
+      "peak_rss_bytes": 124338176,
+      "report": "docs/evidence/group-accepted-100-migration-2.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 100
+    },
+    {
+      "label": "100-restart-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-100-2",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-100-restart-2.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.34,
+      "peak_rss_bytes": 124076032,
+      "report": "docs/evidence/group-accepted-100-restart-2.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 100
+    },
+    {
+      "label": "100-migration-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-100-3",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-100-migration-3.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.33,
+      "peak_rss_bytes": 124239872,
+      "report": "docs/evidence/group-accepted-100-migration-3.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 100
+    },
+    {
+      "label": "100-restart-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-100-3",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-100-restart-3.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.34,
+      "peak_rss_bytes": 123813888,
+      "report": "docs/evidence/group-accepted-100-restart-3.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 100
+    },
+    {
+      "label": "1024-migration-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-1024-1",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-1024-migration-1.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.45,
+      "peak_rss_bytes": 182976512,
+      "report": "docs/evidence/group-accepted-1024-migration-1.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 1024
+    },
+    {
+      "label": "1024-restart-1",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-1024-1",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-1024-restart-1.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.42,
+      "peak_rss_bytes": 182304768,
+      "report": "docs/evidence/group-accepted-1024-restart-1.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 1024
+    },
+    {
+      "label": "1024-migration-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-1024-2",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-1024-migration-2.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.47,
+      "peak_rss_bytes": 183779328,
+      "report": "docs/evidence/group-accepted-1024-migration-2.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 1024
+    },
+    {
+      "label": "1024-restart-2",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-1024-2",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-1024-restart-2.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.43,
+      "peak_rss_bytes": 182517760,
+      "report": "docs/evidence/group-accepted-1024-restart-2.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 1024
+    },
+    {
+      "label": "1024-migration-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-1024-3",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-1024-migration-3.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.47,
+      "peak_rss_bytes": 182861824,
+      "report": "docs/evidence/group-accepted-1024-migration-3.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 1024
+    },
+    {
+      "label": "1024-restart-3",
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/editor",
+        "--data-dir",
+        ".smoke-data/group-final-accepted-perf-1024-3",
+        "--smoke=startup",
+        "--smoke-report",
+        "docs/evidence/group-accepted-1024-restart-3.json"
+      ],
+      "exit_code": 0,
+      "real_seconds": 0.43,
+      "peak_rss_bytes": 183074816,
+      "report": "docs/evidence/group-accepted-1024-restart-3.json",
+      "hydrated_editor_count": 1,
+      "hydrated_content_bytes": 69632,
+      "final_tab_count": 1024
+    }
+  ],
+  "bulk_durable_document_states": [
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      1000
+    ]
+  ]
+}

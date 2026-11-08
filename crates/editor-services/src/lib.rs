@@ -62,6 +62,7 @@ mod paging;
 mod recovery;
 mod save;
 mod search;
+mod session_layout;
 mod types;
 mod ui_shell;
 
@@ -72,5 +73,6 @@ pub use recovery::*;
 pub use ropey::Rope;
 pub use save::*;
 pub use search::*;
+pub use session_layout::*;
 pub use types::*;
 pub use ui_shell::*;

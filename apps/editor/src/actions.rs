@@ -66,6 +66,21 @@ gpui_kit::actions!(
         ToggleThemeMode,
         ReloadActiveDocument,
         QuitEditor,
+        CreateGroupFromActiveTab,
+        CreateEmptyGroup,
+        RenameCurrentGroup,
+        CycleCurrentGroupColor,
+        ToggleCurrentGroupCollapse,
+        MoveActiveTabEarlierInGroup,
+        MoveActiveTabLaterInGroup,
+        MoveActiveTabToNextGroup,
+        MoveActiveTabToPrevGroup,
+        MoveCurrentGroupEarlier,
+        MoveCurrentGroupLater,
+        UngroupActiveTab,
+        RemoveCurrentGroupKeepTabs,
+        CloseCurrentGroupTabs,
+        OpenRecoveryCatalog,
     ]
 );
 
@@ -188,6 +203,74 @@ pub fn register_bindings_and_menus(cx: &mut gpui_kit::App) {
         KeyBinding::new("cmd-q", QuitEditor, None),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("alt-f4", QuitEditor, None),
+        // Workspace-level Escape cancels active tab/group drag or Group UI overlays even when
+        // focus is outside an Editor/Input (while Input/PopupMenu/Dialog inner contexts keep priority).
+        KeyBinding::new(
+            "escape",
+            gpui_kit::component::input::Escape,
+            Some(WORKSPACE_CONTEXT),
+        ),
+        // Tab Group & Recovery Catalog keyboard shortcuts
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-g", CreateGroupFromActiveTab, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-g", CreateGroupFromActiveTab, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-g", CreateEmptyGroup, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-g", CreateEmptyGroup, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-r", RenameCurrentGroup, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-r", RenameCurrentGroup, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-c", CycleCurrentGroupColor, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-c", CycleCurrentGroupColor, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-m", ToggleCurrentGroupCollapse, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-m", ToggleCurrentGroupCollapse, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-[", MoveActiveTabEarlierInGroup, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-[", MoveActiveTabEarlierInGroup, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-]", MoveActiveTabLaterInGroup, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-]", MoveActiveTabLaterInGroup, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-]", MoveActiveTabToNextGroup, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-]", MoveActiveTabToNextGroup, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-[", MoveActiveTabToPrevGroup, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-[", MoveActiveTabToPrevGroup, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-;", MoveCurrentGroupEarlier, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-;", MoveCurrentGroupEarlier, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-'", MoveCurrentGroupLater, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-'", MoveCurrentGroupLater, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-u", UngroupActiveTab, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-u", UngroupActiveTab, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-u", RemoveCurrentGroupKeepTabs, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-u", RemoveCurrentGroupKeepTabs, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-w", CloseCurrentGroupTabs, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-w", CloseCurrentGroupTabs, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-b", OpenRecoveryCatalog, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-b", OpenRecoveryCatalog, None),
     ]);
 
     cx.set_menus([
@@ -204,6 +287,7 @@ pub fn register_bindings_and_menus(cx: &mut gpui_kit::App) {
             MenuItem::action("Open…", OpenFile),
             MenuItem::action("Quick Open File…", OpenQuickSwitcher),
             MenuItem::action("Reopen Closed Tab", ReopenClosedTab),
+            MenuItem::action("Recovery Draft Catalog…", OpenRecoveryCatalog),
             MenuItem::action("Clear Recent Files", ClearRecentFiles),
             MenuItem::separator(),
             MenuItem::action("Save", SaveFile),
@@ -263,6 +347,34 @@ pub fn register_bindings_and_menus(cx: &mut gpui_kit::App) {
             MenuItem::separator(),
             MenuItem::action("Next Tab", NextTab),
             MenuItem::action("Previous Tab", PrevTab),
+        ]),
+        Menu::new("Groups").items([
+            MenuItem::action("New Group from Active Tab…", CreateGroupFromActiveTab),
+            MenuItem::action("New Empty Group…", CreateEmptyGroup),
+            MenuItem::separator(),
+            MenuItem::action(
+                "Collapse / Expand Current Group",
+                ToggleCurrentGroupCollapse,
+            ),
+            MenuItem::action("Rename Current Group…", RenameCurrentGroup),
+            MenuItem::action("Cycle Current Group Color", CycleCurrentGroupColor),
+            MenuItem::separator(),
+            MenuItem::action("Move Tab Earlier in Group", MoveActiveTabEarlierInGroup),
+            MenuItem::action("Move Tab Later in Group", MoveActiveTabLaterInGroup),
+            MenuItem::action("Move Tab to Next Group", MoveActiveTabToNextGroup),
+            MenuItem::action("Move Tab to Previous Group", MoveActiveTabToPrevGroup),
+            MenuItem::action("Move Tab to Ungrouped", UngroupActiveTab),
+            MenuItem::separator(),
+            MenuItem::action("Move Current Group Earlier", MoveCurrentGroupEarlier),
+            MenuItem::action("Move Current Group Later", MoveCurrentGroupLater),
+            MenuItem::separator(),
+            MenuItem::action(
+                "Remove Group (Keep Tabs Open in Ungrouped)",
+                RemoveCurrentGroupKeepTabs,
+            ),
+            MenuItem::action("Close All Tabs in Current Group…", CloseCurrentGroupTabs),
+            MenuItem::separator(),
+            MenuItem::action("Recovery Draft Catalog…", OpenRecoveryCatalog),
         ]),
     ]);
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{
@@ -8,13 +8,16 @@ use std::sync::{
 use std::time::{Duration, Instant};
 
 use editor_services::{
-    CancelToken, ContentIdentity, DocMeta, DocumentId, EncodingSpec, ErrorKind, FaultInjector,
-    FileFingerprint, HydratedDraft, IndexStatus, LifecycleGen, LineEnding, OpenOptions,
-    OpenOutcome, PagingService, RecoveryEvent, RecoveryHandle, Revision, SaveOutcome, SaveRequest,
-    SearchService, SearchTarget, ServiceError, SessionManifest, SessionTabStub, ShellTheme,
-    TabLayoutRecord, TryRecvError, UiShellLoad, UiShellState, UiShellStore, ViewState,
-    ViewportAnchor, open_document, save_document,
+    CancelToken, ClosedViewRecord, ContentIdentity, DocMeta, DocumentId, DocumentKey, EncodingSpec,
+    ErrorKind, FaultInjector, GroupId, HydratedDraft, IndexStatus, LifecycleGen, LineEnding,
+    OpenOptions, OpenOutcome, PagingService, RecoveryEvent, RecoveryHandle, Revision, SaveOutcome,
+    SaveRequest, SearchService, SearchTarget, ServiceError, SessionDocumentStub, SessionLayout,
+    SessionManifest, ShellTheme, TryRecvError, UiShellLoad, UiShellState, UiShellStore, ViewId,
+    ViewState, ViewTarget, ViewportAnchor, open_document, save_document,
 };
+#[path = "session_core.rs"]
+mod session_core;
+use crate::group_ui::GroupUiState;
 use gpui_kit::component::button::{ButtonVariant, ButtonVariants as _};
 use gpui_kit::component::command::CommandState;
 use gpui_kit::component::dialog::DialogButtonProps;
@@ -30,6 +33,7 @@ use gpui_kit::{
     ParentElement as _, PathPromptOptions, Size, Styled as _, Subscription, Window, px, size,
 };
 use ropey::Rope;
+use session_core::*;
 
 use crate::actions::{
     CancelActiveSearch, ClearRecentFiles, CloseActiveTab, CycleLanguage, CycleSearchKernel,
@@ -64,101 +68,103 @@ use crate::shell::{
     EarlyShellOverrides, EditorViewPrefs, HonestSlotBadge, PaletteCommandTarget, PaletteMode,
     describe_unhydrated_stub_badge, merge_loaded_shell_state,
 };
-pub enum TabSlot {
-    Dehydrated(SessionTabStub),
+pub(crate) enum TabSlot {
+    Dehydrated(SessionDocumentStub),
     Hydrating {
-        stub: SessionTabStub,
+        stub: SessionDocumentStub,
         req_seq: u64,
     },
     OverBudgetDraft {
-        stub: SessionTabStub,
+        stub: SessionDocumentStub,
         reason: String,
     },
     Editable(EditorAdapter),
     Paged(PagedTabState),
     Failed {
-        doc_id: DocumentId,
-        lifecycle_gen: LifecycleGen,
-        meta: DocMeta,
+        stub: SessionDocumentStub,
         error: String,
     },
 }
-
 impl TabSlot {
-    pub fn doc_id(&self) -> DocumentId {
+    pub(crate) fn doc_id(&self) -> DocumentId {
         match self {
-            Self::Dehydrated(s)
-            | Self::Hydrating { stub: s, .. }
-            | Self::OverBudgetDraft { stub: s, .. } => s.doc_id,
             Self::Editable(ed) => ed.doc_id,
             Self::Paged(pv) => pv.doc_id,
-            Self::Failed { doc_id, .. } => *doc_id,
-        }
-    }
-
-    pub fn lifecycle_gen(&self) -> LifecycleGen {
-        match self {
             Self::Dehydrated(s)
             | Self::Hydrating { stub: s, .. }
-            | Self::OverBudgetDraft { stub: s, .. } => s.lifecycle_gen,
+            | Self::OverBudgetDraft { stub: s, .. }
+            | Self::Failed { stub: s, .. } => s.doc_id,
+        }
+    }
+    pub(crate) fn lifecycle_gen(&self) -> LifecycleGen {
+        match self {
             Self::Editable(ed) => ed.lifecycle_gen,
             Self::Paged(pv) => pv.lifecycle_gen,
-            Self::Failed { lifecycle_gen, .. } => *lifecycle_gen,
-        }
-    }
-
-    pub fn meta(&self) -> &DocMeta {
-        match self {
             Self::Dehydrated(s)
             | Self::Hydrating { stub: s, .. }
-            | Self::OverBudgetDraft { stub: s, .. } => &s.meta,
+            | Self::OverBudgetDraft { stub: s, .. }
+            | Self::Failed { stub: s, .. } => s.lifecycle_gen,
+        }
+    }
+    pub(crate) fn document_key(&self) -> DocumentKey {
+        DocumentKey {
+            doc_id: self.doc_id(),
+            lifecycle_gen: self.lifecycle_gen(),
+        }
+    }
+    pub(crate) fn meta(&self) -> &DocMeta {
+        match self {
             Self::Editable(ed) => &ed.meta,
             Self::Paged(pv) => &pv.meta,
-            Self::Failed { meta, .. } => meta,
+            Self::Dehydrated(s)
+            | Self::Hydrating { stub: s, .. }
+            | Self::OverBudgetDraft { stub: s, .. }
+            | Self::Failed { stub: s, .. } => &s.meta,
         }
     }
-
-    pub fn title(&self) -> &str {
-        let t = self.meta().title.as_str();
-        if t.is_empty() { "untitled" } else { t }
+    pub(crate) fn title(&self) -> &str {
+        let title = self.meta().title.as_str();
+        if title.is_empty() { "untitled" } else { title }
     }
-
-    pub fn is_dirty(&self) -> bool {
+    pub(crate) fn has_checkpoint(&self) -> bool {
         match self {
-            Self::Dehydrated(stub)
-            | Self::Hydrating { stub, .. }
-            | Self::OverBudgetDraft { stub, .. } => stub.has_checkpoint,
+            Self::Editable(ed) => ed.has_checkpoint,
+            Self::Paged(_) => false,
+            Self::Dehydrated(s)
+            | Self::Hydrating { stub: s, .. }
+            | Self::OverBudgetDraft { stub: s, .. }
+            | Self::Failed { stub: s, .. } => s.has_checkpoint,
+        }
+    }
+    pub(crate) fn proven_modified(&self) -> bool {
+        self.honest_badge().proven_modified
+    }
+    pub(super) fn close_guard(&self) -> bool {
+        match self {
             Self::Editable(ed) => ed.is_dirty(),
-            Self::Paged(_) | Self::Failed { .. } => false,
+            Self::Paged(_) => false,
+            _ => self.has_checkpoint() || self.proven_modified(),
         }
     }
-
-    /// Honest metadata-only badge descriptor for sidebar, tab strip, and quick switcher:
-    /// never claims `MOD` for a file-backed unhydrated `SessionTabStub` unless metadata itself
-    /// proves format-dirty (`Main` contract note: `has_checkpoint` may match saved disk content).
-    pub fn honest_badge(&self) -> HonestSlotBadge {
+    pub(crate) fn honest_badge(&self) -> HonestSlotBadge {
         match self {
-            Self::Editable(ed) => {
-                if ed.is_readonly() {
-                    HonestSlotBadge {
-                        short_badge: Some("RO"),
-                        detail_hint: Some("Read-only"),
-                        proven_modified: false,
-                    }
-                } else if ed.is_dirty() {
-                    HonestSlotBadge {
-                        short_badge: Some("MOD"),
-                        detail_hint: Some("Modified"),
-                        proven_modified: true,
-                    }
+            Self::Editable(ed) => HonestSlotBadge {
+                short_badge: if ed.is_dirty() {
+                    Some("MOD")
+                } else if ed.is_readonly() {
+                    Some("RO")
                 } else {
-                    HonestSlotBadge {
-                        short_badge: None,
-                        detail_hint: None,
-                        proven_modified: false,
-                    }
-                }
-            }
+                    None
+                },
+                detail_hint: if ed.is_dirty() {
+                    Some("Modified")
+                } else if ed.is_readonly() {
+                    Some("Read-only")
+                } else {
+                    None
+                },
+                proven_modified: ed.is_dirty(),
+            },
             Self::Paged(_) => HonestSlotBadge {
                 short_badge: Some("PG"),
                 detail_hint: Some("Paged read-only"),
@@ -167,62 +173,35 @@ impl TabSlot {
             Self::Dehydrated(stub) => {
                 describe_unhydrated_stub_badge(&stub.meta, stub.has_checkpoint)
             }
-            Self::Hydrating { stub, .. } => {
+            Self::Hydrating { stub, .. }
+            | Self::OverBudgetDraft { stub, .. }
+            | Self::Failed { stub, .. } => {
                 let base = describe_unhydrated_stub_badge(&stub.meta, stub.has_checkpoint);
+                let (short_badge, detail_hint) = match self {
+                    Self::Hydrating { .. } => ("…", "Loading…"),
+                    Self::OverBudgetDraft { .. } => ("CAP", "Protected over-budget draft"),
+                    _ => ("ERR", "Load error; stored recovery facts preserved"),
+                };
                 HonestSlotBadge {
-                    short_badge: Some("…"),
-                    detail_hint: Some("Loading…"),
-                    proven_modified: base.proven_modified,
+                    short_badge: Some(short_badge),
+                    detail_hint: Some(detail_hint),
+                    ..base
                 }
             }
-            Self::OverBudgetDraft { .. } => HonestSlotBadge {
-                short_badge: Some("CAP"),
-                detail_hint: Some("Protected over-budget draft"),
-                proven_modified: true,
-            },
-            Self::Failed { .. } => HonestSlotBadge {
-                short_badge: Some("ERR"),
-                detail_hint: Some("Load error"),
-                proven_modified: false,
-            },
         }
     }
-
-    pub fn layout_record(&self, cx: &App) -> TabLayoutRecord {
-        match self {
-            Self::Dehydrated(stub)
-            | Self::Hydrating { stub, .. }
-            | Self::OverBudgetDraft { stub, .. } => TabLayoutRecord {
-                doc_id: stub.doc_id,
-                lifecycle_gen: stub.lifecycle_gen,
-                meta: stub.meta.clone(),
-                view: stub.view.clone(),
-            },
-            Self::Editable(ed) => TabLayoutRecord {
-                doc_id: ed.doc_id,
-                lifecycle_gen: ed.lifecycle_gen,
-                meta: ed.meta.clone(),
-                view: ed.capture_view_state(cx),
-            },
-            Self::Paged(pv) => TabLayoutRecord {
-                doc_id: pv.doc_id,
-                lifecycle_gen: pv.lifecycle_gen,
-                meta: pv.meta.clone(),
-                view: pv.capture_view_state(),
-            },
-            Self::Failed {
-                doc_id,
-                lifecycle_gen,
-                meta,
-                ..
-            } => TabLayoutRecord {
-                doc_id: *doc_id,
-                lifecycle_gen: *lifecycle_gen,
-                meta: meta.clone(),
-                view: ViewState::default(),
-            },
-        }
-    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum OverlayFocus {
+    Editor,
+    SearchQuery,
+    SearchReplace,
+    Workspace,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct OverlayOrigin {
+    pub(crate) view: Option<ViewTarget>,
+    pub(crate) focus: OverlayFocus,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -243,16 +222,30 @@ pub struct EditorWorkspace {
     pub(crate) recovery: Option<RecoveryHandle>,
     pub(crate) recovery_degraded_error: Option<String>,
     pub(crate) recovery_ready: bool,
+    bootstrap_indeterminate: bool,
+    recovery_read_only: bool,
     pub(crate) faults: FaultInjector,
 
     pub(crate) budget_config: HydrationBudgetConfig,
     pub(crate) activation_clock: u64,
     pub(crate) untitled_counter: usize,
-    pub(crate) hydrate_req_counter: u64,
 
-    pub(crate) tabs: Vec<TabSlot>,
-    pub(crate) active_tab: usize,
-    pub(crate) recently_closed: Vec<SessionTabStub>,
+    pub(crate) session: SessionLayout,
+    pub(crate) documents: HashMap<DocumentId, TabSlot>,
+    pub(crate) group_ui: GroupUiState,
+    recently_closed: Vec<ClosedViewRecord>,
+    persistence: SessionPersistence,
+    pending_lifecycle: Option<PendingLifecycle>,
+    pending_saves: HashMap<ViewTarget, u64>,
+    operation_sequence: u64,
+    pending_quit: Option<bool>,
+    pending_open_paths: VecDeque<PathBuf>,
+    pending_open_group: Option<GroupId>,
+    recovery_browser: RecoveryBrowserState,
+    recovery_cancel: Option<CancelToken>,
+    draft_export: Option<u64>,
+    hydration_requests: HashMap<ViewTarget, (u64, CancelToken)>,
+    deferred_completions: Vec<DeferredCompletion>,
 
     pub(crate) search: SearchSessionState,
     pub(crate) search_query_input: gpui_kit::Entity<InputState>,
@@ -278,7 +271,7 @@ pub struct EditorWorkspace {
     pub(crate) palette_state: gpui_kit::Entity<CommandState>,
     pub(crate) palette_visible: bool,
     pub(crate) palette_base_mode: PaletteMode,
-    pub(crate) palette_prior_focus: Option<FocusHandle>,
+    pub(crate) palette_prior_origin: Option<OverlayOrigin>,
     pub(crate) palette_targets: Vec<(IndexPath, PaletteCommandTarget)>,
 
     pub(crate) status_flash: Option<(String, Instant)>,
@@ -286,7 +279,6 @@ pub struct EditorWorkspace {
     pub(crate) shutting_down: bool,
     pub(crate) quit_confirmed: bool,
     pub shutdown_durable_ack: Arc<AtomicBool>,
-    pub(crate) closing_docs: HashMap<DocumentId, bool>,
     pub(crate) layout_dirty: bool,
     pub(crate) paged_indexer_running: bool,
     pub(crate) paged_index_rr_cursor: usize,
@@ -384,14 +376,28 @@ impl EditorWorkspace {
             recovery: None,
             recovery_degraded_error: None,
             recovery_ready: false,
+            bootstrap_indeterminate: false,
+            recovery_read_only: false,
             faults: FaultInjector::default(),
             budget_config,
             activation_clock: 1,
             untitled_counter: 0,
-            hydrate_req_counter: 0,
-            tabs: Vec::new(),
-            active_tab: 0,
+            session: SessionLayout::default(),
+            documents: HashMap::new(),
+            group_ui: GroupUiState::default(),
             recently_closed: Vec::new(),
+            persistence: SessionPersistence::default(),
+            pending_lifecycle: None,
+            pending_saves: HashMap::new(),
+            operation_sequence: 0,
+            pending_quit: None,
+            pending_open_paths: VecDeque::new(),
+            pending_open_group: None,
+            recovery_browser: RecoveryBrowserState::default(),
+            recovery_cancel: None,
+            draft_export: None,
+            hydration_requests: HashMap::new(),
+            deferred_completions: Vec::new(),
             search: SearchSessionState::default(),
             search_query_input,
             search_replace_input,
@@ -412,14 +418,13 @@ impl EditorWorkspace {
             palette_state,
             palette_visible: false,
             palette_base_mode: PaletteMode::Commands,
-            palette_prior_focus: None,
+            palette_prior_origin: None,
             palette_targets: Vec::new(),
             status_flash: None,
             last_edit_instant: None,
             shutting_down: false,
             quit_confirmed: false,
             shutdown_durable_ack: Arc::new(AtomicBool::new(false)),
-            closing_docs: HashMap::new(),
             layout_dirty: false,
             paged_indexer_running: false,
             paged_index_rr_cursor: 0,
@@ -458,137 +463,6 @@ impl EditorWorkspace {
         });
     }
 
-    fn start_background_bootstrap(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let db_path = self.cli.data_dir.join("recovery.sqlite3");
-        let shell_path = self.cli.data_dir.join("ui_shell.json");
-        let cli_files = self.cli.files.clone();
-        let faults = self.faults.clone();
-
-        // Background UI shell preferences & MRU bootstrap (never blocks first frame or recovery).
-        cx.spawn_in(window, async move |weak, cx| {
-            let shell_boot = cx
-                .background_executor()
-                .spawn(async move { UiShellStore::open(&shell_path) })
-                .await;
-            let _ = weak.update_in(cx, |this, window, cx| {
-                this.apply_loaded_shell_bootstrap(shell_boot, window, cx);
-            });
-        })
-        .detach();
-
-        cx.spawn_in(window, async move |weak, cx| {
-            let boot = cx
-                .background_executor()
-                .spawn(async move {
-                    let handle = RecoveryHandle::start_with_faults(&db_path, faults)?;
-                    let open_manifest = handle
-                        .request_manifest()?
-                        .recv_timeout(Duration::from_secs(10))
-                        .map_err(|e| {
-                            ServiceError::new(ErrorKind::Storage, format!("manifest timeout: {e}"))
-                        })??;
-                    let closed_manifest = handle
-                        .request_recently_closed()
-                        .ok()
-                        .and_then(|rx| rx.recv_timeout(Duration::from_secs(5)).ok())
-                        .and_then(Result::ok)
-                        .unwrap_or_default();
-                    Ok::<(RecoveryHandle, SessionManifest, SessionManifest), ServiceError>((
-                        handle,
-                        open_manifest,
-                        closed_manifest,
-                    ))
-                })
-                .await;
-
-            let _ = weak.update_in(cx, |this, window, cx| {
-                this.startup_metrics.recovery_manifest_ms =
-                    Some(this.process_start.elapsed().as_secs_f64() * 1000.0);
-                match boot {
-                    Ok((handle, manifest, closed)) => {
-                        this.recovery = Some(handle);
-                        this.recovery_ready = true;
-                        for warn in manifest.warnings.iter().chain(closed.warnings.iter()) {
-                            let label = match warn.doc_id {
-                                Some(id) => format!("Recovery warning ({:08x}): {}", id.0 as u32, warn.message),
-                                None => format!("Recovery warning: {}", warn.message),
-                            };
-                            if this.recovery_degraded_error.is_none() {
-                                this.recovery_degraded_error = Some(label.clone());
-                            }
-                            window.push_notification(Notification::warning(label), cx);
-                        }
-                        this.recently_closed = closed.tabs;
-                        this.apply_recovered_manifest(manifest, &cli_files, window, cx);
-                    }
-                    Err(err) => {
-                        this.recovery_ready = true;
-                        this.recovery_degraded_error = Some(err.message.clone());
-                        window.push_notification(
-                            Notification::error(format!(
-                                "Recovery storage unavailable ({}): editing works in memory, save files explicitly before quitting.",
-                                err.message
-                            )),
-                            cx,
-                        );
-                    }
-                }
-
-                for path in cli_files {
-                    this.open_path(path, window, cx);
-                }
-                cx.notify();
-            });
-        })
-        .detach();
-    }
-
-    fn apply_recovered_manifest(
-        &mut self,
-        manifest: SessionManifest,
-        cli_files: &[PathBuf],
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if manifest.tabs.is_empty() {
-            this_persist_layout_if_clean(self, cx);
-            return;
-        }
-
-        // Replace untouched initial placeholder tab if the user has not typed into it yet.
-        let placeholder_untouched = self.tabs.len() == 1
-            && matches!(
-                &self.tabs[0],
-                TabSlot::Editable(ed)
-                    if ed.meta.path.is_none()
-                        && ed.visible_revision == Revision(0)
-                        && ed.committed_byte_len() == 0
-                        && ed.meta.encoding == EncodingSpec::Utf8
-                        && ed.meta.line_ending == LineEnding::Lf
-                        && ed.meta.language_override.is_none()
-            );
-        let base_index = if placeholder_untouched {
-            self.tabs.clear();
-            0
-        } else {
-            self.tabs.len()
-        };
-
-        let mut target_active = base_index;
-        for (offset, stub) in manifest.tabs.into_iter().enumerate() {
-            if Some(stub.doc_id) == manifest.active_doc {
-                target_active = base_index + offset;
-            }
-            self.tabs.push(TabSlot::Dehydrated(stub));
-        }
-
-        // CRITICAL (`B1`, `R07`): Only hydrate the single active tab when no CLI files override focus!
-        if cli_files.is_empty() && !self.tabs.is_empty() {
-            let idx = target_active.min(self.tabs.len() - 1);
-            self.activate_tab(idx, window, cx);
-        }
-    }
-
     fn start_background_pump(&self, window: &mut Window, cx: &mut Context<Self>) {
         cx.spawn_in(window, async move |weak, cx| {
             loop {
@@ -622,9 +496,7 @@ impl EditorWorkspace {
                         lifecycle_gen,
                         durable_rev,
                     }) => {
-                        if let Some(TabSlot::Editable(ed)) =
-                            self.tabs.iter_mut().find(|t| t.doc_id() == doc_id)
-                        {
+                        if let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) {
                             ed.mark_durable_ack(lifecycle_gen, durable_rev);
                             dirty_ui = true;
                         }
@@ -650,12 +522,13 @@ impl EditorWorkspace {
             let due = self
                 .last_edit_instant
                 .is_none_or(|t| t.elapsed() >= Duration::from_millis(220));
-            if !self.shutting_down {
-                for slot in &mut self.tabs {
+            if !self.is_lifecycle_busy() {
+                let persistence = &self.persistence;
+                for slot in self.documents.values_mut() {
                     let TabSlot::Editable(ed) = slot else {
                         continue;
                     };
-                    if self.closing_docs.contains_key(&ed.doc_id) {
+                    if !persistence.allows_commit(ed.doc_id) {
                         continue;
                     }
                     if ed.visible_revision <= ed.queued_revision {
@@ -701,9 +574,7 @@ impl EditorWorkspace {
             }
         }
 
-        if self.layout_dirty {
-            self.persist_session_layout(cx);
-        }
+        self.pump_session(window, cx);
         if self.shell_pending_queue && !self.shutting_down {
             self.queue_shell_persistence(window, cx);
         }
@@ -738,190 +609,62 @@ impl EditorWorkspace {
         self.search_item_sizes = Rc::new(vec![row_size; self.search.matches.len()]);
     }
 
-    pub fn hydrated_editor_count(&self) -> usize {
-        self.tabs
-            .iter()
-            .filter(|slot| matches!(slot, TabSlot::Editable(_)))
-            .count()
-    }
-
-    pub fn hydrated_content_bytes(&self) -> u64 {
-        self.tabs
-            .iter()
-            .filter_map(|slot| match slot {
-                TabSlot::Editable(ed) => Some(ed.committed_byte_len()),
-                _ => None,
-            })
-            .sum()
-    }
-
-    fn collect_hydrated_slots(&self) -> Vec<HydratedSlotInfo> {
-        self.tabs
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, slot)| match slot {
-                TabSlot::Editable(ed) => Some(HydratedSlotInfo {
-                    tab_index: idx,
-                    byte_len: ed.committed_byte_len(),
-                    is_dirty: ed.is_dirty(),
-                    has_undo_history: ed.has_undo_history(),
-                    is_file_backed: ed.meta.path.is_some(),
-                    is_active: idx == self.active_tab,
-                    last_activated_tick: ed.last_activated_tick,
-                }),
-                _ => None,
-            })
-            .collect()
-    }
-
-    /// Reclaims clean, unedited (`!is_dirty && !has_undo_history`) inactive tabs selected by
-    /// `plan_hydration_admission`, preserving cursor/view metadata in `TabSlot::Dehydrated`.
-    fn dehydrate_clean_tabs(&mut self, indices: &[usize], cx: &mut Context<Self>) {
-        for &idx in indices {
-            if idx >= self.tabs.len() || idx == self.active_tab {
-                continue;
-            }
-            let can_dehydrate = matches!(
-                &self.tabs[idx],
-                TabSlot::Editable(ed) if !ed.is_dirty() && !ed.has_undo_history() && ed.meta.path.is_some()
-            );
-            if !can_dehydrate {
-                continue;
-            }
-            if let TabSlot::Editable(ed) = &self.tabs[idx] {
-                let stub = SessionTabStub {
-                    doc_id: ed.doc_id,
-                    lifecycle_gen: ed.lifecycle_gen,
-                    durable_rev: ed.durable_revision,
-                    meta: ed.meta.clone(),
-                    view: ed.capture_view_state(cx),
-                    has_checkpoint: false,
-                };
-                self.tabs[idx] = TabSlot::Dehydrated(stub);
-            }
-        }
-    }
-
-    fn next_activation_tick(&mut self) -> u64 {
-        self.activation_clock = self.activation_clock.wrapping_add(1);
-        self.activation_clock
-    }
-
-    pub fn create_untitled_tab(
-        &mut self,
-        persist_layout: bool,
-        window: &mut Window,
+    pub(super) fn subscribe_editor(
+        &self,
+        adapter: &EditorAdapter,
+        target: ViewTarget,
         cx: &mut Context<Self>,
-    ) -> DocumentId {
-        let slots = self.collect_hydrated_slots();
-        if let AdmissionDecision::Admit {
-            dehydrate_tab_indices,
-        } = plan_hydration_admission(self.budget_config, &slots, 0)
-        {
-            self.dehydrate_clean_tabs(&dehydrate_tab_indices, cx);
-        } else if self.hydrated_editor_count() >= self.budget_config.max_hydrated_editors {
-            window.push_notification(
-                Notification::warning(format!(
-                    "Cannot create another live editor: {} dirty/edited tabs already occupy the {}-editor cap.",
-                    self.hydrated_editor_count(),
-                    self.budget_config.max_hydrated_editors
-                )),
-                cx,
-            );
-            return self
-                .tabs
-                .get(self.active_tab)
-                .map(TabSlot::doc_id)
-                .unwrap_or_else(DocumentId::new);
-        }
-
-        self.untitled_counter += 1;
-        let doc_id = DocumentId::new();
-        let meta = DocMeta {
-            title: format!("untitled-{}", self.untitled_counter),
-            path: None,
-            encoding: EncodingSpec::Utf8,
-            line_ending: LineEnding::Lf,
-            origin_fingerprint: None,
-            saved_identity: None,
-            readonly_reason: None,
-            paged: false,
-            saved_encoding: None,
-            saved_line_ending: None,
-            language_override: None,
-        };
-        let tick = self.next_activation_tick();
-        let initial_prefs = self.current_view_prefs();
-        let mut adapter = EditorAdapter::new(
-            HydrateEditorParams {
-                doc_id,
-                lifecycle_gen: LifecycleGen(1),
-                meta,
-                rope: Rope::new(),
-                initial_rev: Revision(0),
-                durable_rev: Revision(0),
-                is_clean_at_load: true,
-                disk_conflict: false,
-                initial_view: ViewState::default(),
-                initial_prefs,
-                activation_tick: tick,
-            },
-            window,
-            cx,
-        );
-        let sub = self.subscribe_editor(&adapter, cx);
-        adapter.attach_subscription(sub);
-        adapter.focus(window, cx);
-
-        self.tabs.push(TabSlot::Editable(adapter));
-        self.active_tab = self.tabs.len() - 1;
-        if persist_layout {
-            self.persist_session_layout(cx);
-        }
-        cx.notify();
-        doc_id
-    }
-
-    fn subscribe_editor(&self, adapter: &EditorAdapter, cx: &mut Context<Self>) -> Subscription {
-        let doc_id = adapter.doc_id;
+    ) -> Subscription {
         cx.subscribe(
             adapter.editor(),
             move |this: &mut Self, _editor, event: &InputEditsEvent, cx| {
-                this.on_editor_committed_edits(doc_id, event, cx);
+                this.on_editor_committed_edits(target, event, cx);
             },
         )
     }
 
     fn on_editor_committed_edits(
         &mut self,
-        doc_id: DocumentId,
+        target: ViewTarget,
         event: &InputEditsEvent,
         cx: &mut Context<Self>,
     ) {
-        let Some(slot_ix) = self.tabs.iter().position(|s| s.doc_id() == doc_id) else {
+        if self.session.resolve(target).is_err() {
             return;
-        };
-        let TabSlot::Editable(ed) = &mut self.tabs[slot_ix] else {
+        }
+        let doc_id = target.document.doc_id;
+        let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) else {
             return;
         };
 
         let Some(outcome) = ed.ingest_edits_event(event) else {
             return;
         };
-        self.finish_committed_mutation(slot_ix, outcome, cx);
+        self.finish_committed_mutation(doc_id, outcome, cx);
     }
 
-    fn finish_committed_mutation(
+    pub(super) fn finish_committed_mutation(
         &mut self,
-        slot_ix: usize,
+        doc_id: DocumentId,
         outcome: CommittedMutationOutcome,
         cx: &mut Context<Self>,
     ) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(slot_ix) else {
+        let Some(target) = self
+            .session
+            .views
+            .values()
+            .find(|view| view.document.doc_id == doc_id)
+            .and_then(|view| self.session.target(view.id))
+        else {
+            return;
+        };
+        let commit_admissible =
+            self.document_commit_admissible(doc_id) && !self.is_lifecycle_busy();
+        let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) else {
             return;
         };
         let doc_id = ed.doc_id;
-        let first_baseline = ed.durable_revision.0 == 0 && ed.is_dirty();
+        let first_baseline = commit_admissible && ed.durable_revision.0 == 0 && ed.is_dirty();
         let immediate_commit = if first_baseline {
             ed.build_recovery_commit()
         } else {
@@ -938,7 +681,7 @@ impl EditorWorkspace {
             && let Some(recovery) = &self.recovery
         {
             let rev = commit.new_rev;
-            if let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(slot_ix) {
+            if let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) {
                 match recovery.try_commit(commit) {
                     Ok(()) => ed.record_commit_queued(rev),
                     Err(err) if err.kind == ErrorKind::Busy => ed.record_commit_busy(),
@@ -957,7 +700,7 @@ impl EditorWorkspace {
         }) = outcome.savepoint_check
         {
             self.spawn_savepoint_verification(
-                doc_id,
+                target,
                 seq,
                 checked_text_seq,
                 saved_identity,
@@ -969,9 +712,9 @@ impl EditorWorkspace {
         cx.notify();
     }
 
-    fn spawn_savepoint_verification(
+    pub(super) fn spawn_savepoint_verification(
         &self,
-        doc_id: DocumentId,
+        target: ViewTarget,
         seq: u64,
         checked_text_seq: u64,
         saved_identity: ContentIdentity,
@@ -984,651 +727,14 @@ impl EditorWorkspace {
                 .spawn(async move { saved_identity.matches_rope(&rope) })
                 .await;
             let _ = weak.update(cx, |this, cx| {
-                if let Some(TabSlot::Editable(ed)) =
-                    this.tabs.iter_mut().find(|t| t.doc_id() == doc_id)
+                if this.session.resolve(target).is_err() {
+                    return;
+                }
+                if let Some(TabSlot::Editable(ed)) = this.documents.get_mut(&target.document.doc_id)
                 {
                     ed.apply_savepoint_verification(seq, checked_text_seq, matches);
                     cx.notify();
                 }
-            });
-        })
-        .detach();
-    }
-
-    pub fn activate_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        if index >= self.tabs.len() {
-            return;
-        }
-        // Flush previous active tab's pending commit when switching tabs.
-        self.flush_tab_commit(self.active_tab);
-
-        self.active_tab = index;
-        let tick = self.next_activation_tick();
-        let current_prefs = self.current_view_prefs();
-        match &mut self.tabs[index] {
-            TabSlot::Editable(ed) => {
-                ed.last_activated_tick = tick;
-                ed.apply_view_prefs(current_prefs, window, cx);
-                ed.focus(window, cx);
-            }
-            TabSlot::Paged(pv) => {
-                if pv.current_slice.is_none() && !pv.is_loading {
-                    let offset = pv.current_anchor_byte;
-                    self.request_paged_viewport(
-                        index,
-                        ViewportAnchor::ByteOffset(offset),
-                        window,
-                        cx,
-                    );
-                }
-                self.focus_handle.focus(window, cx);
-            }
-            TabSlot::Dehydrated(stub) => {
-                let stub_clone = stub.clone();
-                self.start_hydrating_stub(index, stub_clone, window, cx);
-            }
-            TabSlot::Hydrating { .. }
-            | TabSlot::OverBudgetDraft { .. }
-            | TabSlot::Failed { .. } => {
-                self.focus_handle.focus(window, cx);
-            }
-        }
-
-        if self.search.visible {
-            self.run_search_from_inputs(window, cx);
-        }
-        self.persist_session_layout(cx);
-        cx.notify();
-    }
-
-    pub(crate) fn start_hydrating_stub(
-        &mut self,
-        index: usize,
-        stub: SessionTabStub,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.hydrate_req_counter = self.hydrate_req_counter.wrapping_add(1);
-        let req_seq = self.hydrate_req_counter;
-        let doc_id = stub.doc_id;
-        self.tabs[index] = TabSlot::Hydrating {
-            stub: stub.clone(),
-            req_seq,
-        };
-
-        match classify_stub_hydration_source(stub.has_checkpoint, stub.meta.path.is_some()) {
-            // Case A1: Paged or clean disk-backed stub without unsaved recovery checkpoint -> open from disk.
-            StubHydrationSource::DiskOpen => {
-                if let Some(path) = stub.meta.path.clone() {
-                    self.spawn_disk_open_into_slot(
-                        doc_id,
-                        stub.lifecycle_gen,
-                        Some(stub.view),
-                        path,
-                        false,
-                        window,
-                        cx,
-                    );
-                }
-            }
-            // Case A2: Clean empty untitled stub (`!has_checkpoint && path.is_none()`) -> reconstitute
-            // directly from layout metadata without querying `recovery_heads` (`QueryReturnedNoRows`).
-            StubHydrationSource::EmptyCleanUntitled => {
-                let slots = self.collect_hydrated_slots();
-                match plan_hydration_admission(self.budget_config, &slots, 0) {
-                    AdmissionDecision::Admit {
-                        dehydrate_tab_indices,
-                    } => {
-                        self.dehydrate_clean_tabs(&dehydrate_tab_indices, cx);
-                        let tick = self.next_activation_tick();
-                        let initial_prefs = self.current_view_prefs();
-                        let mut adapter = EditorAdapter::new(
-                            HydrateEditorParams {
-                                doc_id,
-                                lifecycle_gen: stub.lifecycle_gen,
-                                meta: stub.meta,
-                                rope: Rope::new(),
-                                initial_rev: Revision(0),
-                                durable_rev: Revision(0),
-                                is_clean_at_load: true,
-                                disk_conflict: false,
-                                initial_view: stub.view,
-                                initial_prefs,
-                                activation_tick: tick,
-                            },
-                            window,
-                            cx,
-                        );
-                        let sub = self.subscribe_editor(&adapter, cx);
-                        adapter.attach_subscription(sub);
-                        if index == self.active_tab {
-                            adapter.focus(window, cx);
-                        }
-                        self.tabs[index] = TabSlot::Editable(adapter);
-                    }
-                    AdmissionDecision::OverBudget { reason, .. } => {
-                        self.tabs[index] = TabSlot::OverBudgetDraft { stub, reason };
-                    }
-                }
-                cx.notify();
-            }
-            // Case B: Persisted draft (`has_checkpoint == true`) -> hydrate from SQLite recovery worker.
-            StubHydrationSource::RecoveryDatabase => {
-                let Some(recovery) = self.recovery.clone() else {
-                    self.tabs[index] = TabSlot::Failed {
-                        doc_id,
-                        lifecycle_gen: stub.lifecycle_gen,
-                        meta: stub.meta,
-                        error: "Recovery service unavailable; cannot hydrate stored draft."
-                            .to_string(),
-                    };
-                    cx.notify();
-                    return;
-                };
-
-                cx.spawn_in(window, async move |weak, cx| {
-                    let hydrated = cx
-                        .background_executor()
-                        .spawn(async move {
-                            let rx = recovery.request_hydrate(doc_id)?;
-                            rx.recv_timeout(Duration::from_secs(15)).map_err(|e| {
-                                ServiceError::new(
-                                    ErrorKind::Storage,
-                                    format!("hydrate timeout: {e}"),
-                                )
-                            })?
-                        })
-                        .await;
-
-                    let _ = weak.update_in(cx, |this, window, cx| {
-                        this.finish_draft_hydration(doc_id, req_seq, hydrated, window, cx);
-                    });
-                })
-                .detach();
-            }
-        }
-    }
-
-    fn finish_draft_hydration(
-        &mut self,
-        doc_id: DocumentId,
-        req_seq: u64,
-        result: Result<HydratedDraft, ServiceError>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(idx) = self.tabs.iter().position(|s| s.doc_id() == doc_id) else {
-            return;
-        };
-        let initial_view = match &self.tabs[idx] {
-            TabSlot::Hydrating { stub, req_seq: s } if *s == req_seq => stub.view.clone(),
-            _ => return,
-        };
-
-        match result {
-            Ok(draft) => {
-                let incoming_bytes = draft.rope.len() as u64;
-                let slots = self.collect_hydrated_slots();
-                match plan_hydration_admission(self.budget_config, &slots, incoming_bytes) {
-                    AdmissionDecision::Admit {
-                        dehydrate_tab_indices,
-                    } => {
-                        self.dehydrate_clean_tabs(&dehydrate_tab_indices, cx);
-                        let tick = self.next_activation_tick();
-                        let initial_prefs = self.current_view_prefs();
-                        let is_clean_at_load = match draft.meta.saved_identity {
-                            Some(saved_id) => saved_id == draft.identity,
-                            None => draft.rope.len() == 0,
-                        };
-                        let mut adapter = EditorAdapter::new(
-                            HydrateEditorParams {
-                                doc_id: draft.doc_id,
-                                lifecycle_gen: draft.lifecycle_gen,
-                                meta: draft.meta,
-                                rope: draft.rope,
-                                initial_rev: draft.durable_rev,
-                                durable_rev: draft.durable_rev,
-                                is_clean_at_load,
-                                disk_conflict: draft.disk_conflict,
-                                initial_view,
-                                initial_prefs,
-                                activation_tick: tick,
-                            },
-                            window,
-                            cx,
-                        );
-                        let sub = self.subscribe_editor(&adapter, cx);
-                        adapter.attach_subscription(sub);
-                        let is_active = idx == self.active_tab;
-                        if is_active {
-                            adapter.focus(window, cx);
-                        }
-                        self.tabs[idx] = TabSlot::Editable(adapter);
-                    }
-                    AdmissionDecision::OverBudget { reason, .. } => {
-                        // Never delete or overwrite SQLite recovery state; offer Rescue Export!
-                        let stub = SessionTabStub {
-                            doc_id: draft.doc_id,
-                            lifecycle_gen: draft.lifecycle_gen,
-                            durable_rev: draft.durable_rev,
-                            meta: draft.meta,
-                            view: initial_view,
-                            has_checkpoint: true,
-                        };
-                        self.tabs[idx] = TabSlot::OverBudgetDraft { stub, reason };
-                    }
-                }
-            }
-            Err(err) => {
-                let meta = self.tabs[idx].meta().clone();
-                let lifecycle_gen = self.tabs[idx].lifecycle_gen();
-                self.tabs[idx] = TabSlot::Failed {
-                    doc_id,
-                    lifecycle_gen,
-                    meta,
-                    error: format!("Draft recovery failed: {}", err.message),
-                };
-            }
-        }
-        cx.notify();
-    }
-
-    pub fn open_path(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        let lexical = std::path::absolute(&path).unwrap_or_else(|_| path.clone());
-
-        // Focus existing tab if lexically open (zero UI-thread filesystem `stat`/`canonicalize`).
-        if let Some(existing_ix) = self.tabs.iter().position(|slot| {
-            slot.meta().path.as_deref() == Some(lexical.as_path())
-                || slot.meta().path.as_deref() == Some(path.as_path())
-        }) {
-            let existing_path = self.tabs[existing_ix]
-                .meta()
-                .path
-                .clone()
-                .unwrap_or(lexical);
-            self.activate_tab(existing_ix, window, cx);
-            self.record_recent_file(existing_path, window, cx);
-            return;
-        }
-
-        // Reuse untouched initial scratch tab if empty and uncustomized.
-        let reuse_scratch = self.tabs.len() == 1
-            && matches!(
-                &self.tabs[0],
-                TabSlot::Editable(ed)
-                    if ed.meta.path.is_none()
-                        && ed.visible_revision == Revision(0)
-                        && ed.committed_byte_len() == 0
-                        && !ed.is_dirty()
-                        && ed.meta.encoding == EncodingSpec::Utf8
-                        && ed.meta.line_ending == LineEnding::Lf
-                        && ed.meta.language_override.is_none()
-            );
-        let doc_id = DocumentId::new();
-        let lifecycle_gen = LifecycleGen(1);
-        let title = lexical
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("document")
-            .to_string();
-        let stub = SessionTabStub {
-            doc_id,
-            lifecycle_gen,
-            durable_rev: Revision(0),
-            meta: DocMeta {
-                title,
-                path: Some(lexical.clone()),
-                ..DocMeta::default()
-            },
-            view: ViewState::default(),
-            has_checkpoint: false,
-        };
-
-        self.hydrate_req_counter = self.hydrate_req_counter.wrapping_add(1);
-        let req_seq = self.hydrate_req_counter;
-        let slot = TabSlot::Hydrating { stub, req_seq };
-
-        if reuse_scratch {
-            self.tabs[0] = slot;
-            self.active_tab = 0;
-        } else {
-            self.tabs.push(slot);
-            self.active_tab = self.tabs.len() - 1;
-        }
-
-        self.spawn_disk_open_into_slot(doc_id, lifecycle_gen, None, lexical, true, window, cx);
-        cx.notify();
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn spawn_disk_open_into_slot(
-        &mut self,
-        doc_id: DocumentId,
-        lifecycle_gen: LifecycleGen,
-        initial_view: Option<ViewState>,
-        path: PathBuf,
-        record_in_mru: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let paging = self.paging_service.clone();
-        let mut options = OpenOptions::default();
-        if let Some(limit) = self.cli.editable_byte_limit {
-            options.editable_byte_limit = limit;
-        }
-        let cancel = CancelToken::new();
-        let path_for_worker = path;
-
-        cx.spawn_in(window, async move |weak, cx| {
-            let (resolved_path, outcome) = cx
-                .background_executor()
-                .spawn(async move {
-                    let resolved =
-                        std::fs::canonicalize(&path_for_worker).unwrap_or_else(|_| path_for_worker);
-                    let retry_deadline = Instant::now() + Duration::from_secs(30);
-                    let res = loop {
-                        match open_document(doc_id, &resolved, &paging, options, &cancel) {
-                            Err(err)
-                                if err.kind == ErrorKind::Busy
-                                    && !cancel.is_cancelled()
-                                    && Instant::now() < retry_deadline =>
-                            {
-                                std::thread::sleep(Duration::from_millis(25));
-                            }
-                            other => break other,
-                        }
-                    };
-                    (resolved, res)
-                })
-                .await;
-
-            let _ = weak.update_in(cx, |this, window, cx| {
-                this.finish_disk_open(
-                    doc_id,
-                    lifecycle_gen,
-                    resolved_path,
-                    initial_view.unwrap_or_default(),
-                    record_in_mru,
-                    outcome,
-                    window,
-                    cx,
-                );
-            });
-        })
-        .detach();
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn finish_disk_open(
-        &mut self,
-        doc_id: DocumentId,
-        lifecycle_gen: LifecycleGen,
-        path: PathBuf,
-        initial_view: ViewState,
-        record_in_mru: bool,
-        result: Result<OpenOutcome, ServiceError>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(idx) = self.tabs.iter().position(|s| s.doc_id() == doc_id) else {
-            return;
-        };
-        // Deduplicate if background canonicalization resolved a symlink to an already-open tab!
-        if record_in_mru
-            && let Some(dup_ix) = self.tabs.iter().position(|s| {
-                s.doc_id() != doc_id && s.meta().path.as_deref() == Some(path.as_path())
-            })
-        {
-            let was_active = idx == self.active_tab;
-            self.tabs.remove(idx);
-            let target_ix = if dup_ix > idx { dup_ix - 1 } else { dup_ix };
-            if self.active_tab >= self.tabs.len() {
-                self.active_tab = self.tabs.len().saturating_sub(1);
-            }
-            if was_active {
-                self.activate_tab(target_ix, window, cx);
-            }
-            self.record_recent_file(path, window, cx);
-            self.persist_session_layout(cx);
-            cx.notify();
-            return;
-        }
-        let preserved_language_override = self.tabs[idx].meta().language_override.clone();
-        let title = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("document")
-            .to_string();
-        let mut opened_successfully = false;
-
-        match result {
-            Ok(OpenOutcome::Editable {
-                rope,
-                identity,
-                encoding,
-                line_ending,
-                readonly_reason,
-                fingerprint,
-            }) => {
-                let incoming_bytes = rope.len() as u64;
-                let slots = self.collect_hydrated_slots();
-                match plan_hydration_admission(self.budget_config, &slots, incoming_bytes) {
-                    AdmissionDecision::Admit {
-                        dehydrate_tab_indices,
-                    } => {
-                        self.dehydrate_clean_tabs(&dehydrate_tab_indices, cx);
-                        let meta = DocMeta {
-                            title,
-                            path: Some(path.clone()),
-                            encoding,
-                            line_ending,
-                            origin_fingerprint: Some(fingerprint),
-                            saved_identity: Some(identity),
-                            readonly_reason,
-                            paged: false,
-                            saved_encoding: Some(encoding),
-                            saved_line_ending: Some(line_ending),
-                            language_override: preserved_language_override,
-                        };
-                        let tick = self.next_activation_tick();
-                        let initial_prefs = self.current_view_prefs();
-                        let mut adapter = EditorAdapter::new(
-                            HydrateEditorParams {
-                                doc_id,
-                                lifecycle_gen,
-                                meta,
-                                rope,
-                                initial_rev: Revision(0),
-                                durable_rev: Revision(0),
-                                is_clean_at_load: true,
-                                disk_conflict: false,
-                                initial_view,
-                                initial_prefs,
-                                activation_tick: tick,
-                            },
-                            window,
-                            cx,
-                        );
-                        let sub = self.subscribe_editor(&adapter, cx);
-                        adapter.attach_subscription(sub);
-                        if idx == self.active_tab {
-                            adapter.focus(window, cx);
-                        }
-                        self.tabs[idx] = TabSlot::Editable(adapter);
-                        opened_successfully = true;
-                    }
-                    AdmissionDecision::OverBudget { reason, .. } => {
-                        // Disk file over admission budget -> retain Read-Only Paged View (§15.2)!
-                        match self.paging_service.open(doc_id, &path) {
-                            Ok(handle) => {
-                                let source_gen = handle.source_generation();
-                                let meta = DocMeta {
-                                    title,
-                                    path: Some(path.clone()),
-                                    encoding,
-                                    line_ending,
-                                    origin_fingerprint: Some(fingerprint),
-                                    saved_identity: Some(identity),
-                                    readonly_reason: Some(
-                                        editor_services::ReadOnlyReason::LargeFile,
-                                    ),
-                                    paged: true,
-                                    saved_encoding: Some(encoding),
-                                    saved_line_ending: Some(line_ending),
-                                    language_override: preserved_language_override,
-                                };
-                                let pv = PagedTabState::new(
-                                    doc_id,
-                                    lifecycle_gen,
-                                    meta,
-                                    handle,
-                                    source_gen,
-                                    editor_services::ReadOnlyReason::LargeFile,
-                                    Some(format!("Paged Read-Only fallback — {reason}")),
-                                    initial_view.scroll_byte,
-                                );
-                                self.tabs[idx] = TabSlot::Paged(pv);
-                                self.ensure_paged_indexer_running(cx);
-                                self.request_paged_viewport(
-                                    idx,
-                                    ViewportAnchor::ByteOffset(initial_view.scroll_byte),
-                                    window,
-                                    cx,
-                                );
-                                opened_successfully = true;
-                            }
-                            Err(err) => {
-                                self.tabs[idx] = TabSlot::Failed {
-                                    doc_id,
-                                    lifecycle_gen,
-                                    meta: DocMeta {
-                                        title,
-                                        path: Some(path.clone()),
-                                        ..DocMeta::default()
-                                    },
-                                    error: err.message,
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-            Ok(OpenOutcome::Paged {
-                doc,
-                encoding,
-                line_ending,
-                readonly_reason,
-                fingerprint,
-                source_gen,
-            }) => {
-                let meta = DocMeta {
-                    title,
-                    path: Some(path.clone()),
-                    encoding,
-                    line_ending,
-                    origin_fingerprint: Some(fingerprint),
-                    saved_identity: None,
-                    readonly_reason: Some(readonly_reason.clone()),
-                    paged: true,
-                    saved_encoding: Some(encoding),
-                    saved_line_ending: Some(line_ending),
-                    language_override: preserved_language_override,
-                };
-                let pv = PagedTabState::new(
-                    doc_id,
-                    lifecycle_gen,
-                    meta,
-                    doc,
-                    source_gen,
-                    readonly_reason,
-                    None,
-                    initial_view.scroll_byte,
-                );
-                self.tabs[idx] = TabSlot::Paged(pv);
-                self.ensure_paged_indexer_running(cx);
-                self.request_paged_viewport(
-                    idx,
-                    ViewportAnchor::ByteOffset(initial_view.scroll_byte),
-                    window,
-                    cx,
-                );
-                if idx == self.active_tab {
-                    self.focus_handle.focus(window, cx);
-                }
-                opened_successfully = true;
-            }
-            Err(err) => {
-                self.tabs[idx] = TabSlot::Failed {
-                    doc_id,
-                    lifecycle_gen,
-                    meta: DocMeta {
-                        title,
-                        path: Some(path.clone()),
-                        ..DocMeta::default()
-                    },
-                    error: err.message.clone(),
-                };
-                window.push_notification(
-                    Notification::error(format!("Failed to open file: {}", err.message)),
-                    cx,
-                );
-            }
-        }
-
-        if record_in_mru && opened_successfully {
-            self.record_recent_file(path, window, cx);
-        }
-
-        self.persist_session_layout(cx);
-        cx.notify();
-    }
-
-    pub fn request_paged_viewport(
-        &mut self,
-        tab_index: usize,
-        anchor: ViewportAnchor,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(TabSlot::Paged(pv)) = self.tabs.get_mut(tab_index) else {
-            return;
-        };
-        let doc_id = pv.doc_id;
-        let handle = pv.handle.clone();
-        let (seq, req, cancel) = pv.prepare_viewport_request(anchor);
-
-        cx.spawn_in(window, async move |weak, cx| {
-            let res = cx
-                .background_executor()
-                .spawn(async move {
-                    let retry_deadline = Instant::now() + Duration::from_secs(15);
-                    loop {
-                        match handle.viewport(req.clone(), &cancel) {
-                            Err(err)
-                                if err.kind == ErrorKind::Busy
-                                    && !cancel.is_cancelled()
-                                    && Instant::now() < retry_deadline =>
-                            {
-                                std::thread::sleep(Duration::from_millis(15));
-                            }
-                            other => break other,
-                        }
-                    }
-                })
-                .await;
-            let _ = weak.update(cx, |this, cx| {
-                let mut source_changed = false;
-                if let Some(TabSlot::Paged(pv)) =
-                    this.tabs.iter_mut().find(|s| s.doc_id() == doc_id)
-                    && pv.apply_viewport_result(seq, res)
-                {
-                    source_changed = pv.source_error.is_some();
-                }
-                if source_changed && this.search.target_doc_id == Some(doc_id) {
-                    this.search.cancel_active();
-                    this.search.status = SearchStatus::Invalidated;
-                }
-                cx.notify();
             });
         })
         .detach();
@@ -1643,7 +749,7 @@ impl EditorWorkspace {
         if self.paged_indexer_running {
             return;
         }
-        let has_incomplete = self.tabs.iter().any(|slot| {
+        let has_incomplete = self.documents.values().any(|slot| {
             matches!(
                 slot,
                 TabSlot::Paged(pv)
@@ -1660,44 +766,24 @@ impl EditorWorkspace {
             loop {
                 let next_job = weak
                     .update(cx, |this, _cx| {
-                        if this.shutting_down || this.tabs.is_empty() {
+                        if this.shutting_down || this.ordered_view_ids().is_empty() {
                             this.paged_indexer_running = false;
                             return None;
                         }
-                        let pick = (0..this.tabs.len())
-                            .map(|offset| {
-                                if offset == 0 {
-                                    this.active_tab.min(this.tabs.len() - 1)
-                                } else {
-                                    let idx =
-                                        (this.paged_index_rr_cursor + offset) % this.tabs.len();
-                                    idx
-                                }
-                            })
-                            .find(|&idx| {
-                                matches!(
-                                    &this.tabs[idx],
-                                    TabSlot::Paged(pv)
-                                        if !pv.is_loading
-                                            && pv.source_error.is_none()
-                                            && matches!(pv.index_status, IndexStatus::Indexing { .. })
-                                )
-                            });
-
-                        if let Some(idx) = pick {
-                            this.paged_index_rr_cursor = (idx + 1) % this.tabs.len();
-                            if let TabSlot::Paged(pv) = &this.tabs[idx] {
-                                return Some(Ok((
-                                    pv.doc_id,
-                                    pv.handle.clone(),
-                                    pv.source_gen,
-                                    pv.index_cancel_token(),
-                                )));
+                        let len = this.ordered_view_ids().len();
+                        let active_position = this.active_view_id().and_then(|id| this.ordered_view_ids().iter().position(|v| *v == id)).unwrap_or(0);
+                        let pick = (0..len).map(|offset| if offset == 0 { active_position } else { (this.paged_index_rr_cursor + offset) % len })
+                            .find(|&position| matches!(this.view_slot(this.ordered_view_ids()[position]), Some(TabSlot::Paged(pv)) if !pv.is_loading && pv.source_error.is_none() && matches!(pv.index_status, IndexStatus::Indexing { .. })));
+                        if let Some(position) = pick {
+                            this.paged_index_rr_cursor = (position + 1) % len;
+                            let target = this.view_target(this.ordered_view_ids()[position])?;
+                            if let Some(TabSlot::Paged(pv)) = this.view_slot(target.view_id) {
+                                return Some(Ok((target, pv.handle.clone(), pv.source_gen, pv.index_cancel_token())));
                             }
                         }
 
                         // Check if any tab still needs indexing once its foreground viewport finishes.
-                        let any_pending_after_viewport = this.tabs.iter().any(|slot| {
+                        let any_pending_after_viewport = this.documents.values().any(|slot| {
                             matches!(
                                 slot,
                                 TabSlot::Paged(pv)
@@ -1723,7 +809,7 @@ impl EditorWorkspace {
                             .timer(Duration::from_millis(25))
                             .await;
                     }
-                    Some(Ok((doc_id, handle, source_gen, cancel))) => {
+                    Some(Ok((target, handle, source_gen, cancel))) => {
                         if cancel.is_cancelled() {
                             continue;
                         }
@@ -1735,9 +821,11 @@ impl EditorWorkspace {
                         let mut backoff_ms = 10u64;
                         let alive = weak
                             .update(cx, |this, cx| {
+                                if this.session.resolve(target).is_err() { return !this.shutting_down; }
                                 if let Some(TabSlot::Paged(pv)) =
-                                    this.tabs.iter_mut().find(|s| s.doc_id() == doc_id)
+                                    this.documents.get_mut(&target.document.doc_id)
                                 {
+                                    if pv.source_gen != source_gen { return !this.shutting_down; }
                                     match step {
                                         Ok(status) => {
                                             pv.index_status = status;
@@ -1749,7 +837,7 @@ impl EditorWorkspace {
                                         Err(err) if err.kind == ErrorKind::Cancelled => {}
                                         Err(err) => {
                                             pv.source_error = Some(err.message);
-                                            if this.search.target_doc_id == Some(doc_id) {
+                                            if this.search.target_view == Some(target) {
                                                 this.search.cancel_active();
                                                 this.search.status = SearchStatus::Invalidated;
                                             }
@@ -1773,742 +861,6 @@ impl EditorWorkspace {
         .detach();
     }
 
-    fn flush_tab_commit(&mut self, index: usize) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(index) else {
-            return;
-        };
-        let Some(commit) = ed.build_recovery_commit() else {
-            return;
-        };
-        let Some(recovery) = &self.recovery else {
-            return;
-        };
-        let target_rev = commit.new_rev;
-        match recovery.try_commit(commit) {
-            Ok(()) => ed.record_commit_queued(target_rev),
-            Err(err) if err.kind == ErrorKind::Busy => ed.record_commit_busy(),
-            Err(err) => {
-                self.recovery_degraded_error = Some(err.message);
-            }
-        }
-    }
-
-    pub fn persist_session_layout(&mut self, cx: &App) {
-        let Some(recovery) = &self.recovery else {
-            self.layout_dirty = true;
-            return;
-        };
-        let records: Vec<TabLayoutRecord> = self
-            .tabs
-            .iter()
-            .filter(|slot| !self.closing_docs.contains_key(&slot.doc_id()))
-            .map(|slot| slot.layout_record(cx))
-            .collect();
-        let active = self
-            .tabs
-            .get(self.active_tab)
-            .map(TabSlot::doc_id)
-            .filter(|id| !self.closing_docs.contains_key(id))
-            .or_else(|| records.first().map(|r| r.doc_id));
-        match recovery.save_session_layout(records, active) {
-            Ok(()) => {
-                self.layout_dirty = false;
-            }
-            Err(err) if err.kind == ErrorKind::Busy => {
-                self.layout_dirty = true;
-            }
-            Err(err) => {
-                self.layout_dirty = false;
-                self.recovery_degraded_error = Some(err.message);
-            }
-        }
-    }
-
-    /// Saves an `Editable` tab to `explicit_path` (or its current `meta.path`, prompting if `None`).
-    pub fn save_tab(
-        &mut self,
-        tab_index: usize,
-        explicit_path: Option<PathBuf>,
-        force_overwrite: bool,
-        close_after_save: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(slot) = self.tabs.get(tab_index) else {
-            return;
-        };
-        let TabSlot::Editable(ed) = slot else {
-            window.push_notification(
-                Notification::info(
-                    "Paged or unhydrated tabs are read-only; nothing to save in place.",
-                ),
-                cx,
-            );
-            return;
-        };
-
-        if ed.is_readonly() && explicit_path.is_none() {
-            window.push_notification(
-                Notification::warning(
-                    "Document is read-only (unsupported encoding or mixed EOL) to prevent silent corruption.",
-                ),
-                cx,
-            );
-            return;
-        }
-
-        let target_path = explicit_path.or_else(|| ed.meta.path.clone());
-        let Some(target_path) = target_path else {
-            self.prompt_save_as(tab_index, close_after_save, window, cx);
-            return;
-        };
-
-        let is_same_origin = ed.meta.path.as_ref() == Some(&target_path);
-        let captured_encoding = ed.meta.encoding;
-        let captured_line_ending = ed.meta.line_ending;
-        let captured_text_seq = ed.current_text_seq();
-        let request = SaveRequest {
-            doc_id: ed.doc_id,
-            lifecycle_gen: ed.lifecycle_gen,
-            captured_rev: ed.visible_revision,
-            rope: ed.committed_rope().clone(),
-            target_path: target_path.clone(),
-            encoding: captured_encoding,
-            line_ending: captured_line_ending,
-            expected_fingerprint: if is_same_origin {
-                ed.meta.origin_fingerprint.clone()
-            } else {
-                None
-            },
-            force_overwrite,
-        };
-
-        let recovery = self.recovery.clone();
-        let faults = self.faults.clone();
-
-        cx.spawn_in(window, async move |weak, cx| {
-            let req_for_worker = request;
-            let (outcome, mru_path) = cx
-                .background_executor()
-                .spawn(async move {
-                    let out = save_document(&req_for_worker, recovery.as_ref(), &faults);
-                    let normalized = std::fs::canonicalize(&req_for_worker.target_path)
-                        .unwrap_or_else(|_| req_for_worker.target_path.clone());
-                    (out, normalized)
-                })
-                .await;
-
-            let _ = weak.update_in(cx, |this, window, cx| {
-                this.handle_save_outcome(
-                    outcome,
-                    target_path,
-                    mru_path,
-                    captured_text_seq,
-                    captured_encoding,
-                    captured_line_ending,
-                    close_after_save,
-                    window,
-                    cx,
-                );
-            });
-        })
-        .detach();
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn handle_save_outcome(
-        &mut self,
-        outcome: SaveOutcome,
-        target_path: PathBuf,
-        mru_path: PathBuf,
-        captured_text_seq: u64,
-        captured_encoding: EncodingSpec,
-        captured_line_ending: LineEnding,
-        close_after_save: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        match outcome {
-            SaveOutcome::Saved {
-                doc_id,
-                captured_rev,
-                captured_identity,
-                fingerprint,
-            } => {
-                self.complete_successful_save(
-                    doc_id,
-                    target_path,
-                    mru_path,
-                    captured_rev,
-                    captured_text_seq,
-                    captured_identity,
-                    fingerprint,
-                    captured_encoding,
-                    captured_line_ending,
-                    None,
-                    close_after_save,
-                    window,
-                    cx,
-                );
-            }
-            SaveOutcome::SavedWithRecoveryWarning {
-                doc_id,
-                captured_rev,
-                captured_identity,
-                fingerprint,
-                warning,
-            } => {
-                self.complete_successful_save(
-                    doc_id,
-                    target_path,
-                    mru_path,
-                    captured_rev,
-                    captured_text_seq,
-                    captured_identity,
-                    fingerprint,
-                    captured_encoding,
-                    captured_line_ending,
-                    Some(warning.message),
-                    close_after_save,
-                    window,
-                    cx,
-                );
-            }
-            SaveOutcome::PublishedNotDurable { warning, .. } => {
-                // Invariant: NEVER advance savepoint or clear dirty when durability sync failed!
-                window.push_notification(
-                    Notification::warning(format!(
-                        "File published on disk, but durability sync was not confirmed: {}. Draft remains marked modified.",
-                        warning.message
-                    )),
-                    cx,
-                );
-            }
-            SaveOutcome::ConflictDetected { doc_id, .. } => {
-                self.open_save_conflict_dialog(doc_id, target_path, close_after_save, window, cx);
-            }
-            SaveOutcome::Failed { error, .. } => {
-                window.push_notification(
-                    Notification::error(format!("Save failed: {}", error.message)),
-                    cx,
-                );
-            }
-        }
-        cx.notify();
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn complete_successful_save(
-        &mut self,
-        doc_id: DocumentId,
-        target_path: PathBuf,
-        mru_path: PathBuf,
-        captured_rev: Revision,
-        captured_text_seq: u64,
-        captured_identity: ContentIdentity,
-        fingerprint: FileFingerprint,
-        captured_encoding: EncodingSpec,
-        captured_line_ending: LineEnding,
-        recovery_warning: Option<String>,
-        close_after_save: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(idx) = self.tabs.iter().position(|t| t.doc_id() == doc_id) else {
-            return;
-        };
-        let mut check_req = None;
-        if let TabSlot::Editable(ed) = &mut self.tabs[idx] {
-            let check = ed.mark_saved(
-                target_path.clone(),
-                captured_rev,
-                captured_text_seq,
-                captured_identity,
-                fingerprint,
-                captured_encoding,
-                captured_line_ending,
-                window,
-                cx,
-            );
-            if let Some(c) = check {
-                check_req = Some((c, ed.committed_rope().clone()));
-            }
-        }
-
-        if let Some((c, rope)) = check_req {
-            self.spawn_savepoint_verification(
-                doc_id,
-                c.seq,
-                c.checked_text_seq,
-                c.saved_identity,
-                rope,
-                cx,
-            );
-        }
-
-        self.flush_tab_commit(idx);
-        self.persist_session_layout(cx);
-        self.record_recent_file(mru_path, window, cx);
-
-        let file_label = target_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("file");
-        self.status_flash = Some((format!("Saved {file_label}"), Instant::now()));
-
-        if let Some(warn) = recovery_warning {
-            // F07: Separate file-saved fact from recovery-DB warning!
-            window.push_notification(
-                Notification::warning(format!(
-                    "Saved '{file_label}' to disk, but recovery metadata update failed: {warn}"
-                )),
-                cx,
-            );
-        }
-
-        if close_after_save
-            && let Some(now_ix) = self.tabs.iter().position(|t| t.doc_id() == doc_id)
-            && !self.tabs[now_ix].is_dirty()
-        {
-            self.close_tab_confirmed(now_ix, false, window, cx);
-        }
-    }
-
-    fn open_save_conflict_dialog(
-        &self,
-        doc_id: DocumentId,
-        target_path: PathBuf,
-        close_after_save: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let entity = cx.entity();
-        let display = target_path.display().to_string();
-        window.open_dialog(cx, move |dialog, _, _| {
-            let entity_ok = entity.clone();
-            let path_ok = target_path.clone();
-            dialog
-                .title("External File Change Detected")
-                .button_props(
-                    DialogButtonProps::default()
-                        .ok_text("Overwrite Disk File")
-                        .ok_variant(ButtonVariant::Danger)
-                        .show_cancel(true)
-                        .cancel_text("Keep Draft & Cancel")
-                        .on_ok(move |_, window, cx| {
-                            entity_ok.update(cx, |this, cx| {
-                                if let Some(idx) =
-                                    this.tabs.iter().position(|s| s.doc_id() == doc_id)
-                                {
-                                    this.save_tab(
-                                        idx,
-                                        Some(path_ok.clone()),
-                                        true,
-                                        close_after_save,
-                                        window,
-                                        cx,
-                                    );
-                                }
-                            });
-                            true
-                        }),
-                )
-                .child(gpui_kit::div().text_sm().child(format!(
-                    "'{display}' changed on disk after it was opened. Overwrite it with your current editor version, or cancel and use Save As…?"
-                )))
-        });
-    }
-
-    pub fn prompt_save_as(
-        &mut self,
-        tab_index: usize,
-        close_after_save: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(slot) = self.tabs.get(tab_index) else {
-            return;
-        };
-        let doc_id = slot.doc_id();
-        let initial_dir = slot
-            .meta()
-            .path
-            .as_deref()
-            .and_then(Path::parent)
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-        let suggested = format!("{}.txt", slot.title());
-        let suggested_name = slot
-            .meta()
-            .path
-            .as_deref()
-            .and_then(|p| p.file_name())
-            .and_then(|n| n.to_str())
-            .unwrap_or(&suggested);
-
-        let rx = cx.prompt_for_new_path(&initial_dir, Some(suggested_name));
-        cx.spawn_in(window, async move |weak, cx| {
-            if let Ok(Ok(Some(chosen_path))) = rx.await {
-                let _ = weak.update_in(cx, |this, window, cx| {
-                    if let Some(idx) = this.tabs.iter().position(|t| t.doc_id() == doc_id) {
-                        // macOS NSSavePanel already prompted the user to confirm replacing an existing path.
-                        this.save_tab(idx, Some(chosen_path), true, close_after_save, window, cx);
-                    }
-                });
-            }
-        })
-        .detach();
-    }
-
-    /// Exports an `OverBudgetDraft` directly from SQLite to a user-selected file on a background
-    /// worker without creating an `EditorState` (`DesignReview` Correction 2).
-    pub fn export_over_budget_draft(
-        &mut self,
-        doc_id: DocumentId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(recovery) = self.recovery.clone() else {
-            window.push_notification(
-                Notification::error("Recovery service unavailable; cannot export draft."),
-                cx,
-            );
-            return;
-        };
-        let dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let rx = cx.prompt_for_new_path(&dir, Some("recovered-draft.txt"));
-        let faults = self.faults.clone();
-
-        cx.spawn_in(window, async move |weak, cx| {
-            let Ok(Ok(Some(dest_path))) = rx.await else {
-                return;
-            };
-            let res = cx
-                .background_executor()
-                .spawn(async move {
-                    let draft = recovery
-                        .request_hydrate(doc_id)?
-                        .recv_timeout(Duration::from_secs(20))
-                        .map_err(|e| ServiceError::new(ErrorKind::Storage, e.to_string()))??;
-                    let req = SaveRequest {
-                        doc_id: draft.doc_id,
-                        lifecycle_gen: draft.lifecycle_gen,
-                        captured_rev: draft.durable_rev,
-                        rope: draft.rope,
-                        target_path: dest_path.clone(),
-                        encoding: if draft.meta.encoding == EncodingSpec::UnsupportedReadOnly {
-                            EncodingSpec::Utf8
-                        } else {
-                            draft.meta.encoding
-                        },
-                        line_ending: if draft.meta.line_ending == LineEnding::MixedReadOnly {
-                            LineEnding::Lf
-                        } else {
-                            draft.meta.line_ending
-                        },
-                        expected_fingerprint: None,
-                        force_overwrite: true,
-                    };
-                    Ok::<(PathBuf, SaveOutcome), ServiceError>((
-                        dest_path,
-                        save_document(&req, Some(&recovery), &faults),
-                    ))
-                })
-                .await;
-
-            let _ = weak.update_in(cx, |_this, window, cx| match res {
-                Ok((
-                    path,
-                    SaveOutcome::Saved { .. } | SaveOutcome::SavedWithRecoveryWarning { .. },
-                )) => {
-                    window.push_notification(
-                        Notification::success(format!(
-                            "Exported draft safely to {}",
-                            path.display()
-                        )),
-                        cx,
-                    );
-                }
-                Ok((_, other)) => {
-                    window.push_notification(
-                        Notification::warning(format!("Draft export incomplete: {other:?}")),
-                        cx,
-                    );
-                }
-                Err(err) => {
-                    window.push_notification(
-                        Notification::error(format!("Draft export failed: {}", err.message)),
-                        cx,
-                    );
-                }
-            });
-        })
-        .detach();
-    }
-
-    pub fn request_close_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        if index >= self.tabs.len() {
-            return;
-        }
-        if self.closing_docs.contains_key(&self.tabs[index].doc_id()) {
-            return;
-        }
-        if !self.tabs[index].is_dirty() {
-            self.close_tab_confirmed(index, false, window, cx);
-            return;
-        }
-
-        let doc_id = self.tabs[index].doc_id();
-        let title = self.tabs[index].title().to_string();
-        let is_hydrating_or_over_budget = !matches!(self.tabs[index], TabSlot::Editable(_));
-        let entity = cx.entity();
-
-        window.open_dialog(cx, move |dialog, _, _| {
-            let e_save = entity.clone();
-            let e_discard = entity.clone();
-            dialog
-                .title(format!("Unsaved Changes in \"{title}\""))
-                .footer(
-                    gpui_kit::component::h_flex()
-                        .gap_2()
-                        .justify_end()
-                        .child(
-                            gpui_kit::component::button::Button::new("cancel-close")
-                                .label("Cancel")
-                                .on_click(|_, window, cx| window.close_dialog(cx)),
-                        )
-                        .child(
-                            gpui_kit::component::button::Button::new("discard-close")
-                                .danger()
-                                .label("Discard Draft")
-                                .on_click(move |_, window, cx| {
-                                    window.close_dialog(cx);
-                                    e_discard.update(cx, |this, cx| {
-                                        if let Some(ix) =
-                                            this.tabs.iter().position(|t| t.doc_id() == doc_id)
-                                        {
-                                            this.close_tab_confirmed(ix, true, window, cx);
-                                        }
-                                    });
-                                }),
-                        )
-                        .child(
-                            gpui_kit::component::button::Button::new("save-close")
-                                .primary()
-                                .label(if is_hydrating_over(is_hydrating_or_over_budget) {
-                                    "Export Draft…"
-                                } else {
-                                    "Save & Close"
-                                })
-                                .on_click(move |_, window, cx| {
-                                    window.close_dialog(cx);
-                                    e_save.update(cx, |this, cx| {
-                                        if let Some(ix) =
-                                            this.tabs.iter().position(|t| t.doc_id() == doc_id)
-                                        {
-                                            if is_hydrating_or_over_budget {
-                                                this.export_over_budget_draft(doc_id, window, cx);
-                                            } else {
-                                                this.save_tab(ix, None, false, true, window, cx);
-                                            }
-                                        }
-                                    });
-                                }),
-                        ),
-                )
-                .child(gpui_kit::div().text_sm().child(
-                    "Save your changes to disk before closing, or permanently discard this draft?",
-                ))
-        });
-    }
-
-    /// Closes a tab safely (`StorageAdversarial` close barrier):
-    /// retains the tab in `self.tabs` until `RecoveryHandle::close_document` is durably
-    /// acknowledged (retrying `ErrorKind::Busy` asynchronously), and updates `windows_views`
-    /// layout ONLY AFTER `close_document` succeeds. On storage failure, preserves the tab
-    /// and notifies the user without data loss.
-    pub fn close_tab_confirmed(
-        &mut self,
-        index: usize,
-        discard_draft: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if index >= self.tabs.len() {
-            return;
-        }
-        let doc_id = self.tabs[index].doc_id();
-        if self.closing_docs.contains_key(&doc_id) {
-            return;
-        }
-        self.closing_docs.insert(doc_id, discard_draft);
-        let prev_gen = self.tabs[index].lifecycle_gen();
-        // R06: Explicitly discarding bumps LifecycleGen so late snapshots/edits can never resurrect it!
-        let close_gen = close_lifecycle_gen(prev_gen, discard_draft);
-
-        let Some(recovery) = self.recovery.clone() else {
-            self.closing_docs.remove(&doc_id);
-            self.finalize_tab_removal_after_close_ack(doc_id, prev_gen, discard_draft, window, cx);
-            return;
-        };
-
-        let pending_commit = if !discard_draft {
-            if let TabSlot::Editable(ed) = &mut self.tabs[index] {
-                ed.editor().update(cx, |s, cx| s.set_readonly(true, cx));
-                ed.build_recovery_commit()
-            } else {
-                None
-            }
-        } else {
-            if let TabSlot::Editable(ed) = &mut self.tabs[index] {
-                ed.editor().update(cx, |s, cx| s.set_readonly(true, cx));
-            }
-            None
-        };
-
-        cx.spawn_in(window, async move |weak, cx| {
-            let close_res = cx
-                .background_executor()
-                .spawn(async move {
-                    if let Some(mut commit) = pending_commit {
-                        let deadline = Instant::now() + Duration::from_secs(5);
-                        loop {
-                            match recovery.try_commit(commit.clone()) {
-                                Ok(()) => break,
-                                Err(e)
-                                    if e.kind == ErrorKind::Busy
-                                        && Instant::now() < deadline =>
-                                {
-                                    commit.deltas.clear();
-                                    std::thread::sleep(Duration::from_millis(20));
-                                }
-                                Err(e) if e.kind == ErrorKind::Stale => break,
-                                Err(e) => return Err(e),
-                            }
-                        }
-                    }
-
-                    let deadline = Instant::now() + Duration::from_secs(5);
-                    let rx = loop {
-                        match recovery.close_document(doc_id, close_gen, discard_draft) {
-                            Ok(rx) => break rx,
-                            Err(e)
-                                if e.kind == ErrorKind::Busy
-                                    && Instant::now() < deadline =>
-                            {
-                                std::thread::sleep(Duration::from_millis(20));
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    };
-                    rx.recv_timeout(Duration::from_secs(10)).map_err(|e| {
-                        ServiceError::new(ErrorKind::Storage, format!("close_document timeout: {e}"))
-                    })?
-                })
-                .await;
-
-            let _ = weak.update_in(cx, |this, window, cx| {
-                if this.shutting_down {
-                    return;
-                }
-                this.closing_docs.remove(&doc_id);
-                match close_res {
-                    Ok(()) => {
-                        this.finalize_tab_removal_after_close_ack(
-                            doc_id,
-                            prev_gen,
-                            discard_draft,
-                            window,
-                            cx,
-                        );
-                    }
-                    Err(err) => {
-                        if let Some(TabSlot::Editable(ed)) =
-                            this.tabs.iter_mut().find(|t| t.doc_id() == doc_id)
-                            && !ed.is_readonly()
-                        {
-                            ed.editor().update(cx, |s, cx| s.set_readonly(false, cx));
-                        }
-                        this.persist_session_layout(cx);
-                        window.push_notification(
-                            Notification::error(format!(
-                                "Could not persist tab close ({}); tab retained to prevent data loss.",
-                                err.message
-                            )),
-                            cx,
-                        );
-                        cx.notify();
-                    }
-                }
-            });
-        })
-        .detach();
-    }
-
-    fn finalize_tab_removal_after_close_ack(
-        &mut self,
-        doc_id: DocumentId,
-        prev_gen: LifecycleGen,
-        discard_draft: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(index) = self.tabs.iter().position(|t| t.doc_id() == doc_id) else {
-            return;
-        };
-        let removed = self.tabs.remove(index);
-
-        if !discard_draft && (removed.meta().path.is_some() || removed.is_dirty()) {
-            let record = removed.layout_record(cx);
-            self.recently_closed.insert(
-                0,
-                SessionTabStub {
-                    doc_id,
-                    lifecycle_gen: prev_gen,
-                    durable_rev: match &removed {
-                        TabSlot::Editable(ed) => ed.durable_revision,
-                        TabSlot::Dehydrated(s)
-                        | TabSlot::Hydrating { stub: s, .. }
-                        | TabSlot::OverBudgetDraft { stub: s, .. } => s.durable_rev,
-                        _ => Revision(0),
-                    },
-                    meta: record.meta,
-                    view: record.view,
-                    has_checkpoint: removed.is_dirty(),
-                },
-            );
-            if self.recently_closed.len() > 32 {
-                self.recently_closed.pop();
-            }
-        }
-
-        if self.search.target_doc_id == Some(doc_id) {
-            self.search.clear_results();
-        }
-
-        if self.tabs.is_empty() {
-            self.create_untitled_tab(true, window, cx);
-        } else {
-            let next_ix = index.min(self.tabs.len() - 1);
-            self.activate_tab(next_ix, window, cx);
-        }
-        self.persist_session_layout(cx);
-        cx.notify();
-    }
-
-    pub fn reopen_recently_closed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(stub) = self.recently_closed.first().cloned() else {
-            self.status_flash = Some(("No recently closed tabs".to_string(), Instant::now()));
-            cx.notify();
-            return;
-        };
-        self.recently_closed.remove(0);
-
-        let new_ix = self.tabs.len();
-        self.tabs.push(TabSlot::Dehydrated(stub));
-        self.activate_tab(new_ix, window, cx);
-    }
-
     /// Executes the clean shutdown flush barrier (`§8.2`, `§8.5`, `R01`, `R05`).
     pub fn initiate_clean_quit(
         &mut self,
@@ -2516,21 +868,19 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.prepare_quit_barrier(force_without_recovery, window, cx) {
+            return;
+        }
         if self.shutting_down {
             return;
         }
         self.shutting_down = true;
         self.search.cancel_active();
 
-        let has_any_dirty = self
-            .tabs
-            .iter()
-            .any(|slot| slot.is_dirty() && self.closing_docs.get(&slot.doc_id()) != Some(&true));
-        let has_oversized_dirty = self.tabs.iter().any(|slot| match slot {
+        let has_any_dirty = self.documents.values().any(TabSlot::close_guard);
+        let has_oversized_dirty = self.documents.values().any(|slot| match slot {
             TabSlot::Editable(ed) => {
-                self.closing_docs.get(&ed.doc_id) != Some(&true)
-                    && ed.is_dirty()
-                    && ed.committed_byte_len() > MAX_ORDINARY_DOC_BYTES as u64
+                ed.is_dirty() && ed.committed_byte_len() > MAX_ORDINARY_DOC_BYTES as u64
             }
             _ => false,
         });
@@ -2600,55 +950,46 @@ impl EditorWorkspace {
             cx.quit();
             return;
         };
-        // Capture only unpersisted commits (`U-B5`: never re-queue already-durable 50 MiB drafts)
-        // and exclude closing/discarded tabs (`U-B4`: never resurrect closed/discarded tabs).
+        // Layout and lifecycle acknowledgments are complete before this final text barrier.
         let mut final_commits = Vec::new();
-        for slot in &mut self.tabs {
+        let expected_layout = self.session.clone();
+        let required_revisions = self
+            .documents
+            .values()
+            .filter_map(|slot| match slot {
+                TabSlot::Editable(ed)
+                    if ed.committed_byte_len() <= MAX_ORDINARY_DOC_BYTES as u64
+                        && (ed.has_checkpoint || ed.visible_revision > Revision(0)) =>
+                {
+                    Some((slot.document_key(), ed.visible_revision))
+                }
+                TabSlot::Dehydrated(stub)
+                | TabSlot::Hydrating { stub, .. }
+                | TabSlot::OverBudgetDraft { stub, .. }
+                | TabSlot::Failed { stub, .. }
+                    if stub.has_checkpoint =>
+                {
+                    Some((stub.key(), stub.durable_rev))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let mut original_readonly = Vec::new();
+        self.status_flash = Some((
+            "Waiting for durable shutdown; live drafts remain frozen".into(),
+            Instant::now(),
+        ));
+        cx.notify();
+        for slot in self.documents.values_mut() {
             if let TabSlot::Editable(ed) = slot {
+                original_readonly
+                    .push((ed.doc_id, ed.editor().read(cx).presentation().is_readonly()));
                 ed.editor().update(cx, |s, cx| s.set_readonly(true, cx));
-                if should_enqueue_quit_commit(
-                    self.closing_docs.contains_key(&ed.doc_id),
-                    ed.is_dirty(),
-                    ed.visible_revision,
-                    ed.durable_revision,
-                    ed.committed_byte_len(),
-                ) {
-                    let commit = ed.build_recovery_commit().unwrap_or_else(|| {
-                        editor_services::RecoveryCommit {
-                            doc_id: ed.doc_id,
-                            lifecycle_gen: ed.lifecycle_gen,
-                            base_rev: ed.queued_revision,
-                            new_rev: ed.visible_revision.max(Revision(1)),
-                            rope: ed.committed_rope().clone(),
-                            deltas: Vec::new(),
-                            meta: ed.meta.clone(),
-                        }
-                    });
+                if let Some(commit) = ed.build_recovery_commit() {
                     final_commits.push(commit);
                 }
             }
         }
-        let pending_closes: Vec<(DocumentId, LifecycleGen, bool)> = self
-            .closing_docs
-            .iter()
-            .filter_map(|(&id, &discard)| {
-                let prev_gen = self.tabs.iter().find(|s| s.doc_id() == id)?.lifecycle_gen();
-                let close_gen = close_lifecycle_gen(prev_gen, discard);
-                Some((id, close_gen, discard))
-            })
-            .collect();
-        let layout_records: Vec<TabLayoutRecord> = self
-            .tabs
-            .iter()
-            .filter(|s| !self.closing_docs.contains_key(&s.doc_id()))
-            .map(|s| s.layout_record(cx))
-            .collect();
-        let active_doc = self
-            .tabs
-            .get(self.active_tab)
-            .map(TabSlot::doc_id)
-            .filter(|id| !self.closing_docs.contains_key(id))
-            .or_else(|| layout_records.first().map(|r| r.doc_id));
 
         let smoke_outcome = self.smoke_outcome.clone();
         let data_dir = self.cli.data_dir.clone();
@@ -2656,9 +997,12 @@ impl EditorWorkspace {
         let process_start = self.process_start;
 
         cx.spawn_in(window, async move |weak, cx| {
-            let (barrier_res, shell_res, finalized_smoke_report) = cx
+            let (barrier_res, shell_res, finalized_smoke_report, shutdown_unknown, actual_shutdown_ack, shutdown_disconnected) = cx
                 .background_executor()
                 .spawn(async move {
+                    let mut shutdown_unknown=false;
+                    let mut actual_shutdown_ack=false;
+                    let mut shutdown_disconnected=false;
                     let primary_res: Result<(), ServiceError> = (|| {
                         for mut commit in final_commits {
                             // Retry briefly if mailbox is busy so final quit never drops committed edits.
@@ -2678,51 +1022,6 @@ impl EditorWorkspace {
                                 }
                             }
                         }
-                        for (doc_id, close_gen, discard) in pending_closes {
-                            let deadline = Instant::now() + Duration::from_secs(5);
-                            let maybe_rx = loop {
-                                match recovery.close_document(doc_id, close_gen, discard) {
-                                    Ok(rx) => break Some(rx),
-                                    Err(e)
-                                        if e.kind == ErrorKind::Busy
-                                            && Instant::now() < deadline =>
-                                    {
-                                        std::thread::sleep(Duration::from_millis(20));
-                                    }
-                                    Err(e) if e.kind == ErrorKind::Stale => break None,
-                                    Err(e) => return Err(e),
-                                }
-                            };
-                            let Some(rx) = maybe_rx else {
-                                continue;
-                            };
-                            match rx.recv_timeout(Duration::from_secs(5)) {
-                                Ok(Ok(())) => {}
-                                Ok(Err(e)) if e.kind == ErrorKind::Stale => {}
-                                Ok(Err(e)) => return Err(e),
-                                Err(recv_err) => {
-                                    return Err(ServiceError::new(
-                                        ErrorKind::Storage,
-                                        format!(
-                                            "quit close_document acknowledgement failed: {recv_err}"
-                                        ),
-                                    ));
-                                }
-                            }
-                        }
-                        let layout_deadline = Instant::now() + Duration::from_secs(5);
-                        loop {
-                            match recovery.save_session_layout(layout_records.clone(), active_doc) {
-                                Ok(()) => break,
-                                Err(e)
-                                    if e.kind == ErrorKind::Busy
-                                        && Instant::now() < layout_deadline =>
-                                {
-                                    std::thread::sleep(Duration::from_millis(20));
-                                }
-                                Err(e) => return Err(e),
-                            }
-                        }
                         let shutdown_deadline = Instant::now() + Duration::from_secs(5);
                         let rx = loop {
                             match recovery.shutdown() {
@@ -2736,12 +1035,17 @@ impl EditorWorkspace {
                                 Err(e) => return Err(e),
                             }
                         };
-                        rx.recv_timeout(Duration::from_secs(10)).map_err(|e| {
-                            ServiceError::new(
-                                ErrorKind::Storage,
-                                format!("shutdown flush timeout: {e}"),
-                            )
-                        })?
+                        match rx.recv(){
+                            Ok(result)=>{actual_shutdown_ack=result.is_ok();result}
+                            Err(error)=>{
+                                shutdown_disconnected=true;
+                                match editor_services::inspect_recovery_shutdown(data_dir.join("recovery.sqlite3"),&expected_layout,&required_revisions){
+                                    Ok(true)=>Ok(()),
+                                    Ok(false)=>Err(ServiceError::new(ErrorKind::Storage,"Shutdown did not durably cover every frozen revision; read-only inspection confirms unchanged document identities and retains the live buffers")),
+                                    Err(inspection)=>{shutdown_unknown=true;Err(ServiceError::new(ErrorKind::Storage,format!("Shutdown outcome remains indeterminate ({error}); read-only reconciliation: {inspection}. Frozen buffers retained; Export Copy remains available.")))}
+                                }
+                            },
+                        }
                     })();
 
                     // Guard 2: Drop primary `RecoveryHandle` BEFORE opening any verification DB handle.
@@ -2750,7 +1054,7 @@ impl EditorWorkspace {
                     // Flush/shutdown UI shell preferences worker separately so preference I/O
                     // errors never masquerade as draft-recovery failures or block rescue save!
                     let should_shutdown_shell =
-                        primary_res.is_ok() || !has_any_dirty || force_without_recovery;
+                        primary_res.is_ok() || (!shutdown_unknown&&(!has_any_dirty || force_without_recovery));
                     let shell_res: Result<(), ServiceError> = if let Some(shell) = maybe_shell {
                         let res = flush_and_shutdown_shell(
                             &shell,
@@ -2770,7 +1074,7 @@ impl EditorWorkspace {
                         }
                         match &primary_res {
                             Ok(()) => {
-                                report.shutdown_durable_ack_observed = true;
+                                report.shutdown_durable_ack_observed = actual_shutdown_ack;
                                 if report.in_app_checks_passed
                                     && let (Some(fresh_id), Some(old_id)) = (
                                         report.expected_post_shutdown_fresh_doc,
@@ -2809,6 +1113,15 @@ impl EditorWorkspace {
                                         }
                                     }
                                 }
+                                if report.in_app_checks_passed && report.failure_reason.is_none() && report.expected_session_layout.is_some() {
+                                    match crate::smoke::verify_post_shutdown_layout(&data_dir,&report) {
+                                        Ok(()) => {
+                                            if report.scenario=="groups" { report.group_restart_layout_verified=true; }
+                                            if report.scenario=="startup" { report.startup_restart_layout_verified=true; }
+                                        }
+                                        Err(error) => report.failure_reason=Some(error),
+                                    }
+                                }
                                 report.total_elapsed_ms =
                                     process_start.elapsed().as_secs_f64() * 1000.0;
                                 report.passed = report.in_app_checks_passed
@@ -2833,7 +1146,7 @@ impl EditorWorkspace {
                         None
                     };
 
-                    (primary_res, shell_res, smoke_report)
+                    (primary_res, shell_res, smoke_report, shutdown_unknown, actual_shutdown_ack, shutdown_disconnected)
                 })
                 .await;
 
@@ -2844,7 +1157,7 @@ impl EditorWorkspace {
                 if report.passed {
                     if weak
                         .update_in(cx, |this, _, cx| {
-                            this.shutdown_durable_ack.store(true, Ordering::Release);
+                            this.shutdown_durable_ack.store(actual_shutdown_ack, Ordering::Release);
                             this.quit_confirmed = true;
                             cx.quit();
                         })
@@ -2867,22 +1180,22 @@ impl EditorWorkspace {
 
             let _ = weak.update_in(cx, |this, window, cx| match barrier_res {
                 Ok(()) => {
-                    this.shutdown_durable_ack.store(true, Ordering::Release);
+                    this.shutdown_durable_ack.store(actual_shutdown_ack, Ordering::Release);
                     this.quit_confirmed = true;
                     cx.quit();
                 }
+                Err(err) if shutdown_unknown=>{
+                    this.recovery_degraded_error=Some(err.message.clone());
+                    this.notify_error(err,window,cx);
+                    cx.notify();
+                }
                 Err(err) if has_any_dirty && !force_without_recovery => {
                     this.shutting_down = false;
+                    if shutdown_disconnected{this.adopt_read_only_recovery();}
                     if let Err(shell_err) = shell_res {
                         this.shell_persistence_warning = Some(shell_err.message);
                     }
-                    for slot in &mut this.tabs {
-                        if let TabSlot::Editable(ed) = slot
-                            && !ed.is_readonly()
-                        {
-                            ed.editor().update(cx, |s, cx| s.set_readonly(false, cx));
-                        }
-                    }
+                    this.restore_readonly(original_readonly,cx);
                     this.open_degraded_quit_dialog(&err.message, window, cx);
                     cx.notify();
                 }
@@ -2934,6 +1247,22 @@ impl EditorWorkspace {
                             true
                         }),
                 )
+                .footer(
+                    gpui_kit::component::h_flex()
+                        .gap_2()
+                        .justify_end()
+                        .child(
+                            gpui_kit::component::dialog::DialogClose::new()
+                                .trigger(|button| button.label("Stay Open & Save")),
+                        )
+                        .child(
+                            gpui_kit::component::dialog::DialogAction::new().child(
+                                gpui_kit::component::button::Button::new("quit-without-recovery")
+                                    .danger()
+                                    .label("Quit Without Saving"),
+                            ),
+                        ),
+                )
                 .child(gpui_kit::div().text_sm().child(msg.clone()))
         });
     }
@@ -2946,14 +1275,15 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.cancel_or_dismiss_group_ui(window, cx);
         self.search.visible = true;
         self.search.replace_visible = with_replace;
         self.goto_visible = false;
         self.palette_visible = false;
-        self.palette_prior_focus = None;
+        self.palette_prior_origin = None;
 
         // Seed search box from active selection if non-empty and short.
-        if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+        if let Some(TabSlot::Editable(ed)) = self.active_slot() {
             let sel = ed.editor().read(cx).selected_range();
             if sel.end > sel.start && sel.end - sel.start <= 256 {
                 let selected = ed.committed_rope().slice(sel).to_string();
@@ -2973,12 +1303,18 @@ impl EditorWorkspace {
     }
 
     pub fn close_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.cancel_or_dismiss_group_ui(window, cx) {
+            return;
+        }
+        if self.cancel_pending_lifecycle(window, cx) {
+            return;
+        }
         self.search.visible = false;
         self.search.cancel_active();
         self.goto_visible = false;
         self.palette_visible = false;
-        self.palette_prior_focus = None;
-        if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+        self.palette_prior_origin = None;
+        if let Some(TabSlot::Editable(ed)) = self.active_slot() {
             ed.clear_search_highlights(cx);
             ed.focus(window, cx);
         } else {
@@ -2988,8 +1324,11 @@ impl EditorWorkspace {
     }
 
     pub fn run_search_from_inputs(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        let Some(view_target) = self.active_view_id().and_then(|id| self.view_target(id)) else {
+            return;
+        };
         let query = self.search_query_input.read(cx).value().to_string();
-        let Some(slot) = self.tabs.get(self.active_tab) else {
+        let Some(slot) = self.active_slot() else {
             return;
         };
 
@@ -3011,6 +1350,7 @@ impl EditorWorkspace {
                     SearchQueryKind::LiteralStreaming => {
                         self.search.start_streaming_literal(
                             &self.search_service,
+                            view_target,
                             &query,
                             SearchTarget::EditableSnapshot { doc_id, rev, rope },
                         );
@@ -3018,9 +1358,9 @@ impl EditorWorkspace {
                     }
                     SearchQueryKind::CaseInsensitive | SearchQueryKind::Regex => {
                         let kind = self.search.query_kind;
-                        let (qid, cancel) = self
-                            .search
-                            .begin_background_extended_search(doc_id, rev, &query);
+                        let (qid, cancel) =
+                            self.search
+                                .begin_background_extended_search(view_target, rev, &query);
                         self.rebuild_search_item_sizes();
                         self.sync_active_search_decorations(cx);
                         let query_owned = query.clone();
@@ -3032,12 +1372,19 @@ impl EditorWorkspace {
                                 })
                                 .await;
                             let _ = weak.update(cx, |this, cx| {
-                                let current_doc_rev = this.tabs.iter().find_map(|s| match s {
-                                    TabSlot::Editable(ed) if ed.doc_id == doc_id => {
-                                        Some(ed.visible_revision)
-                                    }
-                                    _ => None,
-                                });
+                                if this.active_view_id() != Some(view_target.view_id)
+                                    || this.session.resolve(view_target).is_err()
+                                    || this.search.target_view != Some(view_target)
+                                {
+                                    return;
+                                }
+                                let current_doc_rev =
+                                    this.documents.values().find_map(|s| match s {
+                                        TabSlot::Editable(ed) if ed.doc_id == doc_id => {
+                                            Some(ed.visible_revision)
+                                        }
+                                        _ => None,
+                                    });
                                 if this.search.apply_extended_search_result(
                                     qid,
                                     current_doc_rev,
@@ -3072,8 +1419,12 @@ impl EditorWorkspace {
                     source_gen: pv.source_gen,
                     encoding: pv.meta.encoding,
                 };
-                self.search
-                    .start_streaming_literal(&self.search_service, &query, target);
+                self.search.start_streaming_literal(
+                    &self.search_service,
+                    view_target,
+                    &query,
+                    target,
+                );
                 self.rebuild_search_item_sizes();
             }
             _ => {
@@ -3089,7 +1440,10 @@ impl EditorWorkspace {
         let active = cx.theme().primary.opacity(0.42);
         let selected_ix = self.search.selected_index;
 
-        match self.tabs.get_mut(self.active_tab) {
+        match self
+            .active_document_id()
+            .and_then(|id| self.documents.get_mut(&id))
+        {
             Some(TabSlot::Editable(ed)) => {
                 if !self.search.visible || self.search.target_doc_id != Some(ed.doc_id) {
                     ed.clear_search_highlights(cx);
@@ -3125,13 +1479,21 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.is_lifecycle_busy()
+            || self.search.target_view != self.active_view_id().and_then(|id| self.view_target(id))
+        {
+            return;
+        }
         let Some(hit) = self.search.matches.get(match_index).cloned() else {
             return;
         };
         self.search.selected_index = Some(match_index);
         self.sync_active_search_decorations(cx);
 
-        match self.tabs.get_mut(self.active_tab) {
+        match self
+            .active_document_id()
+            .and_then(|id| self.documents.get_mut(&id))
+        {
             Some(TabSlot::Editable(ed)) => {
                 if let (Ok(s), Ok(e)) = (
                     usize::try_from(hit.byte_range.start),
@@ -3149,12 +1511,14 @@ impl EditorWorkspace {
             Some(TabSlot::Paged(pv)) => {
                 pv.highlighted_byte_range = Some(hit.byte_range.clone());
                 let target_offset = hit.byte_range.start.saturating_sub(512);
-                self.request_paged_viewport(
-                    self.active_tab,
-                    ViewportAnchor::ByteOffset(target_offset),
-                    window,
-                    cx,
-                );
+                if let Some(target) = self.active_view_id().and_then(|id| self.view_target(id)) {
+                    self.request_paged_viewport(
+                        target,
+                        ViewportAnchor::ByteOffset(target_offset),
+                        window,
+                        cx,
+                    );
+                };
             }
             _ => {}
         }
@@ -3170,10 +1534,19 @@ impl EditorWorkspace {
     }
 
     fn execute_replace(&mut self, single: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.mutation_allowed() {
+            return;
+        }
+        let Some(view_target) = self.active_view_id().and_then(|id| self.view_target(id)) else {
+            return;
+        };
         let query = self.search_query_input.read(cx).value().to_string();
         let replacement = self.search_replace_input.read(cx).value().to_string();
 
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(self.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = self
+            .active_document_id()
+            .and_then(|id| self.documents.get_mut(&id))
+        else {
             window.push_notification(
                 Notification::info("Replace is available on Editable documents only (Paged Large-File mode is read-only in v1)."),
                 cx,
@@ -3192,13 +1565,14 @@ impl EditorWorkspace {
         let doc_id = ed.doc_id;
         let current_rev = ed.visible_revision;
         let matches_fresh = !self.search.is_running()
+            && self.search.target_view == Some(view_target)
             && self.search.target_doc_id == Some(doc_id)
             && self.search.target_editable_rev == Some(current_rev)
             && self.search.last_query_text == query;
 
         if matches_fresh {
             self.apply_planned_replace_on_active(
-                doc_id,
+                view_target,
                 current_rev,
                 &query,
                 &replacement,
@@ -3214,7 +1588,7 @@ impl EditorWorkspace {
         let kind = self.search.query_kind;
         let (qid, cancel) =
             self.search
-                .begin_background_extended_search(doc_id, current_rev, &query);
+                .begin_background_extended_search(view_target, current_rev, &query);
         self.rebuild_search_item_sizes();
         cx.notify();
 
@@ -3226,7 +1600,8 @@ impl EditorWorkspace {
                 .await;
 
             let _ = weak.update_in(cx, |this, window, cx| {
-                let live_rev = this.tabs.iter().find_map(|s| match s {
+                if !this.mutation_allowed() || this.active_view_id() != Some(view_target.view_id) || this.session.resolve(view_target).is_err() || this.search.target_view != Some(view_target) { return; }
+                let live_rev = this.documents.values().find_map(|s| match s {
                     TabSlot::Editable(ed) if ed.doc_id == doc_id => Some(ed.visible_revision),
                     _ => None,
                 });
@@ -3252,7 +1627,7 @@ impl EditorWorkspace {
                     return;
                 }
                 this.apply_planned_replace_on_active(
-                    doc_id,
+                    view_target,
                     current_rev,
                     &query,
                     &replacement,
@@ -3268,7 +1643,7 @@ impl EditorWorkspace {
     #[allow(clippy::too_many_arguments)]
     fn apply_planned_replace_on_active(
         &mut self,
-        doc_id: DocumentId,
+        view_target: ViewTarget,
         base_rev: Revision,
         query: &str,
         replacement: &str,
@@ -3276,10 +1651,19 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(self.active_tab) else {
+        if !self.mutation_allowed()
+            || self.active_view_id() != Some(view_target.view_id)
+            || self.session.resolve(view_target).is_err()
+        {
+            return;
+        }
+        let Some(TabSlot::Editable(ed)) = self
+            .active_document_id()
+            .and_then(|id| self.documents.get_mut(&id))
+        else {
             return;
         };
-        if ed.doc_id != doc_id {
+        if ed.doc_id != view_target.document.doc_id {
             return;
         }
         let single_ix = if single {
@@ -3305,7 +1689,7 @@ impl EditorWorkspace {
             return;
         }
         let count = edits.len();
-        match self.apply_tab_atomic_edits(self.active_tab, base_rev, &edits, window, cx) {
+        match self.apply_active_atomic_edits(base_rev, &edits, window, cx) {
             Ok(_) => {
                 self.status_flash = Some((
                     format!(
@@ -3326,13 +1710,16 @@ impl EditorWorkspace {
     }
 
     pub fn execute_goto_from_input(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.mutation_allowed() {
+            return;
+        }
         let raw = self.goto_input.read(cx).value().to_string();
-        let is_paged = matches!(self.tabs.get(self.active_tab), Some(TabSlot::Paged(_)));
+        let is_paged = matches!(self.active_slot(), Some(TabSlot::Paged(_)));
 
         match parse_jump_query(&raw, is_paged) {
             Ok(anchor) => {
                 self.goto_visible = false;
-                match self.tabs.get(self.active_tab) {
+                match self.active_slot() {
                     Some(TabSlot::Editable(ed)) => match anchor {
                         ViewportAnchor::ByteOffset(b) => {
                             let off = usize::try_from(b).unwrap_or(usize::MAX);
@@ -3345,7 +1732,11 @@ impl EditorWorkspace {
                         }
                     },
                     Some(TabSlot::Paged(_)) => {
-                        self.request_paged_viewport(self.active_tab, anchor, window, cx);
+                        if let Some(target) =
+                            self.active_view_id().and_then(|id| self.view_target(id))
+                        {
+                            self.request_paged_viewport(target, anchor, window, cx);
+                        };
                         self.focus_handle.focus(window, cx);
                     }
                     _ => {}
@@ -3379,9 +1770,7 @@ impl EditorWorkspace {
         cx.spawn_in(window, async move |weak, cx| {
             if let Ok(Ok(Some(paths))) = rx.await {
                 let _ = weak.update_in(cx, |this, window, cx| {
-                    for path in paths {
-                        this.open_path(path, window, cx);
-                    }
+                    this.open_paths(paths, window, cx);
                 });
             }
         })
@@ -3394,7 +1783,9 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.save_tab(self.active_tab, None, false, false, window, cx);
+        if let Some(target) = self.active_view_id().and_then(|id| self.view_target(id)) {
+            self.save_view(target, None, false, false, window, cx);
+        };
     }
 
     pub(crate) fn on_save_file_as(
@@ -3403,7 +1794,9 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.prompt_save_as(self.active_tab, false, window, cx);
+        if let Some(target) = self.active_view_id().and_then(|id| self.view_target(id)) {
+            self.prompt_save_view_as(target, false, window, cx);
+        };
     }
 
     pub(crate) fn on_close_active_tab(
@@ -3412,7 +1805,9 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.request_close_tab(self.active_tab, window, cx);
+        if let Some(target) = self.active_view_id().and_then(|id| self.view_target(id)) {
+            self.request_close_view(target, window, cx);
+        };
     }
 
     pub(crate) fn on_reopen_closed_tab(
@@ -3425,20 +1820,26 @@ impl EditorWorkspace {
     }
 
     pub(crate) fn on_next_tab(&mut self, _: &NextTab, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.tabs.is_empty() {
-            let next = (self.active_tab + 1) % self.tabs.len();
-            self.activate_tab(next, window, cx);
+        let ids = self.ordered_view_ids();
+        if let Some(position) = self
+            .active_view_id()
+            .and_then(|id| ids.iter().position(|v| *v == id))
+        {
+            if let Some(target) = self.view_target(ids[(position + 1) % ids.len()]) {
+                self.activate_view(target, window, cx);
+            }
         }
     }
 
     pub(crate) fn on_prev_tab(&mut self, _: &PrevTab, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.tabs.is_empty() {
-            let prev = if self.active_tab == 0 {
-                self.tabs.len() - 1
-            } else {
-                self.active_tab - 1
-            };
-            self.activate_tab(prev, window, cx);
+        let ids = self.ordered_view_ids();
+        if let Some(position) = self
+            .active_view_id()
+            .and_then(|id| ids.iter().position(|v| *v == id))
+        {
+            if let Some(target) = self.view_target(ids[(position + ids.len() - 1) % ids.len()]) {
+                self.activate_view(target, window, cx);
+            }
         }
     }
 
@@ -3517,6 +1918,12 @@ impl EditorWorkspace {
     }
 
     pub(crate) fn on_escape(&mut self, _: &Escape, window: &mut Window, cx: &mut Context<Self>) {
+        if self.cancel_or_dismiss_group_ui(window, cx) {
+            return;
+        }
+        if self.cancel_pending_lifecycle(window, cx) {
+            return;
+        }
         if self.palette_visible {
             self.dismiss_palette(window, cx);
         } else if self.search.visible || self.goto_visible {
@@ -3530,15 +1937,16 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.cancel_or_dismiss_group_ui(window, cx);
         self.palette_visible = false;
-        self.palette_prior_focus = None;
+        self.palette_prior_origin = None;
         self.goto_visible = !self.goto_visible;
         if self.goto_visible {
             self.goto_input.update(cx, |input, cx| {
                 input.focus(window, cx);
                 input.select_all(window, cx);
             });
-        } else if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+        } else if let Some(TabSlot::Editable(ed)) = self.active_slot() {
             ed.focus(window, cx);
         }
         cx.notify();
@@ -3572,7 +1980,7 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = self.active_slot() else {
             return;
         };
         let next = match ed.meta.line_ending {
@@ -3597,7 +2005,7 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = self.active_slot() else {
             return;
         };
         let next = match ed.meta.encoding {
@@ -3620,7 +2028,7 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) else {
+        let Some(TabSlot::Editable(ed)) = self.active_slot() else {
             return;
         };
         let next = next_language(ed.language.id);
@@ -3646,188 +2054,9 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.request_reload_active(false, window, cx);
-    }
-
-    /// Reloads the active file-backed tab from disk (`U-B6` / `U-B6b`):
-    /// - Works cleanly on `disk_conflict` banners, confirming discard only when `has_local_edits()`.
-    /// - When `RecoveryHandle` is active on a non-paged tab, guards `old_doc_id` in `closing_docs`
-    ///   (`readonly = true`), durably tombstones `old_doc_id` (`state = 2`), and replaces the tab
-    ///   slot in-place with a **fresh** `DocumentId` at `LifecycleGen(1)` so subsequent commits
-    ///   and session layouts are never rejected by `old_doc_id`'s permanent tombstone.
-    pub fn request_reload_active(
-        &mut self,
-        confirm_discard_local_edits: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(slot) = self.tabs.get(self.active_tab) else {
-            return;
+        if let Some(target) = self.active_view_id().and_then(|id| self.view_target(id)) {
+            self.request_reload_view(target, window, cx);
         };
-        let old_doc_id = slot.doc_id();
-        if self.closing_docs.contains_key(&old_doc_id) {
-            return;
-        }
-        let Some(path) = slot.meta().path.clone() else {
-            return;
-        };
-        let prev_gen = slot.lifecycle_gen();
-        let preserved_lang_override = slot.meta().language_override.clone();
-        let view = slot.layout_record(cx).view;
-        let is_paged_or_failed = matches!(slot, TabSlot::Paged(_) | TabSlot::Failed { .. });
-        let has_local_edits = match slot {
-            TabSlot::Editable(ed) => ed.has_local_edits(),
-            _ => slot.is_dirty(),
-        };
-
-        if has_local_edits && !confirm_discard_local_edits {
-            let title = slot.title().to_string();
-            let entity = cx.entity();
-            window.open_dialog(cx, move |dialog, _, _| {
-                let e_reload = entity.clone();
-                dialog
-                    .title(format!("Discard Local Edits in \"{title}\"?"))
-                    .button_props(
-                        DialogButtonProps::default()
-                            .ok_text("Discard & Reload from Disk")
-                            .ok_variant(ButtonVariant::Danger)
-                            .show_cancel(true)
-                            .cancel_text("Cancel")
-                            .on_ok(move |_, window, cx| {
-                                e_reload.update(cx, |this, cx| {
-                                    if let Some(ix) =
-                                        this.tabs.iter().position(|t| t.doc_id() == old_doc_id)
-                                    {
-                                        this.active_tab = ix;
-                                        this.request_reload_active(true, window, cx);
-                                    }
-                                });
-                                true
-                            }),
-                    )
-                    .child(gpui_kit::div().text_sm().child(
-                        "Reloading from disk will discard your unsaved editor changes and load the current disk file.",
-                    ))
-            });
-            return;
-        }
-
-        if !is_paged_or_failed && let Some(recovery) = self.recovery.clone() {
-            self.closing_docs.insert(old_doc_id, true);
-            if let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(self.active_tab) {
-                ed.editor().update(cx, |s, cx| s.set_readonly(true, cx));
-            }
-            let close_gen = close_lifecycle_gen(prev_gen, true);
-
-            cx.spawn_in(window, async move |weak, cx| {
-                let discard_res = cx
-                    .background_executor()
-                    .spawn(async move {
-                        let deadline = Instant::now() + Duration::from_secs(5);
-                        let rx = loop {
-                            match recovery.close_document(old_doc_id, close_gen, true) {
-                                Ok(rx) => break rx,
-                                Err(e)
-                                    if e.kind == ErrorKind::Busy && Instant::now() < deadline =>
-                                {
-                                    std::thread::sleep(Duration::from_millis(20));
-                                }
-                                Err(e) => return Err(e),
-                            }
-                        };
-                        rx.recv_timeout(Duration::from_secs(10)).map_err(|e| {
-                            ServiceError::new(
-                                ErrorKind::Storage,
-                                format!("reload discard timeout: {e}"),
-                            )
-                        })?
-                    })
-                    .await;
-
-                let _ = weak.update_in(cx, |this, window, cx| {
-                    if this.shutting_down {
-                        return;
-                    }
-                    this.closing_docs.remove(&old_doc_id);
-                    match discard_res {
-                        Ok(()) => {
-                            let Some(slot_ix) =
-                                this.tabs.iter().position(|t| t.doc_id() == old_doc_id)
-                            else {
-                                return;
-                            };
-                            this.recently_closed.retain(|s| s.doc_id != old_doc_id);
-                            if this.search.target_doc_id == Some(old_doc_id) {
-                                this.search.clear_results();
-                                this.rebuild_search_item_sizes();
-                            }
-
-                            let (fresh_doc_id, fresh_gen) = fresh_reloaded_identity(old_doc_id);
-                            this.hydrate_req_counter = this.hydrate_req_counter.wrapping_add(1);
-                            let req_seq = this.hydrate_req_counter;
-                            let title = path
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .unwrap_or("document")
-                                .to_string();
-                            let stub = SessionTabStub {
-                                doc_id: fresh_doc_id,
-                                lifecycle_gen: fresh_gen,
-                                durable_rev: Revision(0),
-                                meta: DocMeta {
-                                    title,
-                                    path: Some(path.clone()),
-                                    language_override: preserved_lang_override,
-                                    ..DocMeta::default()
-                                },
-                                view: view.clone(),
-                                has_checkpoint: false,
-                            };
-                            this.tabs[slot_ix] = TabSlot::Hydrating { stub, req_seq };
-                            this.persist_session_layout(cx);
-                            this.spawn_disk_open_into_slot(
-                                fresh_doc_id,
-                                fresh_gen,
-                                Some(view),
-                                path,
-                                false,
-                                window,
-                                cx,
-                            );
-                            cx.notify();
-                        }
-                        Err(err) => {
-                            if let Some(TabSlot::Editable(ed)) =
-                                this.tabs.iter_mut().find(|t| t.doc_id() == old_doc_id)
-                                && !ed.is_readonly()
-                            {
-                                ed.editor().update(cx, |s, cx| s.set_readonly(false, cx));
-                            }
-                            this.persist_session_layout(cx);
-                            window.push_notification(
-                                Notification::error(format!(
-                                    "Could not discard old draft before reload: {}",
-                                    err.message
-                                )),
-                                cx,
-                            );
-                            cx.notify();
-                        }
-                    }
-                });
-            })
-            .detach();
-        } else {
-            self.spawn_disk_open_into_slot(
-                old_doc_id,
-                prev_gen,
-                Some(view),
-                path,
-                false,
-                window,
-                cx,
-            );
-        }
     }
 
     pub(crate) fn on_external_drop(
@@ -3836,9 +2065,7 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        for path in paths.paths() {
-            self.open_path(path.clone(), window, cx);
-        }
+        self.open_paths(paths.paths().to_vec(), window, cx);
     }
 
     pub(crate) fn on_quit(&mut self, _: &QuitEditor, window: &mut Window, cx: &mut Context<Self>) {
@@ -3846,7 +2073,7 @@ impl EditorWorkspace {
     }
 
     pub(crate) fn copy_paged_slice(&mut self, cx: &mut Context<Self>) {
-        if let Some(TabSlot::Paged(pv)) = self.tabs.get(self.active_tab)
+        if let Some(TabSlot::Paged(pv)) = self.active_slot()
             && let Some(slice) = &pv.current_slice
         {
             cx.write_to_clipboard(ClipboardItem::new_string(slice.text.to_string()));
@@ -3861,33 +2088,6 @@ impl EditorWorkspace {
         }
     }
 
-    // --- Smoke & Programmatic Verification Hooks ---
-
-    pub fn active_editable_mut(&mut self) -> Option<&mut EditorAdapter> {
-        match self.tabs.get_mut(self.active_tab) {
-            Some(TabSlot::Editable(ed)) => Some(ed),
-            _ => None,
-        }
-    }
-
-    pub fn apply_tab_atomic_edits(
-        &mut self,
-        slot_ix: usize,
-        expected_base_rev: Revision,
-        edits: &[(std::ops::Range<usize>, String)],
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Result<Revision, ApplyEditsError> {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(slot_ix) else {
-            return Err(ApplyEditsError::ReadOnly);
-        };
-        let (new_rev, maybe_outcome) = ed.apply_edits(expected_base_rev, edits, window, cx)?;
-        if let Some(outcome) = maybe_outcome {
-            self.finish_committed_mutation(slot_ix, outcome, cx);
-        }
-        Ok(new_rev)
-    }
-
     pub fn apply_active_atomic_edits(
         &mut self,
         expected_base_rev: Revision,
@@ -3895,7 +2095,11 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<Revision, ApplyEditsError> {
-        self.apply_tab_atomic_edits(self.active_tab, expected_base_rev, edits, window, cx)
+        let target = self
+            .active_view_id()
+            .and_then(|id| self.view_target(id))
+            .ok_or(ApplyEditsError::ReadOnly)?;
+        self.apply_view_atomic_edits(target, expected_base_rev, edits, window, cx)
     }
 
     // --- Daily-Use Shell, Preferences, Format, Language, Palette & Line Operations ---
@@ -4040,7 +2244,10 @@ impl EditorWorkspace {
 
     fn apply_prefs_to_active_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let prefs = self.current_view_prefs();
-        if let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(self.active_tab) {
+        if let Some(TabSlot::Editable(ed)) = self
+            .active_document_id()
+            .and_then(|id| self.documents.get_mut(&id))
+        {
             ed.apply_view_prefs(prefs, window, cx);
         }
     }
@@ -4160,12 +2367,17 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let slot_ix = self.active_tab;
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(slot_ix) else {
+        if !self.mutation_allowed() {
+            return;
+        }
+        let Some(doc_id) = self.active_document_id() else {
+            return;
+        };
+        let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) else {
             return;
         };
         match ed.set_line_ending(line_ending) {
-            Ok(outcome) => self.finish_format_change(slot_ix, outcome, cx),
+            Ok(outcome) => self.finish_format_change(doc_id, outcome, cx),
             Err(msg) => {
                 window.push_notification(Notification::warning(msg), cx);
             }
@@ -4178,12 +2390,17 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let slot_ix = self.active_tab;
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(slot_ix) else {
+        if !self.mutation_allowed() {
+            return;
+        }
+        let Some(doc_id) = self.active_document_id() else {
+            return;
+        };
+        let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) else {
             return;
         };
         match ed.set_encoding(encoding) {
-            Ok(outcome) => self.finish_format_change(slot_ix, outcome, cx),
+            Ok(outcome) => self.finish_format_change(doc_id, outcome, cx),
             Err(msg) => {
                 window.push_notification(Notification::warning(msg), cx);
             }
@@ -4192,10 +2409,13 @@ impl EditorWorkspace {
 
     fn finish_format_change(
         &mut self,
-        slot_ix: usize,
+        doc_id: DocumentId,
         outcome: FormatChangeOutcome,
         cx: &mut Context<Self>,
     ) {
+        if outcome != FormatChangeOutcome::NoOp {
+            self.mark_metadata(doc_id, PendingDocChangeKind::Update);
+        }
         match outcome {
             FormatChangeOutcome::NoOp => {}
             FormatChangeOutcome::MetadataOnlyUntitled => {
@@ -4203,11 +2423,13 @@ impl EditorWorkspace {
                 cx.notify();
             }
             FormatChangeOutcome::RecoveryCommitRequired { new_rev } => {
-                let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(slot_ix) else {
+                let commit_admissible =
+                    self.document_commit_admissible(doc_id) && !self.is_lifecycle_busy();
+                let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) else {
                     return;
                 };
                 let doc_id = ed.doc_id;
-                let immediate_commit = if ed.durable_revision.0 == 0 {
+                let immediate_commit = if commit_admissible && ed.durable_revision.0 == 0 {
                     ed.build_recovery_commit()
                 } else {
                     None
@@ -4221,7 +2443,7 @@ impl EditorWorkspace {
                     && let Some(recovery) = &self.recovery
                 {
                     let rev = commit.new_rev;
-                    if let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(slot_ix) {
+                    if let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&doc_id) {
                         match recovery.try_commit(commit) {
                             Ok(()) => ed.record_commit_queued(rev),
                             Err(err) if err.kind == ErrorKind::Busy => ed.record_commit_busy(),
@@ -4243,10 +2465,18 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get_mut(self.active_tab) else {
+        if !self.mutation_allowed() {
+            return;
+        }
+        let Some(TabSlot::Editable(ed)) = self
+            .active_document_id()
+            .and_then(|id| self.documents.get_mut(&id))
+        else {
             return;
         };
         if ed.set_language_override(language_id, window, cx) {
+            let doc_id = ed.doc_id;
+            self.mark_metadata(doc_id, PendingDocChangeKind::Update);
             self.persist_session_layout(cx);
             cx.notify();
         }
@@ -4268,8 +2498,9 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.cancel_or_dismiss_group_ui(window, cx);
         if !self.palette_visible {
-            self.palette_prior_focus = window.focused(cx);
+            self.palette_prior_origin = Some(self.capture_overlay_origin(window, cx));
         }
         self.goto_visible = false;
         self.palette_visible = true;
@@ -4299,30 +2530,11 @@ impl EditorWorkspace {
             return;
         }
         self.palette_visible = false;
-        let prior = self.palette_prior_focus.take();
-        self.restore_focus_after_overlay(prior, window, cx);
-        cx.notify();
-    }
-
-    fn restore_focus_after_overlay(
-        &self,
-        prior: Option<FocusHandle>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let prior = prior.filter(|handle| {
-            self.search.visible
-                && (*handle == self.search_query_input.read(cx).focus_handle(cx)
-                    || (self.search.replace_visible
-                        && *handle == self.search_replace_input.read(cx).focus_handle(cx)))
-        });
-        if let Some(handle) = prior {
-            handle.focus(window, cx);
-        } else if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
-            ed.focus(window, cx);
-        } else {
-            self.focus_handle.focus(window, cx);
+        let prior = self.palette_prior_origin.take();
+        if let Some(origin) = prior {
+            self.restore_overlay_origin(origin, window, cx);
         }
+        cx.notify();
     }
 
     pub fn confirm_selected_palette_item(
@@ -4361,25 +2573,83 @@ impl EditorWorkspace {
             return true;
         }
 
-        // Close overlay and focus active EditorState BEFORE dispatching target command
-        // so editor actions (`Undo`, `Redo`, `SelectAll`, `Indent`, `Outdent`, line ops)
-        // NEVER hit the palette search input focus trap!
         self.palette_visible = false;
-        let prior = self.palette_prior_focus.take();
-        if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
-            ed.focus(window, cx);
-        } else {
-            self.restore_focus_after_overlay(prior, window, cx);
+        let origin = self
+            .palette_prior_origin
+            .take()
+            .unwrap_or_else(|| self.capture_overlay_origin(window, cx));
+        let document_command = matches!(
+            target,
+            PaletteCommandTarget::SaveFile
+                | PaletteCommandTarget::SaveFileAs
+                | PaletteCommandTarget::ReloadFromDisk
+                | PaletteCommandTarget::CloseActiveTab
+                | PaletteCommandTarget::GoToLineOrByte
+                | PaletteCommandTarget::FindInDocument
+                | PaletteCommandTarget::FindAndReplace
+                | PaletteCommandTarget::EditUndo
+                | PaletteCommandTarget::EditRedo
+                | PaletteCommandTarget::EditSelectAll
+                | PaletteCommandTarget::IndentSelection
+                | PaletteCommandTarget::OutdentSelection
+                | PaletteCommandTarget::DuplicateLine
+                | PaletteCommandTarget::DeleteLine
+                | PaletteCommandTarget::MoveLineUp
+                | PaletteCommandTarget::MoveLineDown
+                | PaletteCommandTarget::ToggleLineComment
+                | PaletteCommandTarget::SetLineEnding(_)
+                | PaletteCommandTarget::SetEncoding(_)
+                | PaletteCommandTarget::SetLanguageAuto
+                | PaletteCommandTarget::SetLanguage(_)
+        );
+        if document_command
+            && origin
+                .view
+                .is_none_or(|view| self.session.resolve(view).is_err())
+        {
+            self.notify_error(
+                ServiceError::new(
+                    ErrorKind::Stale,
+                    "The palette's document is no longer open; command cancelled",
+                ),
+                window,
+                cx,
+            );
+            self.restore_overlay_origin(origin, window, cx);
+            cx.notify();
+            return false;
+        }
+        if let Some(view) = origin.view {
+            if self.session.resolve(view).is_ok()
+                && self.active_view_id() != Some(view.view_id)
+                && !self.is_lifecycle_busy()
+            {
+                self.activate_view(view, window, cx);
+            }
+        }
+        self.restore_overlay_origin(
+            OverlayOrigin {
+                focus: OverlayFocus::Editor,
+                ..origin
+            },
+            window,
+            cx,
+        );
+        if self.is_lifecycle_busy() && !matches!(target, PaletteCommandTarget::GroupUi(_)) {
+            return false;
         }
 
         match target {
-            PaletteCommandTarget::ActivateOpenTab(ix) => {
-                self.activate_tab(ix, window, cx);
+            PaletteCommandTarget::ActivateOpenTab(target) => {
+                self.activate_view(target, window, cx);
             }
             PaletteCommandTarget::OpenRecentPath(path) => {
                 self.open_path(path, window, cx);
             }
             PaletteCommandTarget::SwitchToFileMode => {}
+            PaletteCommandTarget::GroupUi(action) => {
+                self.execute_group_palette_action(action, origin, window, cx)
+            }
             PaletteCommandTarget::NewTab => {
                 self.create_untitled_tab(true, window, cx);
             }
@@ -4387,19 +2657,27 @@ impl EditorWorkspace {
                 self.on_open_file(&OpenFile, window, cx);
             }
             PaletteCommandTarget::SaveFile => {
-                self.save_tab(self.active_tab, None, false, false, window, cx);
+                if let Some(target) = origin.view {
+                    self.save_view(target, None, false, false, window, cx);
+                }
             }
             PaletteCommandTarget::SaveFileAs => {
-                self.prompt_save_as(self.active_tab, false, window, cx);
+                if let Some(target) = origin.view {
+                    self.prompt_save_view_as(target, false, window, cx);
+                }
             }
             PaletteCommandTarget::ReloadFromDisk => {
-                self.request_reload_active(false, window, cx);
+                if let Some(target) = origin.view {
+                    self.request_reload_view(target, window, cx);
+                }
             }
             PaletteCommandTarget::ReopenClosedTab => {
                 self.reopen_recently_closed(window, cx);
             }
             PaletteCommandTarget::CloseActiveTab => {
-                self.request_close_tab(self.active_tab, window, cx);
+                if let Some(target) = origin.view {
+                    self.request_close_view(target, window, cx);
+                }
             }
             PaletteCommandTarget::ClearRecentFiles => {
                 self.clear_recent_files(window, cx);
@@ -4414,29 +2692,29 @@ impl EditorWorkspace {
                 self.open_search_bar(true, window, cx);
             }
             PaletteCommandTarget::EditUndo => {
-                if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+                if let Some(TabSlot::Editable(ed)) = self.active_slot() {
                     ed.undo(window, cx);
                 }
             }
             PaletteCommandTarget::EditRedo => {
-                if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+                if let Some(TabSlot::Editable(ed)) = self.active_slot() {
                     ed.redo(window, cx);
                 }
             }
             PaletteCommandTarget::EditSelectAll => {
-                if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+                if let Some(TabSlot::Editable(ed)) = self.active_slot() {
                     ed.focus(window, cx);
                     window.dispatch_action(Box::new(SelectAll), cx);
                 }
             }
             PaletteCommandTarget::IndentSelection => {
-                if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+                if let Some(TabSlot::Editable(ed)) = self.active_slot() {
                     ed.focus(window, cx);
                     window.dispatch_action(Box::new(Indent), cx);
                 }
             }
             PaletteCommandTarget::OutdentSelection => {
-                if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
+                if let Some(TabSlot::Editable(ed)) = self.active_slot() {
                     ed.focus(window, cx);
                     window.dispatch_action(Box::new(Outdent), cx);
                 }
@@ -4500,7 +2778,10 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) else {
+        if !self.mutation_allowed() {
+            return;
+        }
+        let Some(TabSlot::Editable(ed)) = self.active_slot() else {
             window.push_notification(
                 Notification::info("Line commands require an active Editable document."),
                 cx,
@@ -4549,27 +2830,25 @@ impl EditorWorkspace {
             Ok(LineOpPlan::Apply {
                 edits,
                 new_selection,
-            }) => {
-                match self.apply_tab_atomic_edits(self.active_tab, base_rev, &edits, window, cx) {
-                    Ok(_) => {
-                        if let Some(TabSlot::Editable(ed)) = self.tabs.get(self.active_tab) {
-                            let len = ed.committed_rope().len();
-                            let s = new_selection.start.min(len);
-                            let e = new_selection.end.min(len).max(s);
-                            ed.editor().update(cx, |state, cx| {
-                                state.set_selected_range(s..e, cx);
-                                state.focus(window, cx);
-                            });
-                        }
-                    }
-                    Err(err) => {
-                        window.push_notification(
-                            Notification::warning(format!("Line command rejected: {err}")),
-                            cx,
-                        );
+            }) => match self.apply_active_atomic_edits(base_rev, &edits, window, cx) {
+                Ok(_) => {
+                    if let Some(TabSlot::Editable(ed)) = self.active_slot() {
+                        let len = ed.committed_rope().len();
+                        let s = new_selection.start.min(len);
+                        let e = new_selection.end.min(len).max(s);
+                        ed.editor().update(cx, |state, cx| {
+                            state.set_selected_range(s..e, cx);
+                            state.focus(window, cx);
+                        });
                     }
                 }
-            }
+                Err(err) => {
+                    window.push_notification(
+                        Notification::warning(format!("Line command rejected: {err}")),
+                        cx,
+                    );
+                }
+            },
             Err(err) => {
                 let msg = err.to_string();
                 self.status_flash = Some((msg.clone(), Instant::now()));
@@ -4949,15 +3228,6 @@ impl EditorWorkspace {
     }
 }
 
-fn this_persist_layout_if_clean(this: &mut EditorWorkspace, cx: &App) {
-    this.persist_session_layout(cx);
-}
-
-#[inline]
-fn is_hydrating_over(flag: bool) -> bool {
-    flag
-}
-
 // Keep unused `Enter` import check clean if referenced in render layer.
 const _: Option<Enter> = None;
 
@@ -5001,123 +3271,4 @@ fn flush_and_shutdown_shell(
             format!("ui_shell flush/shutdown timeout: {e}"),
         )
     })?
-}
-#[inline]
-pub(crate) fn close_lifecycle_gen(prev_gen: LifecycleGen, discard_draft: bool) -> LifecycleGen {
-    if discard_draft {
-        LifecycleGen(prev_gen.0.saturating_add(1))
-    } else {
-        prev_gen
-    }
-}
-
-#[inline]
-pub(crate) fn fresh_reloaded_identity(old_doc_id: DocumentId) -> (DocumentId, LifecycleGen) {
-    let mut fresh = DocumentId::new();
-    while fresh == old_doc_id {
-        fresh = DocumentId::new();
-    }
-    (fresh, LifecycleGen(1))
-}
-
-#[inline]
-pub(crate) fn should_enqueue_quit_commit(
-    is_closing: bool,
-    is_dirty: bool,
-    visible_rev: Revision,
-    durable_rev: Revision,
-    byte_len: u64,
-) -> bool {
-    if is_closing || byte_len > MAX_ORDINARY_DOC_BYTES as u64 {
-        return false;
-    }
-    visible_rev > durable_rev || (is_dirty && durable_rev.0 == 0)
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StubHydrationSource {
-    DiskOpen,
-    EmptyCleanUntitled,
-    RecoveryDatabase,
-}
-
-#[inline]
-pub fn classify_stub_hydration_source(has_checkpoint: bool, has_path: bool) -> StubHydrationSource {
-    if has_checkpoint {
-        StubHydrationSource::RecoveryDatabase
-    } else if has_path {
-        StubHydrationSource::DiskOpen
-    } else {
-        StubHydrationSource::EmptyCleanUntitled
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn quit_commit_predicate_skips_closing_already_durable_and_oversized_buffers() {
-        // Already-durable 50 MiB dirty draft (`durable_rev == visible_rev == 5`) -> DO NOT re-queue!
-        assert!(!should_enqueue_quit_commit(
-            false,
-            true,
-            Revision(5),
-            Revision(5),
-            50 * 1024 * 1024,
-        ));
-
-        // Unpersisted edit (`visible_rev 6 > durable_rev 5`) within 64 MiB -> DO enqueue!
-        assert!(should_enqueue_quit_commit(
-            false,
-            true,
-            Revision(6),
-            Revision(5),
-            50 * 1024 * 1024,
-        ));
-
-        // Closing/discarding tab (`is_closing == true`) -> NEVER enqueue!
-        assert!(!should_enqueue_quit_commit(
-            true,
-            true,
-            Revision(6),
-            Revision(5),
-            1024,
-        ));
-
-        // > 64 MiB buffer -> blocked by degraded-quit dialog, never pushed into RecoveryService!
-        assert!(!should_enqueue_quit_commit(
-            false,
-            true,
-            Revision(2),
-            Revision(0),
-            (MAX_ORDINARY_DOC_BYTES as u64) + 1,
-        ));
-    }
-
-    #[test]
-    fn close_lifecycle_gen_advances_only_on_discard() {
-        assert_eq!(close_lifecycle_gen(LifecycleGen(3), false), LifecycleGen(3));
-        assert_eq!(close_lifecycle_gen(LifecycleGen(3), true), LifecycleGen(4));
-    }
-
-    #[test]
-    fn clean_untitled_stub_reconstitutes_without_recovery_db_query() {
-        assert_eq!(
-            classify_stub_hydration_source(false, false),
-            StubHydrationSource::EmptyCleanUntitled
-        );
-        assert_eq!(
-            classify_stub_hydration_source(false, true),
-            StubHydrationSource::DiskOpen
-        );
-        assert_eq!(
-            classify_stub_hydration_source(true, false),
-            StubHydrationSource::RecoveryDatabase
-        );
-        assert_eq!(
-            classify_stub_hydration_source(true, true),
-            StubHydrationSource::RecoveryDatabase
-        );
-    }
 }

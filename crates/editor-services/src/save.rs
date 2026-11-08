@@ -88,7 +88,7 @@ pub fn save_document(
     }
     #[cfg(target_os = "macos")]
     {
-        match save_macos(request, recovery, faults) {
+        match save_macos(request, recovery, faults, false) {
             Ok(outcome) => outcome,
             Err(error) => SaveOutcome::Failed {
                 doc_id: request.doc_id,
@@ -97,11 +97,31 @@ pub fn save_document(
         }
     }
 }
+
+/// Atomic, non-associating publication. Does not alter recovery metadata or the source draft.
+/// Like `save_document`, this is a blocking operation for a background executor.
+pub fn save_document_copy(request: &SaveRequest, faults: &FaultInjector) -> SaveOutcome {
+    #[cfg(target_os = "macos")]
+    {
+        match save_macos(request, None, faults, true) {
+            Ok(outcome) => outcome,
+            Err(error) => SaveOutcome::Failed {
+                doc_id: request.doc_id,
+                error,
+            },
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        save_document(request, None, faults)
+    }
+}
 #[cfg(target_os = "macos")]
 fn save_macos(
     request: &SaveRequest,
     recovery: Option<&RecoveryHandle>,
     faults: &FaultInjector,
+    copy_only: bool,
 ) -> Result<SaveOutcome, ServiceError> {
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
     static SAVE_SERIALIZER: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -183,7 +203,11 @@ fn save_macos(
         stage: SaveStage::Started,
         output_fingerprint: None,
     };
-    let mut recovery_warning = record_intent(recovery, &intent).err();
+    let mut recovery_warning = if copy_only {
+        None
+    } else {
+        record_intent(recovery, &intent).err()
+    };
     faults.check(FaultPoint::SaveBeforeWrite)?;
     {
         let mut writer = BufWriter::with_capacity(256 * 1024, &temp.file);
@@ -199,8 +223,10 @@ fn save_macos(
     faults.check(FaultPoint::SaveAfterTempSync)?;
     intent.stage = SaveStage::Prepared;
     intent.output_fingerprint = Some(FileFingerprint::of_metadata(&temp.file.metadata()?)?);
-    if let Err(error) = record_intent(recovery, &intent) {
-        recovery_warning = Some(error);
+    if !copy_only {
+        if let Err(error) = record_intent(recovery, &intent) {
+            recovery_warning = Some(error);
+        }
     }
     // Resolve the original path again: a retargeted symlink must not redirect publication.
     let (now_target, now_fingerprint) = resolve_target(&requested_path)?;
@@ -261,11 +287,13 @@ fn save_macos(
     }
     intent.stage = SaveStage::Published;
     intent.output_fingerprint = Some(fingerprint.clone());
-    if let Err(error) = faults
-        .check(FaultPoint::SaveBeforeRecoveryAck)
-        .and_then(|_| record_intent(recovery, &intent))
-    {
-        recovery_warning = Some(error);
+    if !copy_only {
+        if let Err(error) = faults
+            .check(FaultPoint::SaveBeforeRecoveryAck)
+            .and_then(|_| record_intent(recovery, &intent))
+        {
+            recovery_warning = Some(error);
+        }
     }
     Ok(if let Some(warning) = recovery_warning {
         SaveOutcome::SavedWithRecoveryWarning {

@@ -1,8 +1,11 @@
+use crate::session_layout::*;
 use crate::{
-    ContentIdentity, DocMeta, DocumentId, EncodingSpec, ErrorKind, FaultInjector, FaultPoint,
-    FileFingerprint, HydratedDraft, LifecycleGen, LineEnding, RecoveryCommit, RecoveryEvent,
-    Revision, ServiceError, SessionManifest, SessionTabStub, TabLayoutRecord, TextDelta, ViewState,
+    CancelToken, ContentIdentity, DocMeta, DocumentId, EncodingSpec, ErrorKind, FaultInjector,
+    FaultPoint, FileFingerprint, HydratedDraft, LifecycleGen, LineEnding, RecoveryCommit,
+    RecoveryEvent, Revision, ServiceError, TextDelta, ViewState,
 };
+#[path = "recovery_layout.rs"]
+mod layout_store;
 use crossbeam_channel::{Receiver, Sender, bounded};
 use ropey::{Rope, RopeBuilder};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
@@ -20,6 +23,166 @@ const CHUNK_BYTES: usize = 256 * 1024;
 const PROMOTE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DOCS: usize = 128;
 pub type Reply<T> = Receiver<Result<T, ServiceError>>;
+
+fn read_only_snapshot(database: impl AsRef<Path>) -> Result<Connection, ServiceError> {
+    let conn = Connection::open_with_flags(
+        database,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    conn.execute_batch("BEGIN DEFERRED")?;
+    Ok(conn)
+}
+
+/// Reconcile an accepted command after its worker disconnects, without creating a
+/// second writer or mutating recovery data. Call off the UI thread.
+pub fn inspect_recovery_session(
+    database: impl AsRef<Path>,
+) -> Result<(SessionManifest, ClosedViewPage), ServiceError> {
+    let conn = read_only_snapshot(database)?;
+    let version: u32 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    if version != 2 {
+        return Err(ServiceError::new(
+            ErrorKind::Unsupported,
+            "read-only reconciliation requires schema version 2",
+        ));
+    }
+    Ok((
+        layout_store::read_only_manifest(&conn)?,
+        layout_store::recently_closed(&conn, None, 64)?,
+    ))
+}
+
+#[derive(Debug)]
+pub enum StartupRecoveryState {
+    PreImage,
+    AfterImage {
+        manifest: SessionManifest,
+        closed: ClosedViewPage,
+    },
+}
+/// Inspect a disconnected startup without opening a replacement writer.
+pub fn inspect_recovery_startup(
+    database: impl AsRef<Path>,
+) -> Result<StartupRecoveryState, ServiceError> {
+    let path = database.as_ref();
+    if !path.try_exists()? {
+        return Ok(StartupRecoveryState::PreImage);
+    }
+    let conn = read_only_snapshot(path)?;
+    let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    let names = conn
+        .prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'")?
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<std::collections::HashSet<_>, _>>()?;
+    let base = [
+        "documents",
+        "recovery_heads",
+        "checkpoint_chunks",
+        "edit_transactions",
+        "save_intents",
+    ];
+    let layout = [
+        "layout_view_sets",
+        "layout_states",
+        "layout_views",
+        "layout_heads",
+        "preserved_layouts",
+        "closed_views",
+    ];
+    if version == 0 && names.is_empty() {
+        return Ok(StartupRecoveryState::PreImage);
+    }
+    if version == 1
+        && base.iter().all(|name| names.contains(*name))
+        && names.contains("windows_views")
+        && names.contains("session")
+        && layout.iter().all(|name| !names.contains(*name))
+        && !names.contains("legacy_v1_windows_views")
+        && !names.contains("legacy_v1_session")
+    {
+        return Ok(StartupRecoveryState::PreImage);
+    }
+    let archive_pair =
+        names.contains("legacy_v1_windows_views") == names.contains("legacy_v1_session");
+    if version == 2
+        && base
+            .iter()
+            .chain(layout.iter())
+            .all(|name| names.contains(*name))
+        && archive_pair
+        && !names.contains("windows_views")
+        && !names.contains("session")
+    {
+        return Ok(StartupRecoveryState::AfterImage {
+            manifest: layout_store::read_only_manifest(&conn)?,
+            closed: layout_store::recently_closed(&conn, None, 64)?,
+        });
+    }
+    Err(ServiceError::new(
+        ErrorKind::Corrupt,
+        "startup schema is mixed or unknown; read-only inspection cannot prove either image",
+    ))
+}
+/// A true result proves the complete final text barrier. False proves unchanged
+/// live bindings with at least one undurable revision; neither result is an ACK.
+pub fn inspect_recovery_shutdown(
+    database: impl AsRef<Path>,
+    expected: &SessionLayout,
+    required: &[(DocumentKey, Revision)],
+) -> Result<bool, ServiceError> {
+    let (manifest, _) = inspect_recovery_session(database)?;
+    if manifest.layout != *expected {
+        return Err(ServiceError::new(
+            ErrorKind::Stale,
+            "shutdown layout identity differs from the frozen session",
+        ));
+    }
+    let mut durable = true;
+    for (key, revision) in required {
+        let stub = manifest
+            .documents
+            .iter()
+            .find(|stub| stub.key() == *key)
+            .ok_or_else(|| {
+                ServiceError::new(
+                    ErrorKind::Stale,
+                    "shutdown document identity cannot be reconciled",
+                )
+            })?;
+        durable &= stub.has_checkpoint && stub.durable_rev >= *revision;
+    }
+    Ok(durable)
+}
+/// Read-only rescue access after a proven startup after-image with a dead worker.
+pub fn read_recovery_page(
+    database: impl AsRef<Path>,
+    request: RecoveryPageRequest,
+) -> Result<RecoveryPage, ServiceError> {
+    let conn = read_only_snapshot(database)?;
+    let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    if version != 2 {
+        return Err(ServiceError::new(
+            ErrorKind::Unsupported,
+            "read-only catalog requires schema version 2",
+        ));
+    }
+    layout_store::recovery_page(&conn, request)
+}
+pub fn read_recovery_draft(
+    database: impl AsRef<Path>,
+    key: DocumentKey,
+    cancel: &CancelToken,
+) -> Result<HydratedDraft, ServiceError> {
+    let conn = read_only_snapshot(database)?;
+    let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    if version != 2 {
+        return Err(ServiceError::new(
+            ErrorKind::Unsupported,
+            "read-only hydration requires schema version 2",
+        ));
+    }
+    hydrate(&conn, key, cancel)
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SaveIntent {
@@ -55,7 +218,7 @@ impl SaveIntent {
             && current.mtime_ns == expected.mtime_ns)
     }
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SaveStage {
     Started,
     Prepared,
@@ -77,6 +240,7 @@ struct Mailbox {
     retained_bytes: usize,
     inflight_bytes: usize,
     accepting: bool,
+    manifest_available: bool,
     next_meta_seq: u64,
     // MAX_DOCS pending commits, one in-flight commit, and 33 accepted layouts
     // (32 queued + one executing), each <=1024 entries. One tentative layout
@@ -132,23 +296,34 @@ impl Mailbox {
 enum Command {
     Wake,
     Manifest {
-        closed: bool,
         reply: Sender<Result<SessionManifest, ServiceError>>,
     },
+    RecentlyClosed {
+        before: Option<u64>,
+        limit: u16,
+        reply: Sender<Result<ClosedViewPage, ServiceError>>,
+    },
+    RecoveryPage {
+        request: RecoveryPageRequest,
+        reply: Sender<Result<RecoveryPage, ServiceError>>,
+    },
     Hydrate {
-        doc_id: DocumentId,
+        key: DocumentKey,
+        cancel: CancelToken,
         reply: Sender<Result<HydratedDraft, ServiceError>>,
     },
     Layout {
-        tabs: Vec<TabLayoutRecord>,
-        active: Option<DocumentId>,
+        write: SessionWrite,
         meta_seq: u64,
+        reply: Sender<Result<LayoutAck, ServiceError>>,
     },
     Close {
-        doc_id: DocumentId,
-        lifecycle_gen: LifecycleGen,
-        discard: bool,
-        reply: Sender<Result<(), ServiceError>>,
+        batch: CloseBatch,
+        reply: Sender<Result<CloseAck, ServiceError>>,
+    },
+    Replace {
+        replacement: ReloadReplacement,
+        reply: Sender<Result<LayoutAck, ServiceError>>,
     },
     Flush {
         shutdown: bool,
@@ -183,6 +358,7 @@ impl RecoveryHandle {
             retained_bytes: 0,
             inflight_bytes: 0,
             accepting: true,
+            manifest_available: false,
             next_meta_seq: 0,
             meta_state: HashMap::new(),
         }));
@@ -193,7 +369,7 @@ impl RecoveryHandle {
         std::thread::Builder::new()
             .name("recovery-sqlite".into())
             .spawn(move || {
-                let mut conn = match open_database(&path) {
+                let mut conn = match layout_store::open_database(&path, &worker_faults) {
                     Ok(conn) => {
                         let _ = ready_tx.send(Ok(()));
                         conn
@@ -206,7 +382,10 @@ impl RecoveryHandle {
                 worker(&mut conn, rx, event_tx, shared, errors, worker_faults);
             })?;
         ready_rx.recv().map_err(|_| {
-            ServiceError::new(ErrorKind::Storage, "recovery worker exited during startup")
+            ServiceError::new(
+                ErrorKind::Storage,
+                "startup outcome indeterminate: recovery worker exited before acknowledgement",
+            )
         })??;
         Ok(Self {
             inner: Arc::new(HandleInner {
@@ -318,33 +497,51 @@ impl RecoveryHandle {
         Ok(())
     }
     pub fn request_manifest(&self) -> Result<Reply<SessionManifest>, ServiceError> {
-        self.manifest(false)
-    }
-    pub fn request_recently_closed(&self) -> Result<Reply<SessionManifest>, ServiceError> {
-        self.manifest(true)
-    }
-    fn manifest(&self, closed: bool) -> Result<Reply<SessionManifest>, ServiceError> {
         let (reply, rx) = bounded(1);
-        self.send(Command::Manifest { closed, reply })?;
+        self.send(Command::Manifest { reply })?;
+        Ok(rx)
+    }
+    pub fn request_recently_closed(
+        &self,
+        before_close_id: Option<u64>,
+        limit: u16,
+    ) -> Result<Reply<ClosedViewPage>, ServiceError> {
+        layout_store::validate_page_limit(limit)?;
+        let (reply, rx) = bounded(1);
+        self.send(Command::RecentlyClosed {
+            before: before_close_id,
+            limit,
+            reply,
+        })?;
+        Ok(rx)
+    }
+    pub fn request_recovery_page(
+        &self,
+        request: RecoveryPageRequest,
+    ) -> Result<Reply<RecoveryPage>, ServiceError> {
+        layout_store::validate_page_limit(request.limit)?;
+        let (reply, rx) = bounded(1);
+        self.send(Command::RecoveryPage { request, reply })?;
         Ok(rx)
     }
     pub fn request_hydrate(
         &self,
-        doc_id: DocumentId,
+        key: DocumentKey,
+        cancel: CancelToken,
     ) -> Result<Reply<HydratedDraft>, ServiceError> {
         let (reply, rx) = bounded(1);
-        self.send(Command::Hydrate { doc_id, reply })?;
+        self.send(Command::Hydrate { key, cancel, reply })?;
         Ok(rx)
     }
-    pub fn save_session_layout(
-        &self,
-        tabs: Vec<TabLayoutRecord>,
-        active: Option<DocumentId>,
-    ) -> Result<(), ServiceError> {
-        if tabs.len() > 1024 {
+    pub fn write_session(&self, write: SessionWrite) -> Result<Reply<LayoutAck>, ServiceError> {
+        if let LayoutPayload::Structural(layout) = &write.layout {
+            layout.validate()?;
+        }
+        if matches!(write.layout, LayoutPayload::TreeOnly(_)) && !write.document_changes.is_empty()
+        {
             return Err(ServiceError::new(
                 ErrorKind::InvalidInput,
-                "session exceeds 1024 tabs",
+                "tree-only writes cannot change document metadata",
             ));
         }
         let mut box_ = self
@@ -358,21 +555,28 @@ impl RecoveryHandle {
                 "recovery is shutting down",
             ));
         }
-        let meta_seq = box_.next_meta_seq()?;
-        for tab in &tabs {
-            box_.retain_meta(tab.doc_id);
+        if !box_.manifest_available {
+            return Err(ServiceError::new(
+                ErrorKind::Stale,
+                "initial session manifest has not been admitted",
+            ));
         }
+        let meta_seq = box_.next_meta_seq()?;
+        for change in &write.document_changes {
+            box_.retain_meta(change.key().doc_id);
+        }
+        let (reply, rx) = bounded(1);
         match self.inner.commands.try_send(Command::Layout {
-            tabs,
-            active,
+            write,
             meta_seq,
+            reply,
         }) {
-            Ok(()) => Ok(()),
+            Ok(()) => Ok(rx),
             Err(error) => {
                 let full = error.is_full();
-                if let Command::Layout { tabs, .. } = error.into_inner() {
-                    for tab in tabs {
-                        box_.release_meta(tab.doc_id);
+                if let Command::Layout { write, .. } = error.into_inner() {
+                    for change in write.document_changes {
+                        box_.release_meta(change.key().doc_id);
                     }
                 }
                 Err(if full {
@@ -383,20 +587,19 @@ impl RecoveryHandle {
             }
         }
     }
-    /// For discard pass a strictly newer lifecycle. The acknowledgement is the durable tombstone.
-    pub fn close_document(
-        &self,
-        doc_id: DocumentId,
-        lifecycle_gen: LifecycleGen,
-        discard: bool,
-    ) -> Result<Reply<()>, ServiceError> {
+    pub fn close_views(&self, batch: CloseBatch) -> Result<Reply<CloseAck>, ServiceError> {
+        batch.after.validate()?;
         let (reply, rx) = bounded(1);
-        self.send(Command::Close {
-            doc_id,
-            lifecycle_gen,
-            discard,
-            reply,
-        })?;
+        self.send(Command::Close { batch, reply })?;
+        Ok(rx)
+    }
+    pub fn replace_view_document(
+        &self,
+        replacement: ReloadReplacement,
+    ) -> Result<Reply<LayoutAck>, ServiceError> {
+        replacement.after.validate()?;
+        let (reply, rx) = bounded(1);
+        self.send(Command::Replace { replacement, reply })?;
         Ok(rx)
     }
     pub fn flush(&self) -> Result<Reply<()>, ServiceError> {
@@ -454,30 +657,6 @@ fn sql_rev(value: u64) -> Result<i64, ServiceError> {
             "revision exceeds SQLite signed integer range",
         )
     })
-}
-fn open_database(path: &Path) -> Result<Connection, ServiceError> {
-    let conn = Connection::open(path)?;
-    conn.busy_timeout(Duration::from_secs(2))?;
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA wal_autocheckpoint=512; PRAGMA journal_size_limit=16777216;")?;
-    let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if version > 1 {
-        return Err(ServiceError::new(
-            ErrorKind::Unsupported,
-            "unknown recovery schema; original database left intact",
-        ));
-    }
-    if version == 0 {
-        conn.execute_batch("BEGIN IMMEDIATE;
-            CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY, gen INTEGER NOT NULL, state INTEGER NOT NULL, meta TEXT NOT NULL, saved_rev INTEGER NOT NULL DEFAULT -1, saved_meta TEXT);
-            CREATE TABLE IF NOT EXISTS recovery_heads(doc TEXT PRIMARY KEY REFERENCES documents(id), checkpoint_rev INTEGER NOT NULL, durable_rev INTEGER NOT NULL, byte_len INTEGER NOT NULL, checkpoint_hash BLOB NOT NULL, delta_bytes INTEGER NOT NULL DEFAULT 0, delta_rows INTEGER NOT NULL DEFAULT 0);
-            CREATE TABLE IF NOT EXISTS checkpoint_chunks(doc TEXT NOT NULL REFERENCES documents(id), rev INTEGER NOT NULL, ordinal INTEGER NOT NULL, content BLOB NOT NULL, checksum BLOB NOT NULL, PRIMARY KEY(doc,rev,ordinal));
-            CREATE TABLE IF NOT EXISTS edit_transactions(doc TEXT NOT NULL REFERENCES documents(id), base_rev INTEGER NOT NULL, new_rev INTEGER NOT NULL, deltas BLOB NOT NULL, checksum BLOB NOT NULL, PRIMARY KEY(doc,new_rev));
-            CREATE TABLE IF NOT EXISTS windows_views(doc TEXT PRIMARY KEY REFERENCES documents(id), position INTEGER NOT NULL, view TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS session(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS save_intents(doc TEXT PRIMARY KEY, value TEXT NOT NULL);
-            PRAGMA user_version=1; COMMIT;")?;
-    }
-    Ok(conn)
 }
 #[derive(Default)]
 struct SnapshotCache {
@@ -548,35 +727,69 @@ fn worker(
         }
         match command {
             Some(Command::Wake) | None => {}
-            Some(Command::Manifest { closed, reply }) => {
-                let _ = reply.send(manifest(conn, closed));
-            }
-            Some(Command::Hydrate { doc_id, reply }) => {
-                let _ = reply.send(hydrate(conn, doc_id));
-            }
-            Some(Command::Layout {
-                tabs,
-                active,
-                meta_seq,
-            }) => {
-                if let Err(error) = layout(conn, tabs, active, meta_seq, &mailbox) {
-                    report_error(&events, &last_error, None, error.clone());
-                    pending_error = Some(error);
+            Some(Command::Manifest { reply }) => {
+                let result = layout_store::manifest(conn);
+                if result.is_ok() {
+                    mailbox
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .manifest_available = true;
                 }
+                let _ = reply.send(result);
             }
-            Some(Command::Close {
-                doc_id,
-                lifecycle_gen,
-                discard,
+            Some(Command::RecentlyClosed {
+                before,
+                limit,
                 reply,
             }) => {
-                let result = close(conn, doc_id, lifecycle_gen, discard, &faults);
+                let _ = reply.send(layout_store::recently_closed(conn, before, limit));
+            }
+            Some(Command::RecoveryPage { request, reply }) => {
+                let _ = reply.send(layout_store::recovery_page(conn, request));
+            }
+            Some(Command::Hydrate { key, cancel, reply }) => {
+                let _ = reply.send(hydrate(conn, key, &cancel));
+            }
+            Some(Command::Layout {
+                write,
+                meta_seq,
+                reply,
+            }) => {
+                let result = layout_store::write_session(conn, &write, meta_seq, &mailbox, &faults);
+                let mut box_ = mailbox.lock().unwrap_or_else(|e| e.into_inner());
+                for change in &write.document_changes {
+                    let key = change.key();
+                    if result.is_ok() {
+                        box_.record_meta_applied(key.doc_id, key.lifecycle_gen, meta_seq);
+                    }
+                    box_.release_meta(key.doc_id);
+                }
+                drop(box_);
+                if let Err(error) = &result {
+                    report_error(&events, &last_error, None, error.clone());
+                }
+                let _ = reply.send(result);
+            }
+            Some(Command::Close { batch, reply }) => {
+                let result = drain(conn, &mailbox, &events, &last_error, &faults, &mut cache)
+                    .and_then(|_| layout_store::close_views(conn, &batch, &faults));
                 if result.is_ok() {
-                    cache.remove(doc_id);
-                    // Close owns no metadata ref. Queued sources retain theirs until
-                    // completion (including stale rejection), then prune their stamps.
-                } else if let Err(error) = &result {
-                    report_error(&events, &last_error, Some(doc_id), error.clone());
+                    for entry in &batch.entries {
+                        cache.remove(entry.target.document.doc_id);
+                    }
+                }
+                if let Err(error) = &result {
+                    report_error(&events, &last_error, None, error.clone());
+                }
+                let _ = reply.send(result);
+            }
+            Some(Command::Replace { replacement, reply }) => {
+                let result = layout_store::replace_view_document(conn, &replacement, &faults);
+                if result.is_ok() {
+                    cache.remove(replacement.target.document.doc_id);
+                }
+                if let Err(error) = &result {
+                    report_error(&events, &last_error, None, error.clone());
                 }
                 let _ = reply.send(result);
             }
@@ -725,7 +938,7 @@ fn commit_one(
         })
         .optional()?;
     if let Some((generation, state)) = existing {
-        if generation != gen_ || state == 2 {
+        if generation != gen_ || state != 0 {
             return Err(ServiceError::new(
                 ErrorKind::Stale,
                 "discarded or old lifecycle checkpoint rejected",
@@ -891,153 +1104,92 @@ fn apply_deltas(mut rope: Rope, deltas: &[TextDelta]) -> Result<Rope, ServiceErr
     }
     Ok(rope)
 }
-fn manifest(conn: &Connection, closed: bool) -> Result<SessionManifest, ServiceError> {
-    // Deliberately no SELECT of checkpoint chunks or delta blobs on the startup path.
-    let sql = if closed {
-        "SELECT d.id,d.gen,d.meta,COALESCE(h.durable_rev,0),h.doc,COALESCE(v.view,'{}') FROM documents d LEFT JOIN recovery_heads h ON h.doc=d.id LEFT JOIN windows_views v ON v.doc=d.id WHERE d.state=1 ORDER BY d.rowid DESC LIMIT 1024"
-    } else {
-        "SELECT d.id,d.gen,d.meta,COALESCE(h.durable_rev,0),h.doc,COALESCE(v.view,'{}') FROM documents d LEFT JOIN windows_views v ON v.doc=d.id LEFT JOIN recovery_heads h ON h.doc=d.id WHERE d.state=0 AND (v.doc IS NOT NULL OR h.doc IS NOT NULL) ORDER BY v.position IS NULL,v.position,d.rowid LIMIT 1024"
-    };
-    let mut statement = conn.prepare(sql)?;
-    let mut rows = statement.query([])?;
-    let mut tabs = Vec::new();
-    let mut warnings = Vec::new();
-    while let Some(row) = rows.next()? {
-        let id = match row
-            .get::<_, String>(0)
-            .map_err(ServiceError::from)
-            .and_then(|id| parse_id(&id))
-        {
-            Ok(id) => id,
-            Err(error) => {
-                warnings.push(crate::RecoveryWarning { doc_id: None, message: format!("A recovery record has an invalid document id and was left untouched: {error}") });
-                continue;
-            }
-        };
-        let parsed = (|| -> Result<SessionTabStub, ServiceError> {
-            let generation: i64 = row.get(1)?;
-            let revision: i64 = row.get(3)?;
-            if generation < 0 || revision < 0 {
-                return Err(ServiceError::new(
-                    ErrorKind::Corrupt,
-                    "negative recovery generation/revision",
-                ));
-            }
-            let meta = serde_json::from_str(&row.get::<_, String>(2)?)?;
-            let view = match row
-                .get::<_, String>(5)
-                .map_err(ServiceError::from)
-                .and_then(|json| {
-                    if json == "{}" {
-                        Ok(ViewState::default())
-                    } else {
-                        serde_json::from_str(&json).map_err(ServiceError::from)
-                    }
-                }) {
-                Ok(view) => view,
-                Err(error) => {
-                    warnings.push(crate::RecoveryWarning {
-                        doc_id: Some(id),
-                        message: format!(
-                            "Saved view position is damaged; reset only this tab's view: {error}"
-                        ),
-                    });
-                    ViewState::default()
-                }
-            };
-            Ok(SessionTabStub {
-                doc_id: id,
-                lifecycle_gen: LifecycleGen(generation as u64),
-                durable_rev: Revision(revision as u64),
-                meta,
-                view,
-                has_checkpoint: row.get::<_, Option<String>>(4)?.is_some(),
-            })
-        })();
-        match parsed {
-            Ok(tab) => tabs.push(tab),
-            Err(error) => warnings.push(crate::RecoveryWarning { doc_id: Some(id), message: format!("Draft metadata is damaged; its stored content was preserved but this tab cannot be opened automatically: {error}") }),
-        }
-    }
-    let active: Option<String> = conn
-        .query_row("SELECT value FROM session WHERE key='active'", [], |r| {
-            r.get(0)
-        })
-        .optional()?;
-    let active_doc = match active.as_deref().map(parse_id).transpose() {
-        Ok(active) => active.filter(|id| tabs.iter().any(|tab| tab.doc_id == *id)),
-        Err(error) => {
-            warnings.push(crate::RecoveryWarning {
-                doc_id: None,
-                message: format!("Active-tab metadata is damaged: {error}"),
-            });
-            None
-        }
-    };
-    Ok(SessionManifest {
-        tabs,
-        active_doc,
-        warnings,
-    })
-}
 fn parse_id(value: &str) -> Result<DocumentId, ServiceError> {
+    if value.len() != 32
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(ServiceError::new(
+            ErrorKind::Corrupt,
+            "document identity must be 32 lowercase hexadecimal bytes",
+        ));
+    }
     u128::from_str_radix(value, 16)
         .map(DocumentId)
         .map_err(|e| ServiceError::new(ErrorKind::Corrupt, e.to_string()))
 }
-fn hydrate(conn: &Connection, doc_id: DocumentId) -> Result<HydratedDraft, ServiceError> {
+fn hydrate(
+    conn: &Connection,
+    key: DocumentKey,
+    cancel: &CancelToken,
+) -> Result<HydratedDraft, ServiceError> {
+    cancel.check()?;
+    let doc_id = key.doc_id;
     let id = doc_id.key();
-    let (generation, state, meta_json): (i64, i64, String) = conn.query_row(
-        "SELECT gen,state,meta FROM documents WHERE id=?1",
-        [&id],
-        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-    )?;
+    let stub = layout_store::document_stub(conn, &id)?;
+    if stub.key() != key {
+        return Err(ServiceError::new(
+            ErrorKind::Stale,
+            "draft lifecycle changed",
+        ));
+    }
+    let state: i64 = conn.query_row("SELECT state FROM documents WHERE id=?1", [&id], |r| {
+        r.get(0)
+    })?;
     if state == 2 {
         return Err(ServiceError::new(ErrorKind::Stale, "draft was discarded"));
     }
-    let meta: DocMeta = serde_json::from_str(&meta_json)?;
-    let (checkpoint_rev, durable_rev, expected_len, expected_hash): (i64, i64, i64, Vec<u8>) = conn.query_row("SELECT checkpoint_rev,durable_rev,byte_len,checkpoint_hash FROM recovery_heads WHERE doc=?1", [&id], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
-    if expected_len < 0 || expected_len as usize > DOC_LIMIT {
+    let generation = sql_rev(stub.lifecycle_gen.0)?;
+    let meta = stub.meta;
+    let (checkpoint_rev,durable_rev,expected_len,expected_hash):(i64,i64,i64,Option<[u8;32]>)=conn.query_row(
+        "SELECT checkpoint_rev,durable_rev,byte_len,CASE WHEN typeof(checkpoint_hash)='blob' AND LENGTH(checkpoint_hash)=32 THEN checkpoint_hash END FROM recovery_heads WHERE doc=?1",
+        [&id],|row|Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get_ref(3)?.as_blob().ok().and_then(|bytes|bytes.try_into().ok()))))?;
+    let expected_hash = expected_hash
+        .ok_or_else(|| ServiceError::new(ErrorKind::Corrupt, "invalid checkpoint hash"))?;
+    if checkpoint_rev < 0
+        || durable_rev < checkpoint_rev
+        || expected_len < 0
+        || expected_len as usize > DOC_LIMIT
+    {
         return Err(ServiceError::new(
             ErrorKind::Corrupt,
-            "invalid draft length",
+            "invalid draft revision or length",
         ));
     }
     let mut builder = RopeBuilder::new();
     let mut hasher = blake3::Hasher::new();
     let mut loaded = 0usize;
-    let mut statement = conn.prepare("SELECT ordinal,content,checksum,length(content) FROM checkpoint_chunks WHERE doc=?1 AND rev=?2 ORDER BY ordinal")?;
-    let mut rows = statement.query(params![id, checkpoint_rev])?;
+    let mut statement=conn.prepare("SELECT ordinal,CASE WHEN typeof(content)='blob' AND LENGTH(content)<=?3 THEN content END,CASE WHEN typeof(checksum)='blob' AND LENGTH(checksum)=32 THEN checksum END FROM checkpoint_chunks WHERE doc=?1 AND rev=?2 ORDER BY ordinal")?;
+    let mut rows = statement.query(params![id, checkpoint_rev, CHUNK_BYTES as i64])?;
     let mut ordinal = 0i64;
     while let Some(row) = rows.next()? {
+        cancel.check()?;
         let index: i64 = row.get(0)?;
-        let byte_len: i64 = row.get(3)?;
-        if byte_len < 0 || byte_len as usize > CHUNK_BYTES {
-            return Err(ServiceError::new(
-                ErrorKind::Corrupt,
-                "oversized checkpoint chunk",
-            ));
-        }
-        let bytes: Vec<u8> = row.get(1)?;
-        let checksum: Vec<u8> = row.get(2)?;
+        let bytes = row.get_ref(1)?.as_blob().map_err(|_| {
+            ServiceError::new(ErrorKind::Corrupt, "invalid or oversized checkpoint chunk")
+        })?;
+        let checksum = row.get_ref(2)?.as_blob().map_err(|_| {
+            ServiceError::new(ErrorKind::Corrupt, "invalid checkpoint chunk checksum")
+        })?;
         loaded += bytes.len();
         if index != ordinal
             || bytes.len() > CHUNK_BYTES
             || loaded > DOC_LIMIT
-            || blake3::hash(&bytes).as_bytes().as_slice() != checksum
+            || blake3::hash(bytes).as_bytes().as_slice() != checksum
         {
             return Err(ServiceError::new(
                 ErrorKind::Corrupt,
                 "checkpoint chunk checksum/sequence failure",
             ));
         }
-        let text = std::str::from_utf8(&bytes)
-            .map_err(|e| ServiceError::new(ErrorKind::Corrupt, e.to_string()))?;
-        hasher.update(&bytes);
+        let text = std::str::from_utf8(bytes)
+            .map_err(|error| ServiceError::new(ErrorKind::Corrupt, error.to_string()))?;
+        hasher.update(bytes);
         builder.append(text);
         ordinal += 1;
     }
-    if hasher.finalize().as_bytes().as_slice() != expected_hash {
+    if hasher.finalize().as_bytes().as_slice() != expected_hash.as_slice() {
         return Err(ServiceError::new(
             ErrorKind::Corrupt,
             "checkpoint checksum failure",
@@ -1045,32 +1197,30 @@ fn hydrate(conn: &Connection, doc_id: DocumentId) -> Result<HydratedDraft, Servi
     }
     let mut rope = builder.finish();
     let mut rev = checkpoint_rev;
-    let mut statement = conn.prepare("SELECT base_rev,new_rev,deltas,checksum,length(deltas) FROM edit_transactions WHERE doc=?1 AND new_rev>?2 ORDER BY new_rev")?;
-    let mut rows = statement.query(params![id, checkpoint_rev])?;
+    let mut statement=conn.prepare("SELECT base_rev,new_rev,CASE WHEN typeof(deltas)='blob' AND LENGTH(deltas)<=?3 THEN deltas END,CASE WHEN typeof(checksum)='blob' AND LENGTH(checksum)=32 THEN checksum END FROM edit_transactions WHERE doc=?1 AND new_rev>?2 ORDER BY new_rev")?;
+    let mut rows = statement.query(params![id, checkpoint_rev, PROMOTE_BYTES as i64])?;
     while let Some(row) = rows.next()? {
+        cancel.check()?;
         let base: i64 = row.get(0)?;
         let next: i64 = row.get(1)?;
-        let byte_len: i64 = row.get(4)?;
-        if byte_len < 0 || byte_len as usize > PROMOTE_BYTES {
-            return Err(ServiceError::new(
-                ErrorKind::Corrupt,
-                "oversized edit transaction",
-            ));
-        }
-        let bytes: Vec<u8> = row.get(2)?;
-        let checksum: Vec<u8> = row.get(3)?;
+        let bytes = row.get_ref(2)?.as_blob().map_err(|_| {
+            ServiceError::new(ErrorKind::Corrupt, "invalid or oversized edit transaction")
+        })?;
+        let checksum = row.get_ref(3)?.as_blob().map_err(|_| {
+            ServiceError::new(ErrorKind::Corrupt, "invalid edit transaction checksum")
+        })?;
         if base != rev
             || next <= base
             || next > durable_rev
             || bytes.len() > PROMOTE_BYTES
-            || blake3::hash(&bytes).as_bytes().as_slice() != checksum
+            || blake3::hash(bytes).as_bytes().as_slice() != checksum
         {
             return Err(ServiceError::new(
                 ErrorKind::Corrupt,
                 "edit log checksum or revision chain failure",
             ));
         }
-        let deltas: Vec<TextDelta> = serde_json::from_slice(&bytes)?;
+        let deltas: Vec<TextDelta> = serde_json::from_slice(bytes)?;
         rope = apply_deltas(rope, &deltas)?;
         rev = next;
     }
@@ -1080,6 +1230,7 @@ fn hydrate(conn: &Connection, doc_id: DocumentId) -> Result<HydratedDraft, Servi
             "recovery head is not fully covered",
         ));
     }
+    cancel.check()?;
     let identity = ContentIdentity::of_rope(&rope);
     let disk_conflict = meta.path.as_ref().is_some_and(|path| {
         FileFingerprint::of_path(path).ok().as_ref() != meta.origin_fingerprint.as_ref()
@@ -1093,82 +1244,6 @@ fn hydrate(conn: &Connection, doc_id: DocumentId) -> Result<HydratedDraft, Servi
         meta,
         disk_conflict,
     })
-}
-fn layout(
-    conn: &mut Connection,
-    tabs: Vec<TabLayoutRecord>,
-    active: Option<DocumentId>,
-    meta_seq: u64,
-    mailbox: &Mutex<Mailbox>,
-) -> Result<(), ServiceError> {
-    let result: Result<Vec<(DocumentId, LifecycleGen)>, ServiceError> = (|| {
-        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let mut applied = Vec::with_capacity(tabs.len());
-        tx.execute("DELETE FROM windows_views", [])?;
-        for (position, tab) in tabs.iter().enumerate() {
-            let id = tab.doc_id.key();
-            let gen_ = sql_rev(tab.lifecycle_gen.0)?;
-            let preserve_meta = mailbox
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .has_newer_meta(tab.doc_id, tab.lifecycle_gen, meta_seq);
-            let meta = meta_for_source(&tx, &id, &tab.meta, preserve_meta)?;
-            let changed = tx.execute("INSERT INTO documents(id,gen,state,meta) VALUES(?1,?2,0,?3) ON CONFLICT(id) DO UPDATE SET state=0,meta=excluded.meta WHERE documents.gen=excluded.gen AND documents.state<>2", params![id,gen_,serde_json::to_string(&meta)?])?;
-            if changed != 0 {
-                applied.push((tab.doc_id, tab.lifecycle_gen));
-            }
-            tx.execute("INSERT INTO windows_views(doc,position,view) SELECT id,?2,?3 FROM documents WHERE id=?1 AND gen=?4 AND state=0", params![id,position as i64,serde_json::to_string(&tab.view)?,gen_])?;
-        }
-        tx.execute("DELETE FROM session WHERE key='active'", [])?;
-        if let Some(active) = active {
-            tx.execute(
-                "INSERT INTO session(key,value) VALUES('active',?1)",
-                [active.key()],
-            )?;
-        }
-        tx.commit()?;
-        Ok(applied)
-    })();
-    let mut box_ = mailbox.lock().unwrap_or_else(|e| e.into_inner());
-    if let Ok(applied) = &result {
-        for &(doc, gen_) in applied {
-            box_.record_meta_applied(doc, gen_, meta_seq);
-        }
-    }
-    for tab in &tabs {
-        box_.release_meta(tab.doc_id);
-    }
-    result.map(|_| ())
-}
-fn close(
-    conn: &mut Connection,
-    doc: DocumentId,
-    gen_: LifecycleGen,
-    discard: bool,
-    faults: &FaultInjector,
-) -> Result<(), ServiceError> {
-    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let id = doc.key();
-    let generation = sql_rev(gen_.0)?;
-    let old: Option<i64> = tx
-        .query_row("SELECT gen FROM documents WHERE id=?1", [&id], |r| r.get(0))
-        .optional()?;
-    if old.is_some_and(|old| generation < old || (discard && generation <= old)) {
-        return Err(ServiceError::new(
-            ErrorKind::Stale,
-            "discard requires a newer lifecycle",
-        ));
-    }
-    tx.execute("INSERT INTO documents(id,gen,state,meta) VALUES(?1,?2,?3,?4) ON CONFLICT(id) DO UPDATE SET gen=excluded.gen,state=excluded.state", params![id,generation,if discard {2} else {1},serde_json::to_string(&DocMeta::default())?])?;
-    tx.execute("DELETE FROM windows_views WHERE doc=?1", [&id])?;
-    if discard {
-        tx.execute("DELETE FROM recovery_heads WHERE doc=?1", [&id])?;
-        tx.execute("DELETE FROM checkpoint_chunks WHERE doc=?1", [&id])?;
-        tx.execute("DELETE FROM edit_transactions WHERE doc=?1", [&id])?;
-    }
-    faults.check(FaultPoint::RecoveryBeforeCommit)?;
-    tx.commit()?;
-    Ok(())
 }
 fn meta_for_source(
     conn: &Connection,
@@ -1253,466 +1328,5 @@ fn record_intent(
 }
 
 #[cfg(test)]
-mod metadata_order_tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    // Normal admission and real SQLite transactions, with worker steps scheduled
-    // explicitly so both race orders are exercised without sleeps or intermediate flushes.
-    struct Fixture {
-        _dir: TempDir,
-        conn: Connection,
-        handle: RecoveryHandle,
-        commands: Receiver<Command>,
-        events: Sender<RecoveryEvent>,
-        cache: SnapshotCache,
-    }
-    impl Fixture {
-        fn new() -> Self {
-            let dir = TempDir::new().unwrap();
-            let conn = open_database(&dir.path().join("db")).unwrap();
-            let (commands, receiver) = bounded(32);
-            let (events, event_receiver) = bounded(256);
-            let handle = RecoveryHandle {
-                inner: Arc::new(HandleInner {
-                    commands,
-                    events: event_receiver,
-                    mailbox: Arc::new(Mutex::new(Mailbox {
-                        pending: HashMap::new(),
-                        retained_bytes: 0,
-                        inflight_bytes: 0,
-                        accepting: true,
-                        next_meta_seq: 0,
-                        meta_state: HashMap::new(),
-                    })),
-                    last_error: Arc::new(Mutex::new(None)),
-                    faults: FaultInjector::default(),
-                }),
-            };
-            Self {
-                _dir: dir,
-                conn,
-                handle,
-                commands: receiver,
-                events,
-                cache: SnapshotCache::default(),
-            }
-        }
-
-        fn drain(&mut self) -> Result<(), ServiceError> {
-            drain(
-                &mut self.conn,
-                &self.handle.inner.mailbox,
-                &self.events,
-                &self.handle.inner.last_error,
-                &self.handle.inner.faults,
-                &mut self.cache,
-            )
-        }
-
-        fn apply_next_layout(&mut self) -> Result<(), ServiceError> {
-            loop {
-                match self.commands.try_recv().expect("admitted layout command") {
-                    Command::Wake => {}
-                    Command::Layout {
-                        tabs,
-                        active,
-                        meta_seq,
-                    } => {
-                        return layout(
-                            &mut self.conn,
-                            tabs,
-                            active,
-                            meta_seq,
-                            &self.handle.inner.mailbox,
-                        );
-                    }
-                    _ => panic!("unexpected worker command"),
-                }
-            }
-        }
-
-        fn assert_idle(&self) {
-            let mailbox = self.handle.inner.mailbox.lock().unwrap();
-            assert!(mailbox.meta_state.is_empty());
-            assert!(mailbox.pending.is_empty());
-            assert_eq!(mailbox.retained_bytes, 0);
-            assert_eq!(mailbox.inflight_bytes, 0);
-        }
-    }
-
-    fn current(label: &str, encoding: EncodingSpec, line_ending: LineEnding) -> DocMeta {
-        DocMeta {
-            title: label.into(),
-            encoding,
-            line_ending,
-            language_override: Some(label.into()),
-            ..DocMeta::default()
-        }
-    }
-    fn commit(id: DocumentId, revision: u64, meta: DocMeta) -> RecoveryCommit {
-        RecoveryCommit {
-            doc_id: id,
-            lifecycle_gen: LifecycleGen(0),
-            base_rev: Revision(revision.saturating_sub(1)),
-            new_rev: Revision(revision),
-            rope: Rope::from_str("committed text\n"),
-            deltas: Vec::new(),
-            meta,
-        }
-    }
-    fn tab(id: DocumentId, meta: DocMeta) -> TabLayoutRecord {
-        TabLayoutRecord {
-            doc_id: id,
-            lifecycle_gen: LifecycleGen(0),
-            meta,
-            view: ViewState {
-                cursor_byte: 3,
-                scroll_byte: 1,
-            },
-        }
-    }
-    fn assert_current(actual: &DocMeta, expected: &DocMeta) {
-        assert_eq!(actual.title, expected.title);
-        assert_eq!(actual.encoding, expected.encoding);
-        assert_eq!(actual.line_ending, expected.line_ending);
-        assert_eq!(actual.language_override, expected.language_override);
-    }
-
-    #[test]
-    fn newest_admitted_metadata_wins_in_both_worker_orders_with_saved_baseline() {
-        for commit_first in [false, true] {
-            for layout_first in [false, true] {
-                let mut fixture = Fixture::new();
-                let id = DocumentId::new();
-                let identity = ContentIdentity::of_rope(&Rope::from_str("previous save"));
-                let intent = SaveIntent {
-                    doc_id: id,
-                    lifecycle_gen: LifecycleGen(0),
-                    captured_rev: Revision(0),
-                    target_path: fixture._dir.path().join("saved.txt"),
-                    captured_identity: identity,
-                    captured_encoding: Some(EncodingSpec::Utf8Bom),
-                    captured_line_ending: Some(LineEnding::Lf),
-                    stage: SaveStage::Published,
-                    output_fingerprint: None,
-                };
-                record_intent(&mut fixture.conn, &intent, &fixture.handle.inner.faults).unwrap();
-                let commit_meta = current("rust", EncodingSpec::Utf8Bom, LineEnding::Crlf);
-                let layout_meta = current("python", EncodingSpec::Utf8, LineEnding::Lf);
-                let job = commit(id, 1, commit_meta.clone());
-                let tabs = vec![tab(id, layout_meta.clone())];
-                if commit_first {
-                    fixture.handle.try_commit(job).unwrap();
-                    fixture.handle.save_session_layout(tabs, Some(id)).unwrap();
-                } else {
-                    fixture.handle.save_session_layout(tabs, Some(id)).unwrap();
-                    fixture.handle.try_commit(job).unwrap();
-                }
-                if layout_first {
-                    fixture.apply_next_layout().unwrap();
-                    fixture.drain().unwrap();
-                } else {
-                    fixture.drain().unwrap();
-                    fixture.apply_next_layout().unwrap();
-                }
-                let expected = if commit_first {
-                    &layout_meta
-                } else {
-                    &commit_meta
-                };
-                let draft = hydrate(&fixture.conn, id).unwrap();
-                assert_current(&draft.meta, expected);
-                assert_eq!(draft.meta.saved_identity, Some(identity));
-                assert_eq!(draft.meta.saved_encoding, Some(EncodingSpec::Utf8Bom));
-                assert_eq!(draft.meta.saved_line_ending, Some(LineEnding::Lf));
-                assert_eq!(draft.rope, "committed text\n");
-                assert_eq!(draft.durable_rev, Revision(1));
-                let manifest = manifest(&fixture.conn, false).unwrap();
-                assert_current(&manifest.tabs[0].meta, expected);
-                assert_eq!(manifest.tabs[0].view.cursor_byte, 3);
-                fixture.assert_idle();
-            }
-        }
-    }
-
-    #[test]
-    fn applied_stamp_never_regresses_across_three_out_of_order_sources() {
-        let mut fixture = Fixture::new();
-        let id = DocumentId::new();
-        fixture
-            .handle
-            .save_session_layout(
-                vec![tab(id, current("old", EncodingSpec::Utf8, LineEnding::Lf))],
-                Some(id),
-            )
-            .unwrap();
-        fixture
-            .handle
-            .save_session_layout(
-                vec![tab(
-                    id,
-                    current("middle", EncodingSpec::Utf8, LineEnding::Crlf),
-                )],
-                Some(id),
-            )
-            .unwrap();
-        let newest = current("newest", EncodingSpec::Utf8Bom, LineEnding::Crlf);
-        fixture
-            .handle
-            .try_commit(commit(id, 1, newest.clone()))
-            .unwrap();
-        fixture.drain().unwrap();
-        let applied = fixture.handle.inner.mailbox.lock().unwrap().meta_state[&id].applied;
-        fixture.apply_next_layout().unwrap();
-        assert_eq!(
-            fixture.handle.inner.mailbox.lock().unwrap().meta_state[&id].applied,
-            applied
-        );
-        fixture.apply_next_layout().unwrap();
-        assert_current(&hydrate(&fixture.conn, id).unwrap().meta, &newest);
-        fixture.assert_idle();
-    }
-
-    #[test]
-    fn retry_keeps_original_stamp_and_newer_layout_survives() {
-        let mut fixture = Fixture::new();
-        let id = DocumentId::new();
-        fixture
-            .handle
-            .try_commit(commit(id, 1, DocMeta::default()))
-            .unwrap();
-        let seq = fixture.handle.inner.mailbox.lock().unwrap().pending[&id].meta_seq;
-        fixture
-            .handle
-            .inner
-            .faults
-            .arm(FaultPoint::RecoveryBeforeCommit);
-        assert_eq!(fixture.drain().unwrap_err().kind, ErrorKind::Injected);
-        {
-            let mailbox = fixture.handle.inner.mailbox.lock().unwrap();
-            assert_eq!(mailbox.pending[&id].meta_seq, seq);
-            assert_eq!(mailbox.meta_state[&id].outstanding, 1);
-            assert!(mailbox.meta_state[&id].applied.is_none());
-        }
-        let newest = current("python", EncodingSpec::Utf8Bom, LineEnding::Crlf);
-        fixture
-            .handle
-            .save_session_layout(vec![tab(id, newest.clone())], Some(id))
-            .unwrap();
-        fixture.apply_next_layout().unwrap();
-        fixture.drain().unwrap();
-        assert_current(&hydrate(&fixture.conn, id).unwrap().meta, &newest);
-        fixture.assert_idle();
-        let after_idle = current("rust", EncodingSpec::Utf8, LineEnding::Lf);
-        fixture
-            .handle
-            .try_commit(commit(id, 2, after_idle.clone()))
-            .unwrap();
-        fixture.drain().unwrap();
-        assert_current(&hydrate(&fixture.conn, id).unwrap().meta, &after_idle);
-        fixture.assert_idle();
-    }
-
-    #[test]
-    fn superseded_inflight_failure_releases_only_its_own_source() {
-        let mut fixture = Fixture::new();
-        let id = DocumentId::new();
-        fixture
-            .handle
-            .try_commit(commit(id, 1, DocMeta::default()))
-            .unwrap();
-        let (pending, preserve_meta) = take_pending(&fixture.handle.inner.mailbox, id).unwrap();
-        let newest = current("python", EncodingSpec::Utf8Bom, LineEnding::Crlf);
-        fixture
-            .handle
-            .try_commit(commit(id, 2, newest.clone()))
-            .unwrap();
-        assert_eq!(
-            fixture.handle.inner.mailbox.lock().unwrap().meta_state[&id].outstanding,
-            2
-        );
-        fixture
-            .handle
-            .inner
-            .faults
-            .arm(FaultPoint::RecoveryBeforeCommit);
-        let result = commit_one(
-            &mut fixture.conn,
-            &pending.commit,
-            preserve_meta,
-            &fixture.handle.inner.faults,
-            &mut fixture.cache,
-        );
-        assert_eq!(result.as_ref().unwrap_err().kind, ErrorKind::Injected);
-        finish_commit(&fixture.handle.inner.mailbox, pending, &result);
-        assert_eq!(
-            fixture.handle.inner.mailbox.lock().unwrap().meta_state[&id].outstanding,
-            1
-        );
-        fixture.drain().unwrap();
-        let draft = hydrate(&fixture.conn, id).unwrap();
-        assert_current(&draft.meta, &newest);
-        assert_eq!(draft.durable_rev, Revision(2));
-        fixture.assert_idle();
-    }
-
-    #[test]
-    fn failed_layout_transaction_does_not_advance_metadata_stamp() {
-        let mut fixture = Fixture::new();
-        let id = DocumentId::new();
-        let old = current("old", EncodingSpec::Utf8, LineEnding::Lf);
-        fixture
-            .handle
-            .try_commit(commit(id, 1, old.clone()))
-            .unwrap();
-        fixture
-            .handle
-            .save_session_layout(
-                vec![tab(
-                    id,
-                    current("failed", EncodingSpec::Utf8Bom, LineEnding::Crlf),
-                )],
-                Some(id),
-            )
-            .unwrap();
-        fixture
-            .conn
-            .execute_batch(
-                "CREATE TEMP TRIGGER reject_layout BEFORE INSERT ON session
-             BEGIN SELECT RAISE(ABORT, 'layout failure'); END;",
-            )
-            .unwrap();
-        assert_eq!(
-            fixture.apply_next_layout().unwrap_err().kind,
-            ErrorKind::Storage
-        );
-        {
-            let mailbox = fixture.handle.inner.mailbox.lock().unwrap();
-            assert_eq!(mailbox.meta_state[&id].outstanding, 1);
-            assert!(mailbox.meta_state[&id].applied.is_none());
-        }
-        fixture
-            .conn
-            .execute_batch("DROP TRIGGER reject_layout")
-            .unwrap();
-        fixture.drain().unwrap();
-        assert_current(&hydrate(&fixture.conn, id).unwrap().meta, &old);
-        fixture.assert_idle();
-    }
-
-    #[test]
-    fn metadata_refs_balance_on_coalescing_admission_failure_and_terminal_errors() {
-        let mut fixture = Fixture::new();
-        let id = DocumentId::new();
-        for _ in 0..32 {
-            fixture
-                .handle
-                .inner
-                .commands
-                .try_send(Command::Wake)
-                .unwrap();
-        }
-        let duplicate = tab(id, DocMeta::default());
-        assert_eq!(
-            fixture
-                .handle
-                .save_session_layout(vec![duplicate.clone(), duplicate], Some(id))
-                .unwrap_err()
-                .kind,
-            ErrorKind::Busy,
-        );
-        fixture.assert_idle();
-        assert_eq!(fixture.commands.try_iter().count(), 32);
-        fixture
-            .handle
-            .try_commit(commit(id, 1, DocMeta::default()))
-            .unwrap();
-        fixture
-            .handle
-            .try_commit(commit(id, 2, DocMeta::default()))
-            .unwrap();
-        assert_eq!(
-            fixture.handle.inner.mailbox.lock().unwrap().meta_state[&id].outstanding,
-            1
-        );
-        fixture.drain().unwrap();
-        fixture.assert_idle();
-        // Invalid SQLite revision is terminal, not a retained/re-stamped retry.
-        fixture
-            .handle
-            .try_commit(commit(id, u64::MAX, DocMeta::default()))
-            .unwrap();
-        assert_eq!(fixture.drain().unwrap_err().kind, ErrorKind::InvalidInput);
-        fixture.assert_idle();
-    }
-
-    #[test]
-    fn close_does_not_release_queued_sources_or_stamp_rejected_layouts() {
-        let mut fixture = Fixture::new();
-        let id = DocumentId::new();
-        fixture
-            .handle
-            .try_commit(commit(id, 1, DocMeta::default()))
-            .unwrap();
-        fixture
-            .handle
-            .save_session_layout(vec![tab(id, DocMeta::default())], Some(id))
-            .unwrap();
-        close(
-            &mut fixture.conn,
-            id,
-            LifecycleGen(1),
-            true,
-            &fixture.handle.inner.faults,
-        )
-        .unwrap();
-        assert_eq!(
-            fixture.handle.inner.mailbox.lock().unwrap().meta_state[&id].outstanding,
-            2
-        );
-        fixture.apply_next_layout().unwrap();
-        {
-            let mailbox = fixture.handle.inner.mailbox.lock().unwrap();
-            assert_eq!(mailbox.meta_state[&id].outstanding, 1);
-            assert!(mailbox.meta_state[&id].applied.is_none());
-        }
-        fixture.drain().unwrap();
-        fixture.assert_idle();
-    }
-
-    #[test]
-    fn missing_row_save_acknowledgement_uses_captured_current_format() {
-        let mut fixture = Fixture::new();
-        for captured in [false, true] {
-            let intent = SaveIntent {
-                doc_id: DocumentId::new(),
-                lifecycle_gen: LifecycleGen(0),
-                captured_rev: Revision(1),
-                target_path: fixture._dir.path().join("saved.txt"),
-                captured_identity: ContentIdentity::of_rope(&Rope::from_str("saved")),
-                captured_encoding: captured.then_some(EncodingSpec::Utf8Bom),
-                captured_line_ending: captured.then_some(LineEnding::Crlf),
-                stage: SaveStage::Published,
-                output_fingerprint: None,
-            };
-            record_intent(&mut fixture.conn, &intent, &fixture.handle.inner.faults).unwrap();
-            let json: String = fixture
-                .conn
-                .query_row(
-                    "SELECT meta FROM documents WHERE id=?1",
-                    [intent.doc_id.key()],
-                    |row| row.get(0),
-                )
-                .unwrap();
-            let meta: DocMeta = serde_json::from_str(&json).unwrap();
-            assert_eq!(meta.encoding, intent.captured_encoding.unwrap_or_default());
-            assert_eq!(
-                meta.line_ending,
-                intent.captured_line_ending.unwrap_or_default()
-            );
-            assert_eq!(meta.saved_encoding, intent.captured_encoding);
-            assert_eq!(meta.saved_line_ending, intent.captured_line_ending);
-        }
-    }
-}
+#[path = "recovery_order_tests.rs"]
+mod metadata_order_tests;

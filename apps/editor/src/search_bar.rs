@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use editor_services::{
     CancelToken, DocumentId, ErrorKind, QueryId, Revision, SearchAlgorithm, SearchEvent,
-    SearchMatch, SearchRequest, SearchService, SearchTarget, SearchTask, TryRecvError,
+    SearchMatch, SearchRequest, SearchService, SearchTarget, SearchTask, TryRecvError, ViewTarget,
 };
 use regex::RegexBuilder;
 use ropey::{LineType, Rope};
@@ -53,6 +53,7 @@ pub struct SearchSessionState {
 
     pub next_query_id: u64,
     pub active_query_id: Option<QueryId>,
+    pub target_view: Option<ViewTarget>,
     pub target_doc_id: Option<DocumentId>,
     pub target_editable_rev: Option<Revision>,
     pub last_query_text: String,
@@ -75,6 +76,7 @@ impl Default for SearchSessionState {
             algorithm: SearchAlgorithm::MemchrBaseline,
             next_query_id: 1,
             active_query_id: None,
+            target_view: None,
             target_doc_id: None,
             target_editable_rev: None,
             last_query_text: String::new(),
@@ -135,14 +137,15 @@ impl SearchSessionState {
     /// Prepares an asynchronous background Regex / Case-Insensitive scan (`U-B3`).
     pub fn begin_background_extended_search(
         &mut self,
-        doc_id: DocumentId,
+        target: ViewTarget,
         rev: Revision,
         pattern: &str,
     ) -> (QueryId, CancelToken) {
         self.cancel_active();
         self.matches.clear();
         self.selected_index = None;
-        self.target_doc_id = Some(doc_id);
+        self.target_view = Some(target);
+        self.target_doc_id = Some(target.document.doc_id);
         self.target_editable_rev = Some(rev);
         self.last_query_text = pattern.to_string();
 
@@ -206,6 +209,7 @@ impl SearchSessionState {
         self.matches.clear();
         self.selected_index = None;
         self.target_editable_rev = None;
+        self.target_view = None;
         self.status = SearchStatus::Idle;
     }
 
@@ -227,6 +231,7 @@ impl SearchSessionState {
     pub fn start_streaming_literal(
         &mut self,
         service: &SearchService,
+        view: ViewTarget,
         pattern: &str,
         target: SearchTarget,
     ) {
@@ -240,6 +245,7 @@ impl SearchSessionState {
             SearchTarget::PagedFile { handle, .. } => (handle.doc_id(), None),
         };
         self.target_doc_id = Some(doc_id);
+        self.target_view = Some(view);
         self.target_editable_rev = rev;
 
         if pattern.is_empty() {
@@ -694,7 +700,14 @@ mod tests {
 
         let doc_id = DocumentId::new();
         let mut session = SearchSessionState::default();
-        let (qid, token) = session.begin_background_extended_search(doc_id, Revision(3), "beta");
+        let target = ViewTarget {
+            view_id: editor_services::ViewId::new(),
+            document: editor_services::DocumentKey {
+                doc_id,
+                lifecycle_gen: editor_services::LifecycleGen(1),
+            },
+        };
+        let (qid, token) = session.begin_background_extended_search(target, Revision(3), "beta");
         assert!(session.is_running());
         assert!(!token.is_cancelled());
 
