@@ -1,6 +1,7 @@
 {
   "base_head": "e0f8d67274c692e2dbb67270ff3d63f3fcf1e7ee",
-  "source_note": "Uncommitted split implementation; base HEAD is not source identity",
+  "source_note": "Measured before commit; unchanged product source subsequently committed as source_commit",
+  "source_commit": "f1c1507170c7f4cb2499bee8ddec51cf05d06efa",
   "binary_sha256": {
     "target/release/editor": "59920d2470a641e62f9ce655b02f0c0904f755b41efa35de792df9015673de48",
     "target/release/editor-services": "342d41b91e91ed7f24a66db7013db0431ac754f6d1fe3f8d6fc6448d33ee2d85"

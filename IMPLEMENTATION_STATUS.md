@@ -21,7 +21,7 @@
 ## 当前交付
 
 - 默认原生应用 `target/release/editor` 可在本机运行；Kit-only、无NSH默认依赖。本轮工作区138个测试、release构建，以及最终二进制的完整、日常功能、标签组、分屏生命周期和100/1024标签多窗格原生smoke通过。
-- 公开仓库为[stabey/makeanotepad](https://github.com/stabey/makeanotepad)。标签组提交`734f8d3`的五目标CI全部通过，测试、release、CLI、架构/校验值检查及unsigned开发ZIP上传成功，见`docs/evidence/group-ci-final.json`。本轮新CI产物未下载运行；本地最终release的原生交互验证独立记录，不将构建通过等同跨平台GUI验收。
+- 公开仓库为[stabey/makeanotepad](https://github.com/stabey/makeanotepad)。分屏提交`f1c1507`的五目标CI全部通过，测试、release、CLI、架构/校验值检查及unsigned开发ZIP上传成功，见`docs/evidence/split-ci-final.json`。本轮新CI产物未下载运行；本地最终release的原生交互验证独立记录，不将构建通过等同跨平台GUI验收。
 - 普通文档：唯一EditorState权威、版本化原子编辑、同步程序化提交与原生事件匹配、NoOp、后台普通搜索/替换、高亮、主题、保存与草稿恢复。格式仅元数据修改也进入dirty/恢复保护，保存期间再改格式不会被旧保存确认抹掉。
 - 日常界面：默认打开文档/最近文件侧栏、命令面板、快速切换、语言/编码/换行/缩进选择、折行与空白显示、活动选区行编辑/注释、偏好持久化。自定义行命令不是全多光标操作，侧栏不是项目目录树。
 - 标签组与不同文档分屏：最多8窗格，四方向拆分、标签跨窗格拖放、尺寸调整/均分、焦点切换、关闭合并、仅显示焦点窗格与重启恢复已实现。关闭窗格不关闭文档；关闭窗格内标签另走草稿保护确认。真实窗口内事件覆盖取消/保留、输入/撤销/保存隔离及空窗格恢复，不等同物理HID或像素呈现验收。同文档独立多视图尚未实现。

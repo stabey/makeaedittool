@@ -175,3 +175,5 @@ CI设计与实现经`CiDesignReview`评审。`actionlint 1.7.12`发现并修复�
 - 100/1024标签×1/2/4/8窗格：24次startup、8次输入场景全部通过；每次实际测量可见窗格数量，不以逻辑树数量替代。额外100标签4窗格、最大1个hydrate预算场景通过，焦点优先且只有69,632 bytes正文。性能口径见性能报告。
 - 独立设计及最终UI复核无阻塞。应用窗口截图仍失败，诊断见`evidence/split-verifier-capture-failure.txt`；不宣称像素、物理HID/IME、Windows ARM GUI或性能通过。本轮未重跑64 GiB扫描。
 
+分屏提交`f1c1507170c7f4cb2499bee8ddec51cf05d06efa`的[五平台CI 42510374861](https://github.com/stabey/makeanotepad/actions/runs/42510374861)全部成功：macOS ARM/Intel、Windows ARM/x64、Linux x64，以及格式检查。五个平台均执行workspace测试、release构建、无窗口CLI、架构/校验值检查并上传unsigned开发ZIP；结构化结果见[evidence/split-ci-final.json](evidence/split-ci-final.json)。本轮未下载运行CI产物，不将其视为跨平台GUI验收。任务创建的分屏夹具数据库和失败smoke残留文件已清理，原始JSON/资源日志保留，默认用户数据未使用。
+
