@@ -159,3 +159,5 @@ CI设计与实现经`CiDesignReview`评审。`actionlint 1.7.12`发现并修复�
 3. 对抗审查发现未来布局额外字段可能被serde忽略，以及旧损坏快照可能在轮换时被清理。修复在写连接前检查两个布局头的未知字段，并在轮换前保存已知格式损坏原始字节；新增回归覆盖不改DB/WAL、事务回滚与两次写入后保留。针对性复审无剩余阻断；复审者未运行测试，测试由主协调者执行。
 
 外部AppleScript发送成功曾被验证器误报为操作成功，已撤回并纠正[group-final-ui-interactions.txt](evidence/group-final-ui-interactions.txt)。当时数据库仍为1000条Open，不能证明关闭或取消。上述最终验证改用窗口命中测试和实际状态断言；仍不宣称物理HID、真实IME或像素级呈现验收。桌面截屏全黑，ScreenCaptureKit窗口捕获失败`-3811`。
+
+首轮标签组CI [42494337544](https://github.com/stabey/makeanotepad/actions/runs/42494337544)：macOS Intel、Windows x64/ARM64和Linux完成测试、release、CLI及打包；macOS ARM在测试辅助函数中直接unwrap清单请求，遇到服务有界队列的正常Busy而失败。修复仅让该辅助函数沿用已有有界`admit`协议，不扩大生产队列、不忽略操作错误、不重跑碰运气；本地62个服务集成测试通过。原日志见[group-ci-first-failure.txt](evidence/group-ci-first-failure.txt)。

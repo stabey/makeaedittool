@@ -8,7 +8,7 @@ SHA-256: 42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8
 - screencapture -x captured a 5120x2880 surface containing 100% uniform black RGB(0,0,0) pixels across the frame.
 - ScreenCaptureKit desktopIndependentWindow capture attempted via macOS 15+ API:
   Result: Error Domain=com.apple.ScreenCaptureKit.SCStreamErrorDomain Code=-3811 "Failed to start stream due to audio/video capture failure"
-- Determination: Physical desktop rendering and pixel-level display remain strictly UNVERIFIED due to macOS display server session permissions / uncomposited headless video capture state. In accordance with role contract, no pixel-level visual claims are made.
+- Determination: Physical desktop rendering and pixel-level display remain strictly UNVERIFIED. The cause of the capture failure was not established; permissions or display state are not proven explanations.
 
 2. OS-Level Keystroke Injection via AppleScript: EFFECT NOT PROVEN
 - Fixture: .smoke-data/group-final-fixture-1000-keep/recovery.sqlite3 (1000 drafts in Group 0).
@@ -38,7 +38,7 @@ SHA-256: 42d527e7e7e1d180678afeaeaf25337d66d0c8950b526c1fb722fc0fa63cc0b8
 
 6. Drag Cancellation via Workspace Escape: NOT EXECUTED
 - Drag interactions were inspected in source code (apps/editor/src/group_ui.rs:432-436), but interactive pointer drag was NOT executed via physical HID hardware.
-- Fact: Source code inspection is NOT execution. Drag and drop remains UNVERIFIED.
+- Fact: Source code inspection is NOT execution. This intermediate external-input attempt did not verify drag and drop; later native event evidence is recorded separately in group-accepted-groups.json and group-accepted-bulk.json.
 
 7. Boundary Summary:
 - Dispatched AppleScript IPC keystrokes did NOT produce proven state transitions.

@@ -78,7 +78,7 @@ fn persist_test_layout(
     layout: &SessionLayout,
     changes: Vec<DocumentChange>,
 ) -> LayoutRevision {
-    let base = receive(service.request_manifest().unwrap()).layout_revision;
+    let base = receive(admit(|| service.request_manifest())).layout_revision;
     receive(admit(|| {
         service.write_session(SessionWrite {
             sequence: LayoutSeq(1),
