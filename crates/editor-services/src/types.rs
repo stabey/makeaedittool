@@ -122,7 +122,7 @@ impl FileFingerprint {
         }
     }
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DocMeta {
     pub title: String,
     pub path: Option<PathBuf>,

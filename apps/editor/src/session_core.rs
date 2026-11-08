@@ -3,12 +3,26 @@ use editor_services::RecoveryEntryOrigin;
 use editor_services::{
     CloseAck, CloseBatch, CloseDisposition, CloseEntry, ClosedViewPage, DocumentChange,
     DocumentMetaRecord, GroupCommand, GroupCommandResult, LayoutAck, LayoutPayload, LayoutRevision,
-    LayoutSeq, LayoutView, MAX_SESSION_VIEWS, RecoveryCatalogSummary, RecoveryCursor,
+    LayoutSeq, LayoutView, MAX_SESSION_VIEWS, MAX_SPLIT_RATIO_BPS, MIN_SPLIT_RATIO_BPS,
+    PaneCommand, PaneCommandResult, PaneId, RecoveryCatalogSummary, RecoveryCursor,
     RecoveryEntryKey, RecoveryPage, RecoveryPageRequest, ReloadReplacement, Reply, SessionWrite,
-    save_document_copy,
+    SplitNodeId, save_document_copy,
 };
 use gpui_kit::component::button::Button;
 use gpui_kit::component::h_flex;
+
+#[derive(Default)]
+pub(super) struct PaneRuntime {
+    focus_only: bool,
+    compact: bool,
+    resize: Option<PaneResize>,
+}
+#[derive(Clone, Copy)]
+struct PaneResize {
+    split: SplitNodeId,
+    original_ratio: u16,
+    preview_ratio: u16,
+}
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RecoveryBrowserState {
@@ -152,11 +166,44 @@ impl EditorWorkspace {
     pub(crate) fn session_layout(&self) -> &SessionLayout {
         &self.session
     }
-    pub(crate) fn ordered_view_ids(&self) -> &[ViewId] {
-        &self.session.pane().tabs
+    pub(crate) fn active_pane_id(&self) -> PaneId {
+        self.session.active_pane_id()
+    }
+    pub(crate) fn pane_view_ids(&self, pane: PaneId) -> Option<&[ViewId]> {
+        self.session.pane(pane).map(|pane| pane.tabs.as_slice())
+    }
+    pub(crate) fn pane_active_target(&self, pane: PaneId) -> Option<ViewTarget> {
+        self.session
+            .pane(pane)?
+            .active_view
+            .and_then(|id| self.view_target(id))
+    }
+    pub(crate) fn all_view_ids(&self) -> impl Iterator<Item = ViewId> {
+        self.session.view_ids()
+    }
+    pub(crate) fn visible_pane_ids(&self) -> impl Iterator<Item = PaneId> {
+        self.session
+            .panes()
+            .map(|pane| pane.id)
+            .filter(move |pane| self.is_pane_visible(*pane))
+    }
+    pub(crate) fn visible_targets(&self) -> impl Iterator<Item = ViewTarget> {
+        self.visible_pane_ids()
+            .filter_map(move |pane| self.pane_active_target(pane))
+    }
+    pub(crate) fn is_pane_visible(&self, pane: PaneId) -> bool {
+        self.session.pane(pane).is_some()
+            && (!(self.pane_runtime.focus_only || self.pane_runtime.compact)
+                || pane == self.active_pane_id())
+    }
+    pub(crate) fn is_focus_only(&self) -> bool {
+        self.pane_runtime.focus_only
+    }
+    pub(crate) fn is_compact_layout(&self) -> bool {
+        self.pane_runtime.compact
     }
     pub(crate) fn active_view_id(&self) -> Option<ViewId> {
-        self.session.pane().active_view
+        self.session.active_view_id()
     }
     pub(crate) fn view_target(&self, view: ViewId) -> Option<ViewTarget> {
         self.session.target(view)
@@ -205,6 +252,9 @@ impl EditorWorkspace {
     pub(crate) fn pending_lifecycle_sequence(&self) -> Option<u64> {
         self.pending_lifecycle.as_ref().map(|p| p.sequence)
     }
+    pub(crate) fn layout_write_count(&self) -> u64 {
+        self.persistence.sequence
+    }
     pub(crate) fn palette_origin(&self) -> Option<OverlayOrigin> {
         self.palette_prior_origin
     }
@@ -221,6 +271,7 @@ impl EditorWorkspace {
             OverlayFocus::Workspace
         };
         OverlayOrigin {
+            pane: self.active_pane_id(),
             view: self.active_view_id().and_then(|id| self.view_target(id)),
             focus,
         }
@@ -231,6 +282,20 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if !self.is_lifecycle_busy() {
+            if let Some(target) = origin
+                .view
+                .filter(|target| self.session.resolve(*target).is_ok())
+            {
+                if self.active_view_id() != Some(target.view_id) {
+                    self.activate_view(target, window, cx);
+                }
+            } else if self.session.pane(origin.pane).is_some()
+                && self.active_pane_id() != origin.pane
+            {
+                let _ = self.activate_pane(origin.pane, window, cx);
+            }
+        }
         match origin.focus {
             OverlayFocus::SearchQuery if self.search.visible => self
                 .search_query_input
@@ -243,18 +308,7 @@ impl EditorWorkspace {
                     .focus_handle(cx)
                     .focus(window, cx)
             }
-            _ => {
-                if let Some(target) = origin.view.filter(|t| self.session.resolve(*t).is_ok()) {
-                    if self.active_view_id() != Some(target.view_id) && !self.is_lifecycle_busy() {
-                        self.activate_view(target, window, cx);
-                    }
-                    if let Some(TabSlot::Editable(ed)) = self.view_slot(target.view_id) {
-                        ed.focus(window, cx);
-                        return;
-                    }
-                }
-                self.focus_handle.focus(window, cx);
-            }
+            _ => self.focus_active(window, cx),
         }
     }
     pub(super) fn notify_error(
@@ -337,7 +391,7 @@ impl EditorWorkspace {
         }
     }
     pub(crate) fn capture_session_view_states(&mut self, cx: &App) {
-        let views = self.ordered_view_ids().to_vec();
+        let views = self.all_view_ids().collect::<Vec<_>>();
         for id in views {
             self.capture_view(id, cx);
         }
@@ -460,7 +514,6 @@ impl EditorWorkspace {
             .sum()
     }
     fn collect_hydrated_slots(&self, cx: &App) -> Vec<HydratedSlotInfo> {
-        let active = self.active_document_id();
         self.documents
             .values()
             .filter_map(|s| match s {
@@ -472,7 +525,9 @@ impl EditorWorkspace {
                     is_dirty: ed.is_dirty() || ed.has_pending_native_edit(cx),
                     has_undo_history: ed.has_undo_history(),
                     is_file_backed: ed.meta.path.is_some(),
-                    is_active: active == Some(ed.doc_id),
+                    is_visible: self
+                        .visible_targets()
+                        .any(|target| target.document.doc_id == ed.doc_id),
                     last_activated_tick: ed.last_activated_tick,
                 }),
                 _ => None,
@@ -481,7 +536,10 @@ impl EditorWorkspace {
     }
     fn dehydrate_clean_documents(&mut self, ids: &[DocumentId], cx: &mut Context<Self>) {
         for id in ids {
-            if self.active_document_id() == Some(*id) {
+            if self
+                .visible_targets()
+                .any(|target| target.document.doc_id == *id)
+            {
                 continue;
             }
             let Some(TabSlot::Editable(ed)) = self.documents.get(id) else {
@@ -543,7 +601,7 @@ impl EditorWorkspace {
             cx,
         );
         adapter.has_checkpoint = stub.has_checkpoint;
-        adapter.attach_subscription(self.subscribe_editor(&adapter, target, cx));
+        adapter.attach_subscription(self.subscribe_editor(&adapter, target, window, cx));
         adapter
     }
     pub(crate) fn create_untitled_tab(
@@ -601,6 +659,7 @@ impl EditorWorkspace {
             };
         self.session
             .insert_view(
+                self.active_pane_id(),
                 LayoutView {
                     id,
                     document: target.document,
@@ -620,7 +679,7 @@ impl EditorWorkspace {
         cx.notify();
         Some(target)
     }
-    fn focus_active(&self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn focus_active(&self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(TabSlot::Editable(ed)) = self.active_slot() {
             ed.focus(window, cx);
         } else {
@@ -633,53 +692,334 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.is_lifecycle_busy() {
-            self.notify_error(
-                failure(
-                    ErrorKind::Busy,
-                    "Selection is frozen during the lifecycle operation",
-                ),
+        let result = (|| {
+            self.resolve_slot(target)?;
+            let pane = self
+                .session
+                .pane_for_view(target.view_id)
+                .ok_or_else(|| failure(ErrorKind::Stale, "View is no longer placed"))?;
+            self.apply_pane_command(
+                PaneCommand::Activate {
+                    pane,
+                    view: Some(target),
+                },
                 window,
                 cx,
-            );
-            return;
+            )?;
+            Ok::<_, ServiceError>(())
+        })();
+        if let Err(error) = result {
+            self.notify_error(error, window, cx);
         }
-        if let Err(e) = self.resolve_slot(target) {
-            self.notify_error(e, window, cx);
-            return;
+    }
+    pub(crate) fn activate_pane(
+        &mut self,
+        pane: PaneId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<(), ServiceError> {
+        self.apply_pane_command(PaneCommand::Activate { pane, view: None }, window, cx)
+            .map(|_| ())
+    }
+    pub(crate) fn apply_pane_command(
+        &mut self,
+        command: PaneCommand,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<PaneCommandResult, ServiceError> {
+        if self.is_lifecycle_busy() {
+            return Err(failure(
+                ErrorKind::Busy,
+                "Selection and layout are frozen during lifecycle work",
+            ));
         }
-        if let Some(old) = self.active_view_id() {
-            self.capture_view(old, cx);
-            if let Some(TabSlot::Editable(ed)) = self.view_slot(old) {
-                ed.clear_search_highlights(cx);
+        let activation = matches!(command, PaneCommand::Activate { .. });
+        let ratio_only = matches!(
+            command,
+            PaneCommand::SetRatio { .. } | PaneCommand::Equalize
+        );
+        if !activation
+            && (self.recovery.is_none()
+                || self.persistence.revision.is_none()
+                || self.persistence.failed)
+        {
+            return Err(failure(
+                ErrorKind::Storage,
+                "Pane changes require available session persistence",
+            ));
+        }
+        let old = self.active_view_id().and_then(|id| self.view_target(id));
+        let result = self.session.apply_pane_command(command)?;
+        if result.changed {
+            self.pane_runtime.resize = None;
+            self.persistence.structural |= result.views_changed;
+            self.layout_dirty = true;
+        }
+        if activation || result.changed {
+            if !ratio_only {
+                self.finish_target_switch(old, window, cx);
             }
+            cx.notify();
         }
-        if let Some(old) = self.active_document_id() {
-            self.flush_document_commit(old);
+        Ok(result)
+    }
+    pub(super) fn clear_target_highlights(
+        &mut self,
+        target: Option<ViewTarget>,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(target) = target else { return };
+        if self.session.resolve(target).is_err() {
+            return;
         }
-        self.search.clear_results();
-        self.session.pane_mut().active_view = Some(target.view_id);
-        self.layout_dirty = true;
-        self.rebuild_search_item_sizes();
+        match self.documents.get_mut(&target.document.doc_id) {
+            Some(TabSlot::Editable(ed)) => ed.clear_search_highlights(cx),
+            Some(TabSlot::Paged(pv)) => pv.highlighted_byte_range = None,
+            _ => {}
+        }
+    }
+    fn finish_target_switch(
+        &mut self,
+        old: Option<ViewTarget>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let next = self.active_view_id().and_then(|id| self.view_target(id));
+        if old != next {
+            if let Some(old) = old {
+                self.capture_view(old.view_id, cx);
+                self.flush_document_commit(old.document.doc_id);
+            }
+            self.clear_target_highlights(old, cx);
+            self.clear_target_highlights(self.search.target_view, cx);
+            self.search.cancel_active();
+            self.search.clear_results();
+            self.search.target_view = None;
+            self.rebuild_search_item_sizes();
+        }
         let prefs = self.current_view_prefs();
         self.activation_clock = self.activation_clock.saturating_add(1);
-        match self.documents.get_mut(&target.document.doc_id) {
-            Some(TabSlot::Editable(ed)) => {
+        if let Some(target) = next {
+            if let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&target.document.doc_id) {
                 ed.last_activated_tick = self.activation_clock;
                 ed.apply_view_prefs(prefs, window, cx);
-                ed.focus(window, cx);
             }
-            Some(TabSlot::Dehydrated(_)) => self.retry_view_hydration(target, window, cx),
-            Some(TabSlot::Paged(pv)) if pv.current_slice.is_none() && !pv.is_loading => {
-                let anchor = pv.current_anchor_byte;
-                self.request_paged_viewport(target, ViewportAnchor::ByteOffset(anchor), window, cx);
-            }
-            _ => self.focus_handle.focus(window, cx),
         }
-        if self.search.visible {
+        self.focus_active(window, cx);
+        self.hydrate_visible_panes(window, cx);
+        if old != next && self.search.visible {
             self.run_search_from_inputs(window, cx);
         }
+    }
+    pub(crate) fn cycle_pane(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<(), ServiceError> {
+        let count = self.session.panes().count();
+        let position = self
+            .session
+            .panes()
+            .position(|p| p.id == self.active_pane_id())
+            .unwrap();
+        let next = if forward {
+            (position + 1) % count
+        } else {
+            (position + count - 1) % count
+        };
+        let pane = self.session.panes().nth(next).unwrap().id;
+        self.activate_pane(pane, window, cx)
+    }
+    pub(crate) fn set_focus_only(
+        &mut self,
+        enabled: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.pane_runtime.focus_only != enabled {
+            self.pane_runtime.focus_only = enabled;
+            self.pane_runtime.resize = None;
+            self.apply_view_preferences_to_visible(window, cx);
+            self.hydrate_visible_panes(window, cx);
+            cx.notify();
+        }
+    }
+    pub(crate) fn set_compact_layout(
+        &mut self,
+        enabled: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.pane_runtime.compact != enabled {
+            self.pane_runtime.compact = enabled;
+            self.pane_runtime.resize = None;
+            self.apply_view_preferences_to_visible(window, cx);
+            self.hydrate_visible_panes(window, cx);
+            cx.notify();
+        }
+    }
+    pub(crate) fn begin_pane_resize(
+        &mut self,
+        split: SplitNodeId,
+        _cx: &mut Context<Self>,
+    ) -> Result<(), ServiceError> {
+        if self.is_lifecycle_busy() {
+            return Err(failure(ErrorKind::Busy, "Layout is frozen"));
+        }
+        if self.recovery.is_none() || self.persistence.revision.is_none() || self.persistence.failed
+        {
+            return Err(failure(
+                ErrorKind::Storage,
+                "Pane changes require available session persistence",
+            ));
+        }
+        let ratio = self
+            .session
+            .split_ratio(split)
+            .ok_or_else(|| failure(ErrorKind::Stale, "Split no longer exists"))?;
+        self.pane_runtime.resize = Some(PaneResize {
+            split,
+            original_ratio: ratio,
+            preview_ratio: ratio,
+        });
+        Ok(())
+    }
+    pub(crate) fn update_pane_resize(
+        &mut self,
+        split: SplitNodeId,
+        ratio_bps: u16,
+        cx: &mut Context<Self>,
+    ) -> Result<(), ServiceError> {
+        if self.is_lifecycle_busy() {
+            self.pane_runtime.resize = None;
+            return Err(failure(ErrorKind::Busy, "Layout is frozen"));
+        }
+        if !(MIN_SPLIT_RATIO_BPS..=MAX_SPLIT_RATIO_BPS).contains(&ratio_bps) {
+            return Err(failure(ErrorKind::InvalidInput, "Split ratio out of range"));
+        }
+        let resize = self
+            .pane_runtime
+            .resize
+            .as_mut()
+            .filter(|r| r.split == split)
+            .ok_or_else(|| failure(ErrorKind::Stale, "Resize gesture no longer exists"))?;
+        if self.session.split_ratio(split) != Some(resize.original_ratio) {
+            self.pane_runtime.resize = None;
+            return Err(failure(ErrorKind::Stale, "Split changed during resize"));
+        }
+        resize.preview_ratio = ratio_bps;
         cx.notify();
+        Ok(())
+    }
+    pub(crate) fn active_pane_resize(&self) -> Option<SplitNodeId> {
+        self.pane_runtime.resize.map(|resize| resize.split)
+    }
+    pub(crate) fn cancel_pane_resize(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.pane_runtime.resize.take().is_some() {
+            cx.notify();
+            true
+        } else {
+            false
+        }
+    }
+    pub(crate) fn finish_pane_resize(
+        &mut self,
+        commit: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<(), ServiceError> {
+        let Some(resize) = self.pane_runtime.resize.take() else {
+            return Ok(());
+        };
+        cx.notify();
+        if commit {
+            self.apply_pane_command(
+                PaneCommand::SetRatio {
+                    split: resize.split,
+                    expected_ratio_bps: resize.original_ratio,
+                    ratio_bps: resize.preview_ratio,
+                },
+                window,
+                cx,
+            )?;
+        }
+        Ok(())
+    }
+    pub(crate) fn pane_split_ratio(&self, split: SplitNodeId) -> Option<u16> {
+        self.pane_runtime
+            .resize
+            .filter(|resize| resize.split == split)
+            .map(|resize| resize.preview_ratio)
+            .or_else(|| self.session.split_ratio(split))
+    }
+    pub(crate) fn hydrate_visible_panes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_lifecycle_busy() {
+            return;
+        }
+        // One automatic hydration globally; a visibility change cannot admit a
+        // second candidate ahead of the already scheduled focused document.
+        loop {
+            let next = std::iter::once(self.pane_active_target(self.active_pane_id()))
+                .flatten()
+                .chain(
+                    self.visible_targets()
+                        .filter(|target| Some(target.view_id) != self.active_view_id()),
+                )
+                .find(|target| {
+                    matches!(
+                        self.view_slot(target.view_id),
+                        Some(TabSlot::Dehydrated(_) | TabSlot::Hydrating { .. })
+                    )
+                });
+            if !self.hydration_requests.is_empty() {
+                break;
+            }
+            let Some(target) = next else { break };
+            if matches!(
+                self.view_slot(target.view_id),
+                Some(TabSlot::Hydrating { .. })
+            ) {
+                break;
+            }
+            self.retry_view_hydration(target, window, cx);
+            if matches!(self.view_slot(target.view_id), Some(TabSlot::Dehydrated(_))) {
+                break;
+            }
+        }
+        let mut paged = [None; editor_services::MAX_PANES];
+        let mut count = 0;
+        for target in self.visible_targets() {
+            if let Some(TabSlot::Paged(pv)) = self.view_slot(target.view_id)
+                && pv.current_slice.is_none()
+                && !pv.is_loading
+                && pv.source_error.is_none()
+            {
+                paged[count] = Some((target, pv.current_anchor_byte));
+                count += 1;
+            }
+        }
+        for (target, anchor) in paged.into_iter().flatten() {
+            self.request_paged_viewport(target, ViewportAnchor::ByteOffset(anchor), window, cx);
+        }
+    }
+    pub(crate) fn request_close_pane_tabs(
+        &mut self,
+        pane: PaneId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(pane) = self.session.pane(pane) else {
+            return;
+        };
+        let targets = pane
+            .tabs
+            .iter()
+            .filter_map(|id| self.view_target(*id))
+            .collect::<Vec<_>>();
+        if !targets.is_empty() {
+            self.request_close_targets(targets, window, cx);
+        }
     }
     pub(super) fn flush_document_commit(&mut self, id: DocumentId) {
         if !self.document_commit_admissible(id) {
@@ -819,7 +1159,9 @@ impl EditorWorkspace {
                         self.make_adapter(target, stub, Rope::new(), true, false, view, window, cx);
                     self.documents
                         .insert(target.document.doc_id, TabSlot::Editable(adapter));
-                    self.focus_active(window, cx);
+                    if self.active_view_id() == Some(target.view_id) {
+                        self.focus_active(window, cx);
+                    }
                 }
                 AdmissionDecision::OverBudget { reason, .. } => {
                     self.documents
@@ -837,10 +1179,6 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let stub = match self.resolve_slot(target) {
-            Ok(TabSlot::Hydrating { stub, req_seq }) if *req_seq == seq => stub.clone(),
-            _ => return,
-        };
         if self.is_lifecycle_busy() {
             self.deferred_completions
                 .push(DeferredCompletion::Hydrated {
@@ -851,6 +1189,13 @@ impl EditorWorkspace {
             return;
         }
         self.finish_hydration(target, seq);
+        let stub = match self.resolve_slot(target) {
+            Ok(TabSlot::Hydrating { stub, req_seq }) if *req_seq == seq => stub.clone(),
+            _ => {
+                self.hydrate_visible_panes(window, cx);
+                return;
+            }
+        };
         match result {
             Ok(draft)
                 if draft.doc_id == target.document.doc_id
@@ -914,14 +1259,18 @@ impl EditorWorkspace {
         }
         if self.active_view_id() == Some(target.view_id) {
             self.focus_active(window, cx);
+            if self.search.visible {
+                self.run_search_from_inputs(window, cx);
+            }
         }
+        self.hydrate_visible_panes(window, cx);
         cx.notify();
     }
     pub fn open_path(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         self.open_paths(vec![path], window, cx);
     }
     fn sole_untouched_scratch(&self, cx: &App) -> Option<ViewTarget> {
-        if self.session.views.len() != 1 {
+        if self.session.views.len() != 1 || self.session.panes().count() != 1 {
             return None;
         }
         let target = self.active_view_id().and_then(|id| self.view_target(id))?;
@@ -1015,26 +1364,26 @@ impl EditorWorkspace {
         if accepted.is_empty() {
             return;
         }
-        self.pending_open_group = Some(group);
+        self.pending_open_placement = Some((self.active_pane_id(), group));
         self.pending_open_paths = accepted;
         self.drain_open_paths(window, cx);
     }
     fn drain_open_paths(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         while !self.is_lifecycle_busy() {
             let Some(path) = self.pending_open_paths.pop_front() else {
-                self.pending_open_group = None;
+                self.pending_open_placement = None;
                 return;
             };
-            let group = self
-                .pending_open_group
-                .expect("accepted open batch owns its invocation group");
-            self.open_batch_path(path, group, window, cx);
+            let (pane, group) = self
+                .pending_open_placement
+                .expect("accepted open batch owns its invocation pane and group");
+            self.open_batch_path(path, pane, group, window, cx);
         }
     }
     fn cancel_open_batch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let remaining = self.pending_open_paths.len();
         self.pending_open_paths.clear();
-        self.pending_open_group = None;
+        self.pending_open_placement = None;
         if remaining > 0 {
             self.notify_error(
                 failure(
@@ -1049,10 +1398,19 @@ impl EditorWorkspace {
     fn open_batch_path(
         &mut self,
         path: PathBuf,
+        pane: PaneId,
         group: GroupId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.session.pane(pane).is_none() || self.session.group(group).is_none() {
+            self.notify_error(
+                failure(ErrorKind::Stale, "Open destination no longer exists"),
+                window,
+                cx,
+            );
+            return;
+        }
         if let Some(target) = self
             .session
             .views
@@ -1152,6 +1510,7 @@ impl EditorWorkspace {
                 .remove(&scratch.document.doc_id);
         }
         if let Err(error) = self.session.insert_view(
+            pane,
             LayoutView {
                 id: target.view_id,
                 document: key,
@@ -1180,7 +1539,7 @@ impl EditorWorkspace {
         let (used, count) = slots
             .into_iter()
             .filter(|s| Some(s.doc_id) != exclude)
-            .filter(|s| s.is_active || s.is_dirty || s.has_undo_history || !s.is_file_backed)
+            .filter(|s| s.is_visible || s.is_dirty || s.has_undo_history || !s.is_file_backed)
             .fold((0u64, 0usize), |(bytes, count), slot| {
                 (bytes.saturating_add(slot.byte_len), count + 1)
             });
@@ -1348,10 +1707,6 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let stub = match self.resolve_slot(target) {
-            Ok(TabSlot::Hydrating { stub, req_seq }) if *req_seq == seq => stub.clone(),
-            _ => return,
-        };
         if self.is_lifecycle_busy() {
             self.deferred_completions.push(DeferredCompletion::Disk {
                 target,
@@ -1363,6 +1718,13 @@ impl EditorWorkspace {
             return;
         }
         self.finish_hydration(target, seq);
+        let stub = match self.resolve_slot(target) {
+            Ok(TabSlot::Hydrating { stub, req_seq }) if *req_seq == seq => stub.clone(),
+            _ => {
+                self.hydrate_visible_panes(window, cx);
+                return;
+            }
+        };
         if mru {
             if let Some(other) = self
                 .session
@@ -1384,6 +1746,7 @@ impl EditorWorkspace {
                 self.documents.remove(&target.document.doc_id);
                 self.persistence.metadata.remove(&target.document.doc_id);
                 self.persistence.structural = true;
+                self.layout_dirty = true;
                 self.activate_view(other, window, cx);
                 return;
             }
@@ -1395,8 +1758,11 @@ impl EditorWorkspace {
         });
         match result {
             Ok(slot) => {
+                let metadata_changed = slot.meta() != &stub.meta;
                 self.documents.insert(target.document.doc_id, slot);
-                self.mark_metadata(target.document.doc_id, PendingDocChangeKind::Update);
+                if metadata_changed {
+                    self.mark_metadata(target.document.doc_id, PendingDocChangeKind::Update);
+                }
                 if mru {
                     self.record_recent_file(path, window, cx);
                 }
@@ -1448,7 +1814,11 @@ impl EditorWorkspace {
         }
         if self.active_view_id() == Some(target.view_id) {
             self.focus_active(window, cx);
+            if self.search.visible {
+                self.run_search_from_inputs(window, cx);
+            }
         }
+        self.hydrate_visible_panes(window, cx);
         cx.notify();
     }
     pub(crate) fn request_paged_viewport(
@@ -1570,12 +1940,7 @@ impl EditorWorkspace {
                     }
                 }
                 this.open_paths(files,window,cx);
-                if !this.is_lifecycle_busy()
-                    && let Some(target)=this.active_view_id().and_then(|id|this.view_target(id))
-                    && matches!(this.view_slot(target.view_id),Some(TabSlot::Dehydrated(_)))
-                {
-                    this.retry_view_hydration(target,window,cx);
-                }
+                this.hydrate_visible_panes(window,cx);
                 cx.notify();
             });
         }).detach();
@@ -1593,21 +1958,24 @@ impl EditorWorkspace {
             window.push_notification(Notification::warning(warning.message), cx);
         }
         let untouched = self.sole_untouched_scratch(cx).is_some();
-        let early = if untouched && !manifest.layout.views.is_empty() {
+        let early = if untouched
+            && (!manifest.layout.views.is_empty() || manifest.layout.panes().count() > 1)
+        {
             self.documents.clear();
             self.persistence.metadata.clear();
             SessionLayout::default()
         } else {
             std::mem::take(&mut self.session)
         };
-        let early_active = early.pane().active_view;
+        let early_active = early.active_view_id();
         let mut layout = manifest.layout;
         let mut deferred = 0u64;
         let capacity = MAX_SESSION_VIEWS.saturating_sub(early.views.len());
         if layout.views.len() > capacity {
-            let targets = layout.pane().tabs[capacity..]
-                .iter()
-                .filter_map(|id| layout.target(*id))
+            let targets = layout
+                .view_ids()
+                .skip(capacity)
+                .filter_map(|id| layout.target(id))
                 .collect::<Vec<_>>();
             deferred = targets.len() as u64;
             let _ = layout.remove_views(&targets);
@@ -1619,22 +1987,24 @@ impl EditorWorkspace {
                     .insert(stub.doc_id, TabSlot::Dehydrated(stub));
             }
         }
-        for id in early.pane().tabs.iter().rev() {
+        let recovered_pane = layout.active_pane_id();
+        for id in early.active_pane().tabs.iter().rev() {
             let mut view = early.views[id].clone();
             view.group_id = GroupId::UNGROUPED;
-            let _ = layout.insert_view(view, Some(0), false);
+            let _ = layout.insert_view(recovered_pane, view, Some(0), false);
         }
         if early_active.is_some() {
-            layout.pane_mut().active_view = early_active;
+            layout.pane_mut(recovered_pane).unwrap().active_view = early_active;
         }
         self.session = layout;
-        self.persistence.structural = true;
-        self.layout_dirty = true;
+        let needs_write = !early.views.is_empty() || deferred > 0 || manifest.repaired_or_fallback;
+        self.persistence.structural = needs_write;
+        self.layout_dirty = needs_write;
         self.recovery_browser.deferred_on_restore = deferred;
         if hydrate_active {
-            if let Some(target) = self.active_view_id().and_then(|id| self.view_target(id)) {
-                self.activate_view(target, window, cx);
-            }
+            self.finish_target_switch(None, window, cx);
+        } else {
+            self.focus_active(window, cx);
         }
     }
 }
@@ -1958,6 +2328,7 @@ impl EditorWorkspace {
             ));
         }
         let sequence = self.next_operation()?;
+        self.pane_runtime.resize = None;
         let mut frozen = Vec::with_capacity(targets.len());
         for target in targets {
             self.capture_view(target.view_id, cx);
@@ -2039,9 +2410,8 @@ impl EditorWorkspace {
             return;
         }
         let targets = self
-            .ordered_view_ids()
-            .iter()
-            .filter_map(|id| self.session.view(*id))
+            .all_view_ids()
+            .filter_map(|id| self.session.view(id))
             .filter(|v| v.group_id == group)
             .map(|v| ViewTarget {
                 view_id: v.id,
@@ -2472,6 +2842,7 @@ impl EditorWorkspace {
             if flight.disconnected {
                 self.cancel_open_batch(window, cx);
                 self.persistence.failed = true;
+                self.pane_runtime.resize = None;
                 if flight.original_readonly.is_none() {
                     let mut originals = Vec::new();
                     for slot in self.documents.values_mut() {
@@ -2742,6 +3113,7 @@ impl EditorWorkspace {
             }
             match result {
                 Ok((ack, closed)) => {
+                    let outgoing = self.active_view_id().and_then(|id| self.view_target(id));
                     let after = match &p.phase {
                         LifecyclePhase::Closing { after, .. }
                         | LifecyclePhase::Replacing { after, .. } => after.clone(),
@@ -2819,7 +3191,6 @@ impl EditorWorkspace {
                     self.persistence.structural = false;
                     self.layout_dirty = !self.persistence.metadata.is_empty();
                     self.restore_readonly(p.original_readonly, cx);
-                    self.search.clear_results();
                     if let Some((target, record_mru)) = replacement {
                         if record_mru
                             && let Some(slot) = self.view_slot(target.view_id)
@@ -2839,12 +3210,7 @@ impl EditorWorkspace {
                             );
                         }
                     }
-                    if let Some(target) = self.active_view_id().and_then(|id| self.view_target(id))
-                    {
-                        if matches!(self.view_slot(target.view_id), Some(TabSlot::Dehydrated(_))) {
-                            self.retry_view_hydration(target, window, cx);
-                        }
-                    }
+                    self.finish_target_switch(outgoing, window, cx);
                     self.finish_lifecycle(window, cx);
                     return;
                 }
@@ -2909,6 +3275,7 @@ impl EditorWorkspace {
                         has_checkpoint: false,
                     };
                     after.insert_view(
+                        after.active_pane_id(),
                         LayoutView {
                             id: ViewId::new(),
                             document: stub.key(),
@@ -3204,7 +3571,13 @@ impl EditorWorkspace {
             view_id: ViewId::new(),
             document: stub.key(),
         };
+        let pane = placement
+            .as_ref()
+            .map(|p| p.pane_id)
+            .filter(|id| self.session.pane(*id).is_some())
+            .unwrap_or(self.active_pane_id());
         if let Err(e) = self.session.insert_view(
+            pane,
             LayoutView {
                 id: target.view_id,
                 document: target.document,
@@ -3569,6 +3942,7 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
+        self.cancel_pane_resize(cx);
         if self.shutting_down {
             return true;
         }

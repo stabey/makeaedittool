@@ -183,11 +183,12 @@ fn run() -> Result<()> {
                 .map(|s| s.parse())
                 .transpose()?
                 .unwrap_or(views.min(8));
+            let panes = args.get(4).map(|s| s.parse()).transpose()?.unwrap_or(1);
             std::fs::create_dir_all(directory)?;
             let database = directory.join("recovery.sqlite3");
-            create_session_fixture(&database, views, groups)?;
+            create_session_fixture(&database, views, groups, panes)?;
             println!(
-                "session_fixture views={views} groups={groups} database={} hydrated_editor_cap=128",
+                "session_fixture views={views} groups={groups} panes={panes} database={} hydrated_editor_cap=128",
                 database.display()
             );
         }
@@ -211,7 +212,7 @@ fn run() -> Result<()> {
                 "  recovery-bench DIRECTORY [SIZE=4MiB] [COMMITS=20]  # includes worker replay equality and SQLite FULL commits"
             );
             println!(
-                "  session-fixture DIRECTORY [VIEWS=100] [GROUPS=8]  # real 1..1024-view, 1..128-group restart fixture; refuses existing recovery.sqlite3"
+                "  session-fixture DIRECTORY [VIEWS=100] [GROUPS=8] [PANES=1]  # real 1..1024 views, 1..128 groups, 1/2/4/8 balanced panes; refuses existing recovery.sqlite3"
             );
         }
     }
@@ -819,12 +820,20 @@ fn commit(doc_id: DocumentId, revision: u64, text: &str) -> RecoveryCommit {
         },
     }
 }
-fn create_session_fixture(database: &Path, views: usize, group_count: usize) -> Result<()> {
+fn create_session_fixture(
+    database: &Path,
+    views: usize,
+    group_count: usize,
+    pane_count: usize,
+) -> Result<()> {
     if views == 0 || views > MAX_SESSION_VIEWS {
         return Err("session fixture accepts 1..1024 metadata views (the separate hydrated-editor cap remains 128)".into());
     }
     if !(1..=MAX_CUSTOM_GROUPS).contains(&group_count) {
         return Err("session fixture accepts 1..128 groups".into());
+    }
+    if ![1, 2, 4, 8].contains(&pane_count) || views < pane_count {
+        return Err("session fixture accepts 1/2/4/8 panes with at least one view each".into());
     }
     if database.exists() {
         return Err("refusing to overwrite an existing recovery database".into());
@@ -832,6 +841,23 @@ fn create_session_fixture(database: &Path, views: usize, group_count: usize) -> 
     let service = RecoveryHandle::start(database)?;
     let initial = ack(service.request_manifest()?)?;
     let mut layout = initial.layout;
+    let mut depth = 0;
+    while layout.panes().count() < pane_count {
+        let leaves = layout.panes().map(|pane| pane.id).collect::<Vec<_>>();
+        for pane in leaves {
+            layout.apply_pane_command(PaneCommand::Split {
+                pane,
+                direction: if depth % 2 == 0 {
+                    SplitDirection::Right
+                } else {
+                    SplitDirection::Down
+                },
+                moving: None,
+            })?;
+        }
+        depth += 1;
+    }
+    let panes = layout.panes().map(|pane| pane.id).collect::<Vec<_>>();
     let mut changes = Vec::with_capacity(views);
     let mut durable = std::collections::HashSet::new();
     let text = "draft 中文🙂\n".repeat(4096);
@@ -862,6 +888,7 @@ fn create_session_fixture(database: &Path, views: usize, group_count: usize) -> 
         job.meta.title = format!("Draft {n}");
         let cursor_byte = (n * "draft 中文🙂\n".len()) as u64;
         layout.insert_view(
+            panes[n % pane_count],
             LayoutView {
                 id: ViewId::new(),
                 document: key,
@@ -921,7 +948,7 @@ fn create_session_fixture(database: &Path, views: usize, group_count: usize) -> 
 fn session_bench(directory: &Path, views: usize) -> Result<()> {
     std::fs::create_dir_all(directory)?;
     let database = directory.join(format!("session-{}.sqlite3", uuid::Uuid::new_v4()));
-    create_session_fixture(&database, views, views.min(8))?;
+    create_session_fixture(&database, views, views.min(8), 1)?;
     let started = Instant::now();
     let service = RecoveryHandle::start(&database)?;
     let worker_open_us = started.elapsed().as_micros();
@@ -933,7 +960,13 @@ fn session_bench(directory: &Path, views: usize) -> Result<()> {
     }
     let active = manifest
         .layout
-        .target(manifest.layout.pane().active_view.ok_or("no active view")?)
+        .target(
+            manifest
+                .layout
+                .active_pane()
+                .active_view
+                .ok_or("no active view")?,
+        )
         .ok_or("active identity missing")?;
     let started = Instant::now();
     let draft = ack(service.request_hydrate(active.document, CancelToken::new())?)?;

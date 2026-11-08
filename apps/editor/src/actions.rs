@@ -81,6 +81,22 @@ gpui_kit::actions!(
         RemoveCurrentGroupKeepTabs,
         CloseCurrentGroupTabs,
         OpenRecoveryCatalog,
+        SplitPaneRight,
+        SplitPaneDown,
+        SplitPaneLeft,
+        SplitPaneUp,
+        SplitAndMoveActiveTabRight,
+        SplitAndMoveActiveTabDown,
+        SplitAndMoveActiveTabLeft,
+        SplitAndMoveActiveTabUp,
+        FocusNextPane,
+        FocusPrevPane,
+        MoveActiveTabToNextPane,
+        MoveActiveTabToPrevPane,
+        EqualizePanes,
+        ToggleFocusActivePane,
+        CloseActivePane,
+        CloseActivePaneTabs,
     ]
 );
 
@@ -271,6 +287,73 @@ pub fn register_bindings_and_menus(cx: &mut gpui_kit::App) {
         KeyBinding::new("cmd-alt-b", OpenRecoveryCatalog, None),
         #[cfg(not(target_os = "macos"))]
         KeyBinding::new("ctrl-alt-b", OpenRecoveryCatalog, None),
+        // Split Panes keyboard shortcuts
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-\\", SplitPaneRight, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-\\", SplitPaneRight, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-shift-\\", SplitPaneDown, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-shift-\\", SplitPaneDown, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-\\", SplitPaneLeft, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-\\", SplitPaneLeft, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-\\", SplitPaneUp, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-\\", SplitPaneUp, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-l", SplitAndMoveActiveTabRight, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-l", SplitAndMoveActiveTabRight, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-j", SplitAndMoveActiveTabDown, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-j", SplitAndMoveActiveTabDown, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-h", SplitAndMoveActiveTabLeft, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-h", SplitAndMoveActiveTabLeft, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-k", SplitAndMoveActiveTabUp, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-k", SplitAndMoveActiveTabUp, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-n", FocusNextPane, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-n", FocusNextPane, None),
+        KeyBinding::new("f6", FocusNextPane, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-p", FocusPrevPane, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-p", FocusPrevPane, None),
+        KeyBinding::new("shift-f6", FocusPrevPane, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-n", MoveActiveTabToNextPane, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-n", MoveActiveTabToNextPane, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-p", MoveActiveTabToPrevPane, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-p", MoveActiveTabToPrevPane, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-=", EqualizePanes, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-=", EqualizePanes, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-z", ToggleFocusActivePane, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-z", ToggleFocusActivePane, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-x", CloseActivePane, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-x", CloseActivePane, None),
+        #[cfg(target_os = "macos")]
+        KeyBinding::new("cmd-alt-shift-w", CloseActivePaneTabs, None),
+        #[cfg(not(target_os = "macos"))]
+        KeyBinding::new("ctrl-alt-shift-w", CloseActivePaneTabs, None),
     ]);
 
     cx.set_menus([
@@ -375,6 +458,31 @@ pub fn register_bindings_and_menus(cx: &mut gpui_kit::App) {
             MenuItem::action("Close All Tabs in Current Group…", CloseCurrentGroupTabs),
             MenuItem::separator(),
             MenuItem::action("Recovery Draft Catalog…", OpenRecoveryCatalog),
+        ]),
+        Menu::new("Panes").items([
+            MenuItem::action("Split Pane Right", SplitPaneRight),
+            MenuItem::action("Split Pane Down", SplitPaneDown),
+            MenuItem::action("Split Pane Left", SplitPaneLeft),
+            MenuItem::action("Split Pane Up", SplitPaneUp),
+            MenuItem::separator(),
+            MenuItem::action("Split & Move Tab Right", SplitAndMoveActiveTabRight),
+            MenuItem::action("Split & Move Tab Down", SplitAndMoveActiveTabDown),
+            MenuItem::action("Split & Move Tab Left", SplitAndMoveActiveTabLeft),
+            MenuItem::action("Split & Move Tab Up", SplitAndMoveActiveTabUp),
+            MenuItem::separator(),
+            MenuItem::action("Focus Next Pane", FocusNextPane),
+            MenuItem::action("Focus Previous Pane", FocusPrevPane),
+            MenuItem::action("Move Active Tab to Next Pane", MoveActiveTabToNextPane),
+            MenuItem::action("Move Active Tab to Previous Pane", MoveActiveTabToPrevPane),
+            MenuItem::separator(),
+            MenuItem::action("Equalize Split Pane Sizes", EqualizePanes),
+            MenuItem::action("Focus Active Pane Only", ToggleFocusActivePane),
+            MenuItem::separator(),
+            MenuItem::action(
+                "Close Pane (Merge Tabs into Adjacent Pane)",
+                CloseActivePane,
+            ),
+            MenuItem::action("Close All Tabs in Active Pane…", CloseActivePaneTabs),
         ]),
     ]);
 }

@@ -6,7 +6,7 @@ use editor_services::{
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq)]
-struct EditorSnapshot {
+pub(super) struct EditorSnapshot {
     target: ViewTarget,
     entity: gpui_kit::EntityId,
     visible: Revision,
@@ -17,7 +17,7 @@ struct EditorSnapshot {
     undo_history: bool,
     text: String,
 }
-fn snapshot(ws: &EditorWorkspace, target: ViewTarget) -> Result<EditorSnapshot, String> {
+pub(super) fn snapshot(ws: &EditorWorkspace, target: ViewTarget) -> Result<EditorSnapshot, String> {
     let Some(TabSlot::Editable(ed)) = ws.view_slot(target.view_id) else {
         return Err("group fixture is not Editable".into());
     };
@@ -36,7 +36,7 @@ fn snapshot(ws: &EditorWorkspace, target: ViewTarget) -> Result<EditorSnapshot, 
         text: ed.committed_rope().to_string(),
     })
 }
-fn dispatch_dialog(
+pub(super) fn dispatch_dialog(
     window: &AnyWindowHandle,
     cx: &mut AsyncApp,
     accept: bool,
@@ -99,7 +99,7 @@ async fn run_batch_open_regression(
 ) -> Result<bool, String> {
     let original = cx.update(|cx| {
         let ws = workspace.read(cx);
-        if ws.ordered_view_ids().len() != 1 {
+        if ws.session_layout().view_count() != 1 || ws.session_layout().panes().count() != 1 {
             return None;
         }
         let target = ws.active_view_id().and_then(|id| ws.view_target(id))?;
@@ -172,7 +172,7 @@ async fn run_batch_open_regression(
         .map_err(|error| error.to_string())??;
     wait_until(Duration::from_secs(30),cx,|cx|cx.update(|cx|{
         let ws=workspace.read(cx);
-        !ws.is_lifecycle_busy()&&ws.ordered_view_ids().len()==1&&ws.hydrated_editor_count()==0
+        !ws.is_lifecycle_busy()&&ws.session_layout().view_count()==1&&ws.hydrated_editor_count()==0
             &&matches!(ws.view_slot(original.view_id),Some(TabSlot::Paged(view)) if view.meta.path.as_ref()==Some(&paged)&&view.current_slice.is_some()&&matches!(view.index_status,editor_services::IndexStatus::Complete{..}))
     }),"failed first path drains into real Paged replacement, initial viewport and sparse index").await?;
     let paged_target = cx.update(|cx| -> Result<ViewTarget, String> {
@@ -192,7 +192,7 @@ async fn run_batch_open_regression(
         .map_err(|error| error.to_string())?;
     wait_until(Duration::from_secs(20),cx,|cx|cx.update(|cx|{
         let ws=workspace.read(cx);
-        !ws.is_lifecycle_busy()&&ws.ordered_view_ids().len()==1
+        !ws.is_lifecycle_busy()&&ws.session_layout().view_count()==1
             &&matches!(ws.active_slot(),Some(TabSlot::Editable(ed)) if ed.meta.path.is_none()&&ed.visible_revision==Revision(0)&&!ed.has_checkpoint)
     }),"closing the clean Paged view creates a persisted scratch").await?;
     let (scratch, group) = cx.update(|cx| -> Result<_, String> {
@@ -222,8 +222,8 @@ async fn run_batch_open_regression(
         .map_err(|error| error.to_string())?;
     wait_until(Duration::from_secs(20),cx,|cx|cx.update(|cx|{
         let ws=workspace.read(cx);
-        !ws.is_lifecycle_busy()&&ws.ordered_view_ids().len()==2
-            &&[(&first,"batch first 中文\n"),(&second,"batch second 🙂\n")].iter().all(|(path,text)|ws.ordered_view_ids().iter().any(|id|matches!(ws.view_slot(*id),Some(TabSlot::Editable(ed)) if ed.meta.path.as_ref()==Some(*path)&&ed.committed_rope().to_string()==*text&&!ed.is_dirty()&&ed.visible_revision==Revision(0)&&!ed.has_undo_history())))
+        !ws.is_lifecycle_busy()&&ws.session_layout().view_count()==2
+            &&[(&first,"batch first 中文\n"),(&second,"batch second 🙂\n")].iter().all(|(path,text)|ws.all_view_ids().any(|id|matches!(ws.view_slot(id),Some(TabSlot::Editable(ed)) if ed.meta.path.as_ref()==Some(*path)&&ed.committed_rope().to_string()==*text&&!ed.is_dirty()&&ed.visible_revision==Revision(0)&&!ed.has_undo_history())))
     }),"one failed staged path retains both accepted tail paths without duplicate or blank views").await?;
     cx.update(|cx| -> Result<(), String> {
         let ws = workspace.read(cx);
@@ -273,7 +273,7 @@ async fn run_batch_open_regression(
     Ok(true)
 }
 
-async fn wait_for_published_layout(
+pub(super) async fn wait_for_published_layout(
     recovery: &RecoveryHandle,
     expected: &SessionLayout,
     cx: &mut AsyncApp,
@@ -463,15 +463,15 @@ fn verify_bulk_slots(
             "bulk preflight/Cancel changed live view identities or the active draft".into(),
         );
     }
-    for id in &layout.pane().tabs {
+    for id in layout.view_ids() {
         let target = layout
-            .target(*id)
+            .target(id)
             .ok_or("bulk fixture has a dangling view")?;
         let expected = drafts
             .get(&target.document.doc_id)
             .ok_or("bulk fixture document missing from catalog")?;
         let slot = workspace
-            .view_slot(*id)
+            .view_slot(id)
             .ok_or("bulk operation lost a live slot")?;
         match slot {
             TabSlot::Editable(editor) if target == active.target => {
@@ -544,6 +544,9 @@ async fn run_bulk_group_scenario(
     let Some(group) = group else {
         return Ok(false);
     };
+    if cx.update(|cx| workspace.read(cx).session_layout().panes().count() != 1) {
+        return Err("bulk groups regression requires its single-pane fixture; use --smoke=splits for split fixtures".into());
+    }
     verify_native_group_ui(window, workspace, report, cx).await?;
     pump_frame(window, cx)?;
     let (before, active, original_readonly, active_rope, recovery) = window
@@ -586,8 +589,8 @@ async fn run_bulk_group_scenario(
         .spawn(async move {
             let mut records = bulk_catalog(&worker, bulk_summary(layout.views.len(), false))?;
             let mut drafts = HashMap::with_capacity(layout.views.len());
-            for (position, id) in layout.pane().tabs.iter().enumerate() {
-                let view = &layout.views[id];
+            for (position, id) in layout.view_ids().enumerate() {
+                let view = &layout.views[&id];
                 let record = records
                     .remove(&view.document.doc_id)
                     .ok_or("bulk fixture catalog/view mismatch")?;
@@ -608,7 +611,7 @@ async fn run_bulk_group_scenario(
                     stub.doc_id,
                     BulkStoredDraft {
                         target: ViewTarget {
-                            view_id: *id,
+                            view_id: id,
                             document: view.document,
                         },
                         catalog_key: record.key,
@@ -718,7 +721,7 @@ async fn run_bulk_group_scenario(
             wait_for_published_layout(&recovery, &before, cx).await?;
             let worker = recovery.clone();
             let expected = drafts.clone();
-            let pane = before.pane().id;
+            let pane = before.active_pane().id;
             cx.background_executor()
                 .spawn(async move { verify_bulk_catalog(&worker, group, pane, &expected, None) })
                 .await?;
@@ -755,14 +758,13 @@ async fn run_bulk_group_scenario(
                 ws.capture_session_view_states(cx);
                 let mut after = before.clone();
                 let targets = before
-                    .pane()
-                    .tabs
-                    .iter()
-                    .map(|id| before.target(*id).unwrap())
+                    .view_ids()
+                    .map(|id| before.target(id).unwrap())
                     .collect::<Vec<_>>();
                 after.remove_views(&targets).map_err(|e| e.to_string())?;
                 after
                     .insert_view(
+                        after.active_pane_id(),
                         ws.session_layout().views[&scratch.view_id].clone(),
                         None,
                         true,
@@ -790,7 +792,7 @@ async fn run_bulk_group_scenario(
     .await?;
     let evidence = BulkGroupEvidence {
         group,
-        pane: before.pane().id,
+        pane: before.active_pane().id,
         drafts,
         active: active.target.document,
         active_identity,
@@ -1230,7 +1232,7 @@ pub(crate) fn verify_post_shutdown_layout(
             .map_err(|e| e.to_string())?
             .map_err(|e| e.to_string())?;
         if manifest.layout != *expected {
-            return Err("complete restart layout differs in group metadata/order/membership/view identity/selection/positions".into());
+            return Err("complete restart layout differs in pane tree/ratios/focus, group metadata/order/membership, or view identity/selection/positions".into());
         }
         if manifest.documents.len() != expected.views.len() {
             return Err("restart document/layout bijection differs".into());

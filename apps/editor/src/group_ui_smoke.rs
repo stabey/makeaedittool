@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use editor_services::{
-    ContentIdentity, DocumentId, GroupCommand, GroupId, LifecycleGen, Revision, SessionLayout,
-    ViewId,
+    ContentIdentity, DocumentId, GroupCommand, GroupId, LifecycleGen, PaneId, Revision,
+    SessionLayout, ViewId,
 };
 use gpui_kit::{
     AnyWindowHandle, AsyncApp, Bounds, Entity, EntityId, Focusable as _, Keystroke, Modifiers,
@@ -24,7 +24,7 @@ pub(crate) struct GroupUiNativeEvidence {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TabStripItem {
+pub(super) enum TabStripItem {
     GroupHeader(GroupId),
     TabPill(ViewId),
 }
@@ -40,17 +40,17 @@ enum SlotVariantTag {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct EditableAuditSnapshot {
-    doc_id: DocumentId,
-    lifecycle_gen: LifecycleGen,
-    editor_entity: EntityId,
-    visible_rev: Revision,
-    queued_rev: Revision,
-    durable_rev: Revision,
-    text_seq: u64,
-    dirty: bool,
-    has_undo: bool,
-    identity: ContentIdentity,
+pub(super) struct EditableAuditSnapshot {
+    pub(super) doc_id: DocumentId,
+    pub(super) lifecycle_gen: LifecycleGen,
+    pub(super) editor_entity: EntityId,
+    pub(super) visible_rev: Revision,
+    pub(super) queued_rev: Revision,
+    pub(super) durable_rev: Revision,
+    pub(super) text_seq: u64,
+    pub(super) dirty: bool,
+    pub(super) has_undo: bool,
+    pub(super) identity: ContentIdentity,
 }
 
 #[cfg(target_os = "macos")]
@@ -91,7 +91,7 @@ fn capture_slot_tags(ws: &EditorWorkspace) -> HashMap<DocumentId, SlotVariantTag
         .collect()
 }
 
-fn capture_editable_snapshots(ws: &EditorWorkspace) -> Vec<EditableAuditSnapshot> {
+pub(super) fn capture_editable_snapshots(ws: &EditorWorkspace) -> Vec<EditableAuditSnapshot> {
     let mut out: Vec<EditableAuditSnapshot> = ws
         .documents
         .values()
@@ -115,7 +115,7 @@ fn capture_editable_snapshots(ws: &EditorWorkspace) -> Vec<EditableAuditSnapshot
     out
 }
 
-fn draw_frame(window: &AnyWindowHandle, cx: &mut AsyncApp) -> Result<(), String> {
+pub(super) fn draw_frame(window: &AnyWindowHandle, cx: &mut AsyncApp) -> Result<(), String> {
     window
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -124,14 +124,14 @@ fn draw_frame(window: &AnyWindowHandle, cx: &mut AsyncApp) -> Result<(), String>
         .map_err(|e| format!("group_ui_smoke draw_frame failed: {e}"))
 }
 
-async fn settle_tick(window: &AnyWindowHandle, cx: &mut AsyncApp) -> Result<(), String> {
+pub(super) async fn settle_tick(window: &AnyWindowHandle, cx: &mut AsyncApp) -> Result<(), String> {
     cx.background_executor()
         .timer(Duration::from_millis(8))
         .await;
     draw_frame(window, cx)
 }
 
-fn dispatch_key(
+pub(super) fn dispatch_key(
     window: &AnyWindowHandle,
     cx: &mut AsyncApp,
     spec: &'static str,
@@ -146,7 +146,7 @@ fn dispatch_key(
     draw_frame(window, cx)
 }
 
-fn dispatch_ascii_text(
+pub(super) fn dispatch_ascii_text(
     window: &AnyWindowHandle,
     cx: &mut AsyncApp,
     text: &str,
@@ -169,7 +169,7 @@ fn dispatch_ascii_text(
     Ok(())
 }
 
-fn dispatch_mouse(
+pub(super) fn dispatch_mouse(
     window: &AnyWindowHandle,
     cx: &mut AsyncApp,
     input: PlatformInput,
@@ -182,11 +182,15 @@ fn dispatch_mouse(
     draw_frame(window, cx)
 }
 
-/// Computes `(target_child_index, expected_total_children)` for `#workspace-tab-strip` using
-/// the exact child emission order of `EditorWorkspace::render_header_and_tabs`.
-fn locate_tab_strip_child(ws: &EditorWorkspace, wanted: TabStripItem) -> Option<(usize, usize)> {
+/// Computes `(target_child_index, expected_total_children)` for a pane's `#pstr` tab strip using
+/// the exact child emission order of `EditorWorkspace::render_pane_tab_strip`.
+fn locate_tab_strip_child(
+    ws: &EditorWorkspace,
+    pane_id: PaneId,
+    wanted: TabStripItem,
+) -> Option<(usize, usize)> {
     let session = ws.session_layout();
-    let ordered_views = ws.ordered_view_ids();
+    let ordered_views = ws.pane_view_ids(pane_id)?;
     let show_ungrouped_header = session.tree.groups.len() > 1
         || session
             .group(GroupId::UNGROUPED)
@@ -226,38 +230,48 @@ fn locate_tab_strip_child(ws: &EditorWorkspace, wanted: TabStripItem) -> Option<
         }
     }
 
-    // Trailing `new_group_slot` + `trailing_group_drop`
+    // Trailing `new_group_slot` + `trailing_strip_drop`
     let total_children = child_ix + 2;
     found.map(|ix| (ix, total_children))
 }
 
-/// Scrolls `#workspace-tab-strip` so `item` is visible, draws a real frame, validates the
+/// Scrolls the given pane's tab strip so `item` is visible, draws a real frame, validates the
 /// prepainted child count and viewport containment, and returns a safe interior hit point
 /// (avoiding trailing close/menu buttons) plus current viewport size.
-fn scroll_and_hit_point(
+pub(super) fn scroll_and_hit_point(
     window: &AnyWindowHandle,
     workspace: &Entity<EditorWorkspace>,
     cx: &mut AsyncApp,
+    pane_id: PaneId,
     item: TabStripItem,
 ) -> Result<(Point<Pixels>, Size<Pixels>), String> {
     draw_frame(window, cx)?;
     let (child_ix, expected_total) = cx
-        .update(|cx| locate_tab_strip_child(workspace.read(cx), item))
-        .ok_or_else(|| format!("tab strip item {item:?} is not currently rendered"))?;
+        .update(|cx| locate_tab_strip_child(workspace.read(cx), pane_id, item))
+        .ok_or_else(|| {
+            format!("tab strip item {item:?} in pane {pane_id:?} is not currently rendered")
+        })?;
 
-    cx.update(|cx| {
-        workspace
-            .read(cx)
+    cx.update(|cx| -> Result<(), String> {
+        let ws = workspace.read(cx);
+        let scroll = ws
             .group_ui
-            .tab_strip_scroll
-            .scroll_to_item(child_ix);
-    });
+            .panes
+            .strip_scroll(pane_id)
+            .ok_or_else(|| format!("missing strip_scroll handle for pane {pane_id:?}"))?;
+        scroll.scroll_to_item(child_ix);
+        Ok(())
+    })?;
     draw_frame(window, cx)?;
 
     window
         .update(cx, |_, window, cx| {
             let ws = workspace.read(cx);
-            let scroll = &ws.group_ui.tab_strip_scroll;
+            let scroll = ws
+                .group_ui
+                .panes
+                .strip_scroll(pane_id)
+                .ok_or_else(|| format!("missing strip_scroll handle for pane {pane_id:?}"))?;
             let actual_total = scroll.children_count();
             if actual_total != expected_total {
                 return Err(format!(
@@ -300,7 +314,7 @@ fn scroll_and_hit_point(
         .map_err(|e| format!("scroll_and_hit_point window update failed: {e}"))?
 }
 
-fn drag_nudge_point(origin: Point<Pixels>, viewport: Size<Pixels>) -> Point<Pixels> {
+pub(super) fn drag_nudge_point(origin: Point<Pixels>, viewport: Size<Pixels>) -> Point<Pixels> {
     let step = px(20.0);
     let nx = if origin.x + step + px(8.0) < viewport.width {
         origin.x + step
@@ -310,7 +324,7 @@ fn drag_nudge_point(origin: Point<Pixels>, viewport: Size<Pixels>) -> Point<Pixe
     point(nx, origin.y)
 }
 
-fn focus_active_editor_or_workspace(
+pub(super) fn focus_active_editor_or_workspace(
     window: &AnyWindowHandle,
     workspace: &Entity<EditorWorkspace>,
     cx: &mut AsyncApp,
@@ -344,6 +358,7 @@ pub(crate) async fn verify_group_ui_native(
             let _ = cx.stop_active_drag(window);
             workspace.update(cx, |ws, cx| {
                 ws.group_ui.drag_preview = None;
+                let _ = ws.cancel_divider_drag(cx);
                 ws.group_ui.editor_modal = None;
                 if ws.group_ui.recovery_modal.take().is_some() {
                     ws.cancel_recovery_request(cx);
@@ -369,6 +384,7 @@ async fn run_verify_inner(
         orig_slot_tags,
         orig_hydrated_count,
         orig_editables,
+        orig_pane,
         v_active,
         orig_group,
         orig_was_collapsed,
@@ -380,10 +396,13 @@ async fn run_verify_inner(
         if ws.is_lifecycle_busy() {
             return Err("verify_group_ui_native requires idle lifecycle state".into());
         }
-        let ordered = ws.ordered_view_ids();
+        let active_pane = ws.active_pane_id();
+        let ordered = ws
+            .pane_view_ids(active_pane)
+            .ok_or("active pane missing from session layout")?;
         if ordered.len() < 2 {
             return Err(format!(
-                "verify_group_ui_native requires at least 2 open views (found {})",
+                "verify_group_ui_native requires at least 2 open views in active pane (found {})",
                 ordered.len()
             ));
         }
@@ -401,7 +420,8 @@ async fn run_verify_inner(
         let was_collapsed = layout.group(grp_id).is_some_and(|g| g.collapsed);
 
         let group_members: Vec<ViewId> = layout
-            .pane()
+            .pane(active_pane)
+            .ok_or("active pane missing in layout")?
             .tabs
             .iter()
             .copied()
@@ -413,18 +433,25 @@ async fn run_verify_inner(
             .ok_or("active view missing from its group's member slice")?;
         let next_in_grp = group_members.get(pos_in_grp + 1).copied();
         let grp_order: Vec<GroupId> = layout.tree.groups.iter().map(|g| g.id).collect();
+        let strip_off = ws
+            .group_ui
+            .panes
+            .strip_scroll(active_pane)
+            .map(|s| s.offset())
+            .unwrap_or_default();
 
         Ok((
             layout,
             capture_slot_tags(ws),
             ws.hydrated_editor_count(),
             capture_editable_snapshots(ws),
+            active_pane,
             active_target,
             grp_id,
             was_collapsed,
             next_in_grp,
             grp_order,
-            ws.group_ui.tab_strip_scroll.offset(),
+            strip_off,
         ))
     })?;
 
@@ -546,6 +573,7 @@ async fn run_verify_inner(
         window,
         workspace,
         cx,
+        orig_pane,
         TabStripItem::TabPill(v_active.view_id),
     )?;
     let drag_start_move = drag_nudge_point(src_tab_pt, viewport);
@@ -587,14 +615,26 @@ async fn run_verify_inner(
             );
         }
         let ws = workspace.read(cx);
-        if ws.group_ui.drag_preview != Some(DragPreviewSession::Tab(v_active)) {
-            return Err("tab drag did not record DragPreviewSession::Tab(v_active)".into());
+        if ws.group_ui.drag_preview
+            != Some(DragPreviewSession::Tab {
+                source_pane: orig_pane,
+                target: v_active,
+            })
+        {
+            return Err(
+                "tab drag did not record DragPreviewSession::Tab { source_pane, target }".into(),
+            );
         }
         Ok(())
     })?;
 
-    let (dst_temp_hdr_pt, _) =
-        scroll_and_hit_point(window, workspace, cx, TabStripItem::GroupHeader(g_temp))?;
+    let (dst_temp_hdr_pt, _) = scroll_and_hit_point(
+        window,
+        workspace,
+        cx,
+        orig_pane,
+        TabStripItem::GroupHeader(g_temp),
+    )?;
     dispatch_mouse(
         window,
         cx,
@@ -653,6 +693,7 @@ async fn run_verify_inner(
         window,
         workspace,
         cx,
+        orig_pane,
         TabStripItem::TabPill(v_active.view_id),
     )?;
     let nudge_pt = drag_nudge_point(src_tab_pt, viewport);
@@ -689,8 +730,13 @@ async fn run_verify_inner(
         return Err("failed to start native tab drag for valid drop onto group header".into());
     }
 
-    let (dst_temp_hdr_pt, _) =
-        scroll_and_hit_point(window, workspace, cx, TabStripItem::GroupHeader(g_temp))?;
+    let (dst_temp_hdr_pt, _) = scroll_and_hit_point(
+        window,
+        workspace,
+        cx,
+        orig_pane,
+        TabStripItem::GroupHeader(g_temp),
+    )?;
     dispatch_mouse(
         window,
         cx,
@@ -795,8 +841,13 @@ async fn run_verify_inner(
 
     // 3c. Drag `g_temp` group header onto first group's header -> reorders `g_temp` to index 0.
     let first_existing_grp = orig_group_order[0];
-    let (src_grp_pt, viewport) =
-        scroll_and_hit_point(window, workspace, cx, TabStripItem::GroupHeader(g_temp))?;
+    let (src_grp_pt, viewport) = scroll_and_hit_point(
+        window,
+        workspace,
+        cx,
+        orig_pane,
+        TabStripItem::GroupHeader(g_temp),
+    )?;
     let grp_nudge = drag_nudge_point(src_grp_pt, viewport);
     dispatch_mouse(
         window,
@@ -841,6 +892,7 @@ async fn run_verify_inner(
         window,
         workspace,
         cx,
+        orig_pane,
         TabStripItem::GroupHeader(first_existing_grp),
     )?;
     dispatch_mouse(
@@ -882,6 +934,7 @@ async fn run_verify_inner(
         window,
         workspace,
         cx,
+        orig_pane,
         TabStripItem::TabPill(v_active.view_id),
     )?;
     let nudge_back = drag_nudge_point(src_tab_pt, viewport);
@@ -922,7 +975,8 @@ async fn run_verify_inner(
         Some(next_vid) => TabStripItem::TabPill(next_vid),
         None => TabStripItem::GroupHeader(orig_group),
     };
-    let (dst_return_pt, _) = scroll_and_hit_point(window, workspace, cx, return_drop_item)?;
+    let (dst_return_pt, _) =
+        scroll_and_hit_point(window, workspace, cx, orig_pane, return_drop_item)?;
     dispatch_mouse(
         window,
         cx,
@@ -954,7 +1008,9 @@ async fn run_verify_inner(
             return Err("tab drop did not restore v_active to orig_group".into());
         }
         if let Some(next_vid) = orig_next_in_group {
-            let tabs = &ws.session_layout().pane().tabs;
+            let tabs = ws
+                .pane_view_ids(orig_pane)
+                .ok_or("orig_pane missing after return drop")?;
             let pos_a = tabs.iter().position(|&id| id == v_active.view_id);
             let pos_n = tabs.iter().position(|&id| id == next_vid);
             if pos_a.map(|i| i + 1) != pos_n {
@@ -989,7 +1045,9 @@ async fn run_verify_inner(
                     )
                     .map_err(|e| format!("cleanup restore collapsed failed: {e}"))?;
                 }
-                ws.group_ui.tab_strip_scroll.set_offset(orig_strip_offset);
+                if let Some(scroll) = ws.group_ui.panes.strip_scroll(orig_pane) {
+                    scroll.set_offset(orig_strip_offset);
+                }
                 Ok(())
             })
         })

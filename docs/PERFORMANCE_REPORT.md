@@ -160,3 +160,25 @@ target/release/editor --data-dir /tmp/makeanotepad-groups-unique --smoke=groups 
 ```
 
 夹具命令拒绝已有数据库。1000草稿整组取消/关闭不加载全部正文；关闭后持久状态已验证为1000个Closed加1个新空白。未新增64 GiB扫描、Windows ARM性能、长期内存泄漏或逐帧呈现结论。
+
+## 不同文档分屏：最终同条件矩阵
+
+本机macOS ARM release，串行执行，无同时编译或其他验证窗口。8个标签组，每文档69,632 bytes；`session-fixture DIRECTORY VIEWS 8 PANES`生成1/2/4/8窗格。每格3次startup取中位数，另一次splits场景提交128次输入。OS缓存未清除；不是冷盘或屏幕端到端延迟。窗格就绪来自实际窗口布局及可见正文恢复，不是截图首帧。
+
+| 标签 | 实际可见窗格 | 可见窗格就绪中位数(ms) | startup peak RSS中位数(MiB) | 输入提交p95(ms) |
+|---:|---:|---:|---:|---:|
+| 100 | 1 | 270.54 | 126.69 | 0.0849 |
+| 100 | 2 | 273.70 | 132.55 | 0.0853 |
+| 100 | 4 | 280.06 | 139.30 | 0.0830 |
+| 100 | 8 | 293.48 | 156.25 | 0.0858 |
+| 1024 | 1 | 287.16 | 174.77 | 0.0853 |
+| 1024 | 2 | 293.18 | 180.47 | 0.0845 |
+| 1024 | 4 | 302.94 | 187.97 | 0.0863 |
+| 1024 | 8 | 317.13 | 205.69 | 0.0856 |
+
+全部32次进程成功退出并收到durable ACK。正文hydrate数量严格等于可见窗格数量；1024标签8窗格只加载557,056 bytes正文。额外4窗格限制1个hydrate编辑器时只加载焦点文档69,632 bytes，其余显示预算状态。RSS不是正文预算，表中startup RSS也不是输入场景RSS；1024标签8窗格输入场景peak RSS为231.69 MiB。
+
+原始命令、每次时长/RSS及JSON路径见[evidence/split-final-matrix.json](evidence/split-final-matrix.json)，二进制SHA-256见[evidence/split-final-identity.json](evidence/split-final-identity.json)。复现先创建不存在的夹具目录，再运行`/usr/bin/time -l target/release/editor --data-dir DIRECTORY --smoke=startup --smoke-report REPORT.json`，输入场景换为`--smoke=splits`。预算场景追加`--max-hydrated-editors=1`。
+
+这些数据证明当前恢复/输入路径未随隐藏标签加载全部正文，不证明长期无泄漏、持续帧率、物理输入延迟或Windows性能；未将不同夹具的历史标签组结果作为严格前后对照。
+

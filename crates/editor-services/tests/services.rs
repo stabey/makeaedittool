@@ -58,6 +58,7 @@ fn add_layout_view(
     let id = ViewId::new();
     layout
         .insert_view(
+            layout.active_pane_id(),
             LayoutView {
                 id,
                 document: key,
@@ -864,7 +865,7 @@ fn session_manifest_is_metadata_only_and_corrupt_draft_is_isolated() {
     let manifest = receive(service.request_manifest().unwrap());
     assert_eq!(manifest.documents.len(), 100);
     assert_eq!(
-        manifest.layout.pane().active_view,
+        manifest.layout.active_pane().active_view,
         Some(targets[42].view_id)
     );
     assert_eq!(
@@ -1605,7 +1606,7 @@ fn durable_head_without_saved_layout_is_visible_after_restart() {
         "durable without layout 中文🙂"
     );
     let layout = manifest.layout;
-    let target = layout.target(layout.pane().tabs[0]).unwrap();
+    let target = layout.target(layout.active_pane().tabs[0]).unwrap();
     persist_test_layout(&reopened, &layout, Vec::new());
     close_test_view(
         &reopened,
@@ -1923,3 +1924,5 @@ fn real_save_intent_captures_request_format_without_reverting_newer_metadata() {
 
 #[path = "support/session_groups.rs"]
 mod session_groups;
+#[path = "support/session_splits.rs"]
+mod session_splits;

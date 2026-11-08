@@ -2,8 +2,9 @@ use std::time::Instant;
 
 use editor_services::{
     ErrorKind, GroupColor, GroupCommand, GroupCommandResult, GroupId, MAX_CUSTOM_GROUPS,
-    MAX_GROUP_NAME_BYTES, MAX_SESSION_VIEWS, RecoveryCursor, RecoveryEntry, RecoveryEntryCategory,
-    RecoveryEntryKey, RecoveryEntryOrigin, ServiceError, SessionLayout, ViewId, ViewTarget,
+    MAX_GROUP_NAME_BYTES, MAX_PANES, MAX_SESSION_VIEWS, PaneCommand, PaneId, PaneMove,
+    RecoveryCursor, RecoveryEntry, RecoveryEntryCategory, RecoveryEntryKey, RecoveryEntryOrigin,
+    ServiceError, SessionLayout, SplitDirection, ViewId, ViewTarget,
 };
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{Escape, Input, InputEvent, InputState};
@@ -30,8 +31,13 @@ use crate::actions::{
 use crate::app::{EditorWorkspace, OverlayOrigin, TabSlot};
 use crate::paged_view::format_bytes;
 
+#[path = "pane_ui_smoke.rs"]
+pub(crate) mod pane_smoke;
+#[path = "pane_ui.rs"]
+pub(crate) mod pane_ui;
 #[path = "group_ui_smoke.rs"]
 pub(crate) mod smoke;
+pub(crate) use pane_smoke::verify_pane_ui_native;
 pub(crate) use smoke::verify_group_ui_native;
 
 /// UI-owned Command Palette action payload routed via `PaletteCommandTarget::GroupUi`.
@@ -52,6 +58,7 @@ pub enum GroupPaletteAction {
     OpenRecoveryBrowser,
     RetryHydration { target: ViewTarget },
     ExportDraftCopy { target: ViewTarget },
+    Pane(pane_ui::PanePaletteAction),
 }
 
 /// Ephemeral ID-only drag payload for tab membership and within-group / cross-group reordering.
@@ -60,6 +67,7 @@ pub enum GroupPaletteAction {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct DraggedTabView {
     pub(crate) workspace_entity_id: EntityId,
+    pub(crate) source_pane: PaneId,
     pub(crate) target: ViewTarget,
 }
 
@@ -175,8 +183,11 @@ impl Render for DraggedGroupGhost {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum DragPreviewSession {
-    Tab(ViewTarget),
+pub(crate) enum DragPreviewSession {
+    Tab {
+        source_pane: PaneId,
+        target: ViewTarget,
+    },
     Group(GroupId),
 }
 
@@ -185,6 +196,7 @@ enum GroupEditorModalKind {
     Create {
         before: Option<GroupId>,
         initial_view: Option<ViewTarget>,
+        cross_pane_move: Option<(PaneId, PaneId)>,
     },
     Rename {
         group: GroupId,
@@ -211,11 +223,11 @@ struct RecoveryBrowserModal {
 /// UI-owned transient state stored on `EditorWorkspace.group_ui`.
 #[derive(Default)]
 pub(crate) struct GroupUiState {
-    drag_preview: Option<DragPreviewSession>,
+    pub(crate) drag_preview: Option<DragPreviewSession>,
     editor_modal: Option<GroupEditorModal>,
     recovery_modal: Option<RecoveryBrowserModal>,
     dismissed_overflow_banner_for_total: Option<u64>,
-    pub(crate) tab_strip_scroll: ScrollHandle,
+    pub(crate) panes: pane_ui::PaneUiState,
 }
 
 impl GroupUiState {
@@ -224,6 +236,11 @@ impl GroupUiState {
         if self.drag_preview.is_some() && !cx.has_active_drag() {
             self.drag_preview = None;
         }
+    }
+
+    #[inline]
+    pub(crate) fn is_dragging_tab(&self, cx: &App) -> bool {
+        matches!(self.drag_preview, Some(DragPreviewSession::Tab { .. })) && cx.has_active_drag()
     }
 
     #[inline]
@@ -346,8 +363,9 @@ pub(crate) fn prev_view_anchor_in_group(
 ) -> Option<(GroupId, Option<ViewId>)> {
     let lv = layout.resolve(target).ok()?;
     let group = lv.group_id;
+    let pane_id = layout.pane_for_view(target.view_id)?;
     let members: Vec<ViewId> = layout
-        .pane()
+        .pane(pane_id)?
         .tabs
         .iter()
         .copied()
@@ -368,8 +386,9 @@ pub(crate) fn next_view_anchor_in_group(
 ) -> Option<(GroupId, Option<ViewId>)> {
     let lv = layout.resolve(target).ok()?;
     let group = lv.group_id;
+    let pane_id = layout.pane_for_view(target.view_id)?;
     let members: Vec<ViewId> = layout
-        .pane()
+        .pane(pane_id)?
         .tabs
         .iter()
         .copied()
@@ -435,6 +454,9 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
+        if self.cancel_divider_drag(cx) {
+            return true;
+        }
         let stopped_gpui_drag = cx.stop_active_drag(window);
         let had_drag_preview = self.group_ui.drag_preview.take().is_some();
         if stopped_gpui_drag || had_drag_preview {
@@ -474,7 +496,7 @@ impl EditorWorkspace {
     ) {
         match action {
             GroupPaletteAction::PromptCreateGroup { initial_view } => {
-                self.open_create_group_modal(initial_view, None, Some(origin), window, cx);
+                self.open_create_group_modal(initial_view, None, None, Some(origin), window, cx);
             }
             GroupPaletteAction::PromptRenameGroup { group } => {
                 self.open_rename_group_modal(group, Some(origin), window, cx);
@@ -536,6 +558,9 @@ impl EditorWorkspace {
             GroupPaletteAction::ExportDraftCopy { target } => {
                 self.export_view_draft_copy(target, window, cx);
             }
+            GroupPaletteAction::Pane(pane_action) => {
+                self.execute_pane_palette_action(pane_action, origin, window, cx);
+            }
         }
     }
 
@@ -558,8 +583,21 @@ impl EditorWorkspace {
         self.group_ui.recovery_modal.is_some()
     }
 
-    pub(crate) fn record_tab_drag_start(&mut self, target: ViewTarget, cx: &mut Context<Self>) {
-        self.group_ui.drag_preview = Some(DragPreviewSession::Tab(target));
+    #[inline]
+    pub(crate) fn clear_drag_preview(&mut self) {
+        self.group_ui.drag_preview = None;
+    }
+
+    pub(crate) fn record_tab_drag_start(
+        &mut self,
+        source_pane: PaneId,
+        target: ViewTarget,
+        cx: &mut Context<Self>,
+    ) {
+        self.group_ui.drag_preview = Some(DragPreviewSession::Tab {
+            source_pane,
+            target,
+        });
         cx.notify();
     }
 
@@ -571,6 +609,7 @@ impl EditorWorkspace {
     pub(crate) fn complete_tab_drop_before_view(
         &mut self,
         drag: DraggedTabView,
+        dest_pane: PaneId,
         dest_group: GroupId,
         before_view: ViewId,
         window: &mut Window,
@@ -585,20 +624,35 @@ impl EditorWorkspace {
             cx.notify();
             return;
         }
-        let _ = self.run_ui_group_command(
-            GroupCommand::MoveView {
-                target: drag.target,
-                group: dest_group,
-                before: Some(before_view),
-            },
-            window,
-            cx,
-        );
+        if drag.source_pane == dest_pane {
+            let _ = self.run_ui_group_command(
+                GroupCommand::MoveView {
+                    target: drag.target,
+                    group: dest_group,
+                    before: Some(before_view),
+                },
+                window,
+                cx,
+            );
+        } else {
+            let _ = self.run_ui_pane_command(
+                PaneCommand::MoveView {
+                    target: drag.target,
+                    source: drag.source_pane,
+                    destination: dest_pane,
+                    group: dest_group,
+                    before: Some(before_view),
+                },
+                window,
+                cx,
+            );
+        }
     }
 
     pub(crate) fn complete_tab_drop_into_group(
         &mut self,
         drag: DraggedTabView,
+        dest_pane: PaneId,
         dest_group: GroupId,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -608,20 +662,35 @@ impl EditorWorkspace {
             cx.notify();
             return;
         }
-        let _ = self.run_ui_group_command(
-            GroupCommand::MoveView {
-                target: drag.target,
-                group: dest_group,
-                before: None,
-            },
-            window,
-            cx,
-        );
+        if drag.source_pane == dest_pane {
+            let _ = self.run_ui_group_command(
+                GroupCommand::MoveView {
+                    target: drag.target,
+                    group: dest_group,
+                    before: None,
+                },
+                window,
+                cx,
+            );
+        } else {
+            let _ = self.run_ui_pane_command(
+                PaneCommand::MoveView {
+                    target: drag.target,
+                    source: drag.source_pane,
+                    destination: dest_pane,
+                    group: dest_group,
+                    before: None,
+                },
+                window,
+                cx,
+            );
+        }
     }
 
     pub(crate) fn complete_tab_drop_new_group(
         &mut self,
         drag: DraggedTabView,
+        dest_pane: PaneId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -630,7 +699,8 @@ impl EditorWorkspace {
             cx.notify();
             return;
         }
-        self.open_create_group_modal(Some(drag.target), None, None, window, cx);
+        let cross_pane = (drag.source_pane != dest_pane).then_some((drag.source_pane, dest_pane));
+        self.open_create_group_modal(Some(drag.target), None, cross_pane, None, window, cx);
     }
 
     pub(crate) fn complete_group_drop_before(
@@ -674,7 +744,7 @@ impl EditorWorkspace {
         }
     }
 
-    fn notify_group_service_error(
+    pub(crate) fn notify_group_service_error(
         &mut self,
         err: &ServiceError,
         window: &mut Window,
@@ -705,6 +775,7 @@ impl EditorWorkspace {
         &mut self,
         initial_view: Option<ViewTarget>,
         before: Option<GroupId>,
+        cross_pane_move: Option<(PaneId, PaneId)>,
         explicit_origin: Option<OverlayOrigin>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -768,6 +839,7 @@ impl EditorWorkspace {
             kind: GroupEditorModalKind::Create {
                 before,
                 initial_view,
+                cross_pane_move,
             },
             origin,
             name_input,
@@ -892,9 +964,10 @@ impl EditorWorkspace {
             GroupEditorModalKind::Create {
                 before,
                 initial_view,
+                cross_pane_move,
             } => {
                 // If initial_view became stale while modal was open, surface Stale via Core.
-                self.apply_group_command(
+                let create_res = self.apply_group_command(
                     GroupCommand::Create {
                         name: raw_name,
                         color: selected_color,
@@ -903,7 +976,31 @@ impl EditorWorkspace {
                     },
                     window,
                     cx,
-                )
+                );
+                if let Ok(ok_res) = &create_res
+                    && let (Some(target), Some((src_pane, dst_pane)), Some(created_gid)) =
+                        (initial_view, cross_pane_move, ok_res.created_group)
+                    && src_pane != dst_pane
+                {
+                    if let Err(mv_err) = self.apply_pane_command(
+                        PaneCommand::MoveView {
+                            target,
+                            source: src_pane,
+                            destination: dst_pane,
+                            group: created_gid,
+                            before: None,
+                        },
+                        window,
+                        cx,
+                    ) {
+                        self.notify_group_service_error(&mv_err, window, cx);
+                    } else {
+                        self.group_ui.editor_modal = None;
+                        cx.notify();
+                        return true;
+                    }
+                }
+                create_res
             }
             GroupEditorModalKind::Rename { group } => {
                 let prior = self
@@ -1157,10 +1254,17 @@ impl EditorWorkspace {
 
     pub(crate) fn create_new_tab_in_group(
         &mut self,
+        pane_id: PaneId,
         group: GroupId,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.active_pane_id() != pane_id
+            && let Err(err) = self.activate_pane(pane_id, window, cx)
+        {
+            self.notify_group_service_error(&err, window, cx);
+            return;
+        }
         let Some(created_target) = self.create_untitled_tab(true, window, cx) else {
             return;
         };
@@ -1190,7 +1294,7 @@ impl EditorWorkspace {
         cx: &mut Context<Self>,
     ) {
         let initial = self.active_view_id().and_then(|id| self.view_target(id));
-        self.open_create_group_modal(initial, None, None, window, cx);
+        self.open_create_group_modal(initial, None, None, None, window, cx);
     }
 
     pub(crate) fn on_create_empty_group(
@@ -1199,7 +1303,7 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.open_create_group_modal(None, None, None, window, cx);
+        self.open_create_group_modal(None, None, None, None, window, cx);
     }
 
     pub(crate) fn on_rename_current_group(
@@ -1637,7 +1741,7 @@ impl EditorWorkspace {
         let page_num = modal.cursor_history.len() + 1;
         let has_prev = !modal.cursor_history.is_empty();
         let has_next = page.is_some_and(|p| p.next.is_some());
-        let at_session_cap = self.ordered_view_ids().len() >= MAX_SESSION_VIEWS;
+        let at_session_cap = self.session_layout().view_count() >= MAX_SESSION_VIEWS;
         let busy_loading_or_export = state.loading || state.active_export.is_some();
 
         let summary_strip = h_flex()
@@ -2272,6 +2376,7 @@ pub(crate) fn build_tab_context_menu(
     let is_dark = cx.theme().mode.is_dark();
     let (
         pre_menu_origin,
+        resolved_pane_id,
         resolved_group_id,
         resolved_group_name,
         resolved_group_collapsed,
@@ -2282,6 +2387,9 @@ pub(crate) fn build_tab_context_menu(
         can_save_as,
         has_checkpoint_or_overbudget,
         groups_snapshot,
+        other_panes_snapshot,
+        can_split_h,
+        can_split_v,
         lifecycle_busy,
     ) = {
         let ws = workspace.read(cx);
@@ -2289,6 +2397,9 @@ pub(crate) fn build_tab_context_menu(
         let layout = ws.session_layout();
         let Ok(lv) = layout.resolve(target) else {
             return menu.min_w(px(200.)).label("Tab is no longer open");
+        };
+        let Some(owning_pane) = layout.pane_for_view(target.view_id) else {
+            return menu.min_w(px(200.)).label("Tab is no longer placed");
         };
         let grp_id = lv.group_id;
         let (grp_name, grp_collapsed) = layout
@@ -2311,8 +2422,36 @@ pub(crate) fn build_tab_context_menu(
             .iter()
             .map(|g| (g.id, g.name.clone(), g.color))
             .collect();
+        let mut total_panes = 0usize;
+        let mut other_panes = Vec::new();
+        for (ix, p) in layout.panes().enumerate() {
+            total_panes += 1;
+            if p.id != owning_pane {
+                other_panes.push((ix + 1, p.id, p.tabs.len()));
+            }
+        }
+        let root_bounds = ws.group_ui.panes.root_bounds();
+        let split_h_ok = total_panes < MAX_PANES
+            && pane_ui::can_split_pane_in_bounds(
+                &layout.tree.root,
+                root_bounds,
+                owning_pane,
+                SplitDirection::Right,
+                &|id, fb| ws.pane_split_ratio(id).unwrap_or(fb),
+            )
+            .is_ok();
+        let split_v_ok = total_panes < MAX_PANES
+            && pane_ui::can_split_pane_in_bounds(
+                &layout.tree.root,
+                root_bounds,
+                owning_pane,
+                SplitDirection::Down,
+                &|id, fb| ws.pane_split_ratio(id).unwrap_or(fb),
+            )
+            .is_ok();
         (
             origin,
+            owning_pane,
             grp_id,
             grp_name,
             grp_collapsed,
@@ -2323,6 +2462,9 @@ pub(crate) fn build_tab_context_menu(
             save_as_ok,
             rescue_ok,
             groups_vec,
+            other_panes,
+            split_h_ok,
+            split_v_ok,
             ws.is_lifecycle_busy(),
         )
     };
@@ -2347,6 +2489,7 @@ pub(crate) fn build_tab_context_menu(
                     ws_new_grp.update(cx, |ws, cx| {
                         ws.open_create_group_modal(
                             Some(target),
+                            None,
                             None,
                             Some(pre_menu_origin),
                             window,
@@ -2431,6 +2574,127 @@ pub(crate) fn build_tab_context_menu(
                 }),
         )
         .separator();
+    {
+        let ws_sp_r = workspace.clone();
+        let ws_sp_d = workspace.clone();
+        let ws_sp_l = workspace.clone();
+        let ws_sp_u = workspace.clone();
+        m = m
+            .item(
+                PopupMenuItem::new("Split & Move Tab Right")
+                    .disabled(lifecycle_busy || !can_split_h)
+                    .on_click(move |_, window, cx| {
+                        ws_sp_r.update(cx, |ws, cx| {
+                            let _ = ws.request_interactive_split(
+                                resolved_pane_id,
+                                SplitDirection::Right,
+                                Some(PaneMove {
+                                    target,
+                                    source: resolved_pane_id,
+                                }),
+                                window,
+                                cx,
+                            );
+                        });
+                    }),
+            )
+            .item(
+                PopupMenuItem::new("Split & Move Tab Down")
+                    .disabled(lifecycle_busy || !can_split_v)
+                    .on_click(move |_, window, cx| {
+                        ws_sp_d.update(cx, |ws, cx| {
+                            let _ = ws.request_interactive_split(
+                                resolved_pane_id,
+                                SplitDirection::Down,
+                                Some(PaneMove {
+                                    target,
+                                    source: resolved_pane_id,
+                                }),
+                                window,
+                                cx,
+                            );
+                        });
+                    }),
+            )
+            .item(
+                PopupMenuItem::new("Split & Move Tab Left")
+                    .disabled(lifecycle_busy || !can_split_h)
+                    .on_click(move |_, window, cx| {
+                        ws_sp_l.update(cx, |ws, cx| {
+                            let _ = ws.request_interactive_split(
+                                resolved_pane_id,
+                                SplitDirection::Left,
+                                Some(PaneMove {
+                                    target,
+                                    source: resolved_pane_id,
+                                }),
+                                window,
+                                cx,
+                            );
+                        });
+                    }),
+            )
+            .item(
+                PopupMenuItem::new("Split & Move Tab Up")
+                    .disabled(lifecycle_busy || !can_split_v)
+                    .on_click(move |_, window, cx| {
+                        ws_sp_u.update(cx, |ws, cx| {
+                            let _ = ws.request_interactive_split(
+                                resolved_pane_id,
+                                SplitDirection::Up,
+                                Some(PaneMove {
+                                    target,
+                                    source: resolved_pane_id,
+                                }),
+                                window,
+                                cx,
+                            );
+                        });
+                    }),
+            );
+
+        if !other_panes_snapshot.is_empty() {
+            let ws_mv_pane = workspace.clone();
+            m = m.submenu("Move Tab to Pane", window, cx, move |mut sub, _w, _cx| {
+                sub = sub.min_w(px(195.));
+                for &(pnum, pid, ptabs) in &other_panes_snapshot {
+                    let ws_dest = ws_mv_pane.clone();
+                    sub = sub.item(
+                        PopupMenuItem::element(move |_w, cx| {
+                            h_flex()
+                                .gap_2()
+                                .items_center()
+                                .justify_between()
+                                .w_full()
+                                .child(format!("Pane {pnum}"))
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child(format!("{ptabs} tabs")),
+                                )
+                        })
+                        .disabled(lifecycle_busy)
+                        .on_click(move |_, window, cx| {
+                            ws_dest.update(cx, |ws, cx| {
+                                let _ = ws.move_view_to_pane(
+                                    target,
+                                    resolved_pane_id,
+                                    pid,
+                                    None,
+                                    None,
+                                    window,
+                                    cx,
+                                );
+                            });
+                        }),
+                    );
+                }
+                sub
+            });
+        }
+        m = m.separator();
+    }
 
     if resolved_group_id != GroupId::UNGROUPED {
         let ws_ren = workspace.clone();
@@ -2554,6 +2818,7 @@ pub(crate) fn build_tab_context_menu(
 pub(crate) fn build_group_menu(
     menu: PopupMenu,
     workspace: Entity<EditorWorkspace>,
+    pane_id: PaneId,
     group_id: GroupId,
     window: &mut Window,
     cx: &mut Context<PopupMenu>,
@@ -2564,7 +2829,8 @@ pub(crate) fn build_group_menu(
         group_name,
         group_color,
         is_collapsed,
-        member_count,
+        pane_member_count,
+        global_member_count,
         can_move_earlier,
         can_move_later,
         lifecycle_busy,
@@ -2575,18 +2841,26 @@ pub(crate) fn build_group_menu(
         let Some(grp) = layout.group(group_id) else {
             return menu.min_w(px(200.)).label("Group no longer exists");
         };
-        let count = layout
-            .pane()
-            .tabs
-            .iter()
-            .filter(|id| layout.view(**id).is_some_and(|v| v.group_id == group_id))
+        let pane_count = layout
+            .pane(pane_id)
+            .map(|p| {
+                p.tabs
+                    .iter()
+                    .filter(|id| layout.view(**id).is_some_and(|v| v.group_id == group_id))
+                    .count()
+            })
+            .unwrap_or(0);
+        let global_count = layout
+            .view_ids()
+            .filter(|id| layout.view(*id).is_some_and(|v| v.group_id == group_id))
             .count();
         (
             origin,
             grp.name.clone(),
             grp.color,
             grp.collapsed,
-            count,
+            pane_count,
+            global_count,
             prev_group_anchor(layout, group_id).is_some(),
             next_group_anchor(layout, group_id).is_some(),
             ws.is_lifecycle_busy(),
@@ -2601,9 +2875,14 @@ pub(crate) fn build_group_menu(
     let ws_later = workspace.clone();
     let ws_close_all = workspace.clone();
 
+    let header_summary = if pane_member_count == global_member_count {
+        format!("{group_name} ({pane_member_count})")
+    } else {
+        format!("{group_name} ({pane_member_count} in pane · {global_member_count} total)")
+    };
     let mut m = menu
         .min_w(px(250.))
-        .label(format!("{group_name} ({member_count})"))
+        .label(header_summary)
         .item(
             PopupMenuItem::new(if is_collapsed {
                 "Expand Group Tabs"
@@ -2629,7 +2908,7 @@ pub(crate) fn build_group_menu(
                 .disabled(lifecycle_busy)
                 .on_click(move |_, window, cx| {
                     ws_new_tab.update(cx, |ws, cx| {
-                        ws.create_new_tab_in_group(group_id, window, cx);
+                        ws.create_new_tab_in_group(pane_id, group_id, window, cx);
                     });
                 }),
         )
@@ -2638,7 +2917,14 @@ pub(crate) fn build_group_menu(
                 .disabled(lifecycle_busy)
                 .on_click(move |_, window, cx| {
                     ws_create_after.update(cx, |ws, cx| {
-                        ws.open_create_group_modal(None, None, Some(pre_menu_origin), window, cx);
+                        ws.open_create_group_modal(
+                            None,
+                            None,
+                            None,
+                            Some(pre_menu_origin),
+                            window,
+                            cx,
+                        );
                     });
                 }),
         );
@@ -2731,7 +3017,7 @@ pub(crate) fn build_group_menu(
 
     m.item(
         PopupMenuItem::new("Close All Tabs in Group…")
-            .disabled(lifecycle_busy || member_count == 0)
+            .disabled(lifecycle_busy || global_member_count == 0)
             .on_click(move |_, window, cx| {
                 ws_close_all.update(cx, |ws, cx| {
                     ws.request_close_group(group_id, window, cx);
@@ -2751,8 +3037,10 @@ mod tests {
             doc_id: DocumentId::new(),
             lifecycle_gen: LifecycleGen(1),
         };
+        let pane_id = layout.active_pane_id();
         layout
             .insert_view(
+                pane_id,
                 LayoutView {
                     id,
                     document,
@@ -2811,7 +3099,10 @@ mod tests {
         let v1 = insert_test_view(&mut layout, g_alpha);
         let v2 = insert_test_view(&mut layout, g_alpha);
         let v3 = insert_test_view(&mut layout, g_alpha);
-        assert_eq!(layout.pane().tabs, vec![v1.view_id, v2.view_id, v3.view_id]);
+        assert_eq!(
+            layout.active_pane().tabs,
+            vec![v1.view_id, v2.view_id, v3.view_id]
+        );
 
         // v1 is first in Alpha: earlier is None, later swaps past v2.
         assert_eq!(prev_view_anchor_in_group(&layout, v1), None);
@@ -2823,7 +3114,10 @@ mod tests {
                 before,
             })
             .unwrap();
-        assert_eq!(layout.pane().tabs, vec![v2.view_id, v1.view_id, v3.view_id]);
+        assert_eq!(
+            layout.active_pane().tabs,
+            vec![v2.view_id, v1.view_id, v3.view_id]
+        );
 
         // Move v1 one more slot later -> reaches end of Alpha.
         let (grp, before) = next_view_anchor_in_group(&layout, v1).unwrap();
@@ -2835,7 +3129,10 @@ mod tests {
                 before,
             })
             .unwrap();
-        assert_eq!(layout.pane().tabs, vec![v2.view_id, v3.view_id, v1.view_id]);
+        assert_eq!(
+            layout.active_pane().tabs,
+            vec![v2.view_id, v3.view_id, v1.view_id]
+        );
         assert_eq!(next_view_anchor_in_group(&layout, v1), None);
 
         // Move v1 one slot earlier -> back between v2 and v3.
@@ -2847,7 +3144,10 @@ mod tests {
                 before,
             })
             .unwrap();
-        assert_eq!(layout.pane().tabs, vec![v2.view_id, v1.view_id, v3.view_id]);
+        assert_eq!(
+            layout.active_pane().tabs,
+            vec![v2.view_id, v1.view_id, v3.view_id]
+        );
 
         // Group order starts [Ungrouped, Alpha, Beta]. Move Beta earlier -> [Ungrouped, Beta, Alpha].
         let before_g = prev_group_anchor(&layout, g_beta).unwrap();

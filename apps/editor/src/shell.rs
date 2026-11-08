@@ -295,6 +295,61 @@ pub fn disambiguate_single_path(maybe_path: Option<&Path>, paths: &[Option<&Path
     comps[comps.len() - take..].join("/")
 }
 
+/// Zero-`Vec` iterator variant of [`disambiguate_single_path`] for 1,024-tab virtualized sidebar
+/// rendering across split panes. Zero disk I/O and zero path-list heap allocation per frame.
+pub fn disambiguate_single_path_iter<'a, I>(
+    maybe_path: Option<&Path>,
+    iter_fn: impl Fn() -> I,
+) -> String
+where
+    I: Iterator<Item = &'a Path>,
+{
+    let Some(path) = maybe_path else {
+        return String::new();
+    };
+    let Some(name_os) = path.file_name().filter(|n| !n.is_empty()) else {
+        let comps = parent_components(path);
+        if comps.is_empty() {
+            return String::new();
+        }
+        let take = comps.len().min(2);
+        return comps[comps.len() - take..].join("/");
+    };
+    let duplicate_name = iter_fn().any(|other| {
+        !std::ptr::eq(other, path)
+            && other != path
+            && other.file_name().is_some_and(|n| n == name_os)
+    });
+    let comps = parent_components(path);
+    if comps.is_empty() {
+        return String::new();
+    }
+    if !duplicate_name {
+        let take = comps.len().min(2);
+        return comps[comps.len() - take..].join("/");
+    }
+    let mut depth = 1usize;
+    while depth < comps.len() && depth < 4 {
+        let candidate_suffix = &comps[comps.len() - depth..];
+        let collides = iter_fn().any(|other| {
+            !std::ptr::eq(other, path)
+                && other != path
+                && other.file_name().is_some_and(|n| n == name_os)
+                && {
+                    let other_comps = parent_components(other);
+                    other_comps.len() >= depth
+                        && &other_comps[other_comps.len() - depth..] == candidate_suffix
+                }
+        });
+        if !collides {
+            break;
+        }
+        depth += 1;
+    }
+    let take = depth.min(comps.len());
+    comps[comps.len() - take..].join("/")
+}
+
 pub fn file_name_str(path: &Path) -> String {
     path.file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -526,6 +581,12 @@ mod tests {
         for (ix, candidate) in [Some(p1), Some(p2), Some(p3), None].iter().enumerate() {
             assert_eq!(
                 disambiguate_single_path(*candidate, &[Some(p1), Some(p2), Some(p3), None]),
+                labels[ix]
+            );
+            assert_eq!(
+                disambiguate_single_path_iter(*candidate, || {
+                    [Some(p1), Some(p2), Some(p3), None].into_iter().flatten()
+                }),
                 labels[ix]
             );
         }

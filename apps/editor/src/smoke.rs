@@ -23,6 +23,8 @@ use crate::search_bar::{SearchQueryKind, SearchStatus};
 use crate::shell::EditorViewPrefs;
 #[path = "smoke_groups.rs"]
 mod groups;
+#[path = "smoke_splits.rs"]
+mod splits;
 pub(crate) use groups::verify_post_shutdown_layout;
 pub const TYPING_LATENCY_LABEL: &str = "submission-only, not screen latency";
 pub const TYPING_BENCH_OPS: usize = 128;
@@ -40,18 +42,27 @@ pub struct SmokeReport {
     pub process_to_window_ms: f64,
     pub first_interactive_ms: Option<f64>,
     pub recovery_manifest_ms: Option<f64>,
+    pub visible_panes_ready_ms: Option<f64>,
     pub total_elapsed_ms: f64,
     pub final_tab_count: usize,
     pub hydrated_editor_count: usize,
     pub hydrated_content_bytes: u64,
     pub paged_tab_count: usize,
+    pub pane_count: usize,
+    pub visible_pane_count: usize,
+    pub compact_layout: bool,
+    pub focus_only: bool,
+    pub split_native_ui_verified: bool,
+    pub split_restart_layout_verified: bool,
+    pub split_focus_first_budget_verified: bool,
+    pub split_fixture_input_verified: bool,
     pub committed_revisions_observed: Vec<u64>,
     pub typing_latency_label: String,
     pub typing_doc_bytes: u64,
     pub typing_sample_count: usize,
-    pub typing_submit_p50_ms: f64,
-    pub typing_submit_p95_ms: f64,
-    pub typing_submit_max_ms: f64,
+    pub typing_submit_p50_ms: Option<f64>,
+    pub typing_submit_p95_ms: Option<f64>,
+    pub typing_submit_max_ms: Option<f64>,
     pub large_paste_64k_submit_ms: Option<f64>,
     pub atomic_batch_single_undo_verified: bool,
     pub stale_revision_rejected: bool,
@@ -141,6 +152,7 @@ pub fn spawn_smoke_runner(
                 SmokeScenario::Full => "full".to_string(),
                 SmokeScenario::Usability => "usability".to_string(),
                 SmokeScenario::Groups => "groups".to_string(),
+                SmokeScenario::Splits => "splits".to_string(),
             },
             typing_latency_label: TYPING_LATENCY_LABEL.to_string(),
             ..Default::default()
@@ -158,6 +170,9 @@ pub fn spawn_smoke_runner(
             }
             SmokeScenario::Groups => {
                 groups::run_group_scenario(&window_handle, &workspace, &mut report, cx).await
+            }
+            SmokeScenario::Splits => {
+                splits::run_split_scenario(&window_handle, &workspace, &mut report, cx).await
             }
         };
         cx.update(|cx| {
@@ -247,25 +262,46 @@ async fn run_startup_scenario(
     report: &mut SmokeReport,
     cx: &mut AsyncApp,
 ) -> Result<(), String> {
+    window_handle
+        .update(cx, |_, window, _| {
+            window.resize(gpui_kit::size(gpui_kit::px(1760.), gpui_kit::px(1100.)));
+        })
+        .map_err(|e| e.to_string())?;
+    pump_frame(window_handle, cx)?;
+    sleep_ms(40, cx).await;
     wait_until(
         Duration::from_secs(10),
         cx,
         |cx| {
+            if pump_frame(window_handle, cx).is_err() {
+                return false;
+            }
             cx.update(|cx| {
                 let ws = workspace.read(cx);
-                let active_hydrated = ws.active_slot().is_some_and(|slot| match slot {
-                    TabSlot::Dehydrated(_) | TabSlot::Hydrating { .. } => false,
-                    TabSlot::Paged(view) => {
-                        view.current_slice.is_some() || view.source_error.is_some()
-                    }
-                    _ => true,
-                });
-                ws.recovery_ready && active_hydrated
+                let visible_settled =
+                    ws.visible_targets()
+                        .all(|target| match ws.view_slot(target.view_id) {
+                            Some(TabSlot::Dehydrated(_) | TabSlot::Hydrating { .. }) | None => {
+                                false
+                            }
+                            Some(TabSlot::Paged(view)) => {
+                                view.current_slice.is_some() || view.source_error.is_some()
+                            }
+                            _ => true,
+                        });
+                ws.recovery_ready
+                    && visible_settled
+                    && ws.active_slot().is_some()
+                    && !ws.is_compact_layout()
+                    && !ws.is_focus_only()
+                    && ws.measured_visible_pane_count() == ws.visible_pane_ids().count()
             })
         },
-        "recovery bootstrap and active tab hydration",
+        "recovery bootstrap and every visible pane selection",
     )
     .await?;
+    report.visible_panes_ready_ms =
+        Some(cx.update(|cx| workspace.read(cx).process_start.elapsed().as_secs_f64() * 1000.0));
 
     // Pump real window draw frames so Metal layout/text shaping executes.
     let _ = window_handle.update(cx, |_, window, cx| {
@@ -300,12 +336,11 @@ async fn run_startup_scenario(
                 report.startup_metadata_view_count = ws.session_layout().views.len();
                 report.startup_group_count = ws.session_layout().tree.groups.len();
                 report.startup_inactive_hydrated_count = ws
-                    .ordered_view_ids()
-                    .iter()
+                    .all_view_ids()
                     .filter(|id| {
-                        Some(**id) != ws.active_view_id()
+                        !ws.visible_targets().any(|target| target.view_id == *id)
                             && matches!(
-                                ws.view_slot(**id),
+                                ws.view_slot(*id),
                                 Some(TabSlot::Editable(_) | TabSlot::Paged(_))
                             )
                     })
@@ -314,15 +349,15 @@ async fn run_startup_scenario(
                     && ws.session_layout().views.len() == editor_services::MAX_SESSION_VIEWS
                     && ws.cli.files.iter().all(|path| {
                         let path = std::path::absolute(path).unwrap_or_else(|_| path.clone());
-                        !ws.ordered_view_ids().iter().any(|id| {
-                            ws.view_slot(*id)
+                        !ws.all_view_ids().any(|id| {
+                            ws.view_slot(id)
                                 .is_some_and(|slot| slot.meta().path.as_ref() == Some(&path))
                         })
                     });
                 if (ws.cli.files.is_empty() || cli_overflow)
                     && report.startup_inactive_hydrated_count != 0
                 {
-                    return Err("metadata restart hydrated inactive views".into());
+                    return Err("metadata restart hydrated hidden views".into());
                 }
                 // With a real full fixture and extra CLI file, the selected native
                 // editor/viewport must load even though every requested file was rejected.
@@ -1339,9 +1374,9 @@ async fn run_1mib_ordinary_typing_benchmark(
     report.typing_latency_label = TYPING_LATENCY_LABEL.to_string();
     report.typing_doc_bytes = written_bytes as u64;
     report.typing_sample_count = samples_ms.len();
-    report.typing_submit_p50_ms = percentile_sorted(&samples_ms, 0.50);
-    report.typing_submit_p95_ms = percentile_sorted(&samples_ms, 0.95);
-    report.typing_submit_max_ms = samples_ms.last().copied().unwrap_or(0.0);
+    report.typing_submit_p50_ms = Some(percentile_sorted(&samples_ms, 0.50));
+    report.typing_submit_p95_ms = Some(percentile_sorted(&samples_ms, 0.95));
+    report.typing_submit_max_ms = samples_ms.last().copied();
     report.large_paste_64k_submit_ms = Some(paste_ms);
     let expected_paste_revision = Revision(rev_before.0 + TYPING_BENCH_OPS as u64 + 1);
     wait_until(Duration::from_secs(10),cx,|cx|cx.update(|cx|{
@@ -1492,6 +1527,10 @@ fn capture_workspace_metrics(ws: &EditorWorkspace, report: &mut SmokeReport) {
     report.final_tab_count = ws.session.views.len();
     report.hydrated_editor_count = ws.hydrated_editor_count();
     report.hydrated_content_bytes = ws.hydrated_content_bytes();
+    report.pane_count = ws.session_layout().panes().count();
+    report.visible_pane_count = ws.measured_visible_pane_count();
+    report.compact_layout = ws.is_compact_layout();
+    report.focus_only = ws.is_focus_only();
     report.paged_tab_count = ws
         .documents
         .values()
@@ -1908,23 +1947,6 @@ async fn run_usability_scenario(
             workspace.update(cx, |ws, cx| {
                 ws.open_path(lazy_a_path.clone(), window, cx);
                 ws.open_path(active_b_path.clone(), window, cx);
-                let target = ws
-                    .create_untitled_tab(true, window, cx)
-                    .expect("fixture capacity");
-                ws.documents.insert(
-                    target.document.doc_id,
-                    TabSlot::Dehydrated(SessionDocumentStub {
-                        doc_id: target.document.doc_id,
-                        lifecycle_gen: target.document.lifecycle_gen,
-                        durable_rev: Revision(0),
-                        meta: DocMeta {
-                            title: "unhydrated_c.rs".into(),
-                            path: Some(unhydrated_c_path.clone()),
-                            ..DocMeta::default()
-                        },
-                        has_checkpoint: false,
-                    }),
-                );
             });
         })
         .map_err(|e| e.to_string())?;
@@ -1963,7 +1985,33 @@ async fn run_usability_scenario(
                     })
                     .and_then(|view| ws.view_target(view.id))
                     .ok_or("missing active_b view")?;
+                let inactive = ws
+                    .create_untitled_tab(true, window, cx)
+                    .ok_or("unhydrated fixture capacity")?;
                 ws.activate_view(target, window, cx);
+                // Dehydrate only after restoring active_b. Leaving the fixture
+                // active across an await correctly triggers visible hydration.
+                ws.documents.insert(
+                    inactive.document.doc_id,
+                    TabSlot::Dehydrated(SessionDocumentStub {
+                        doc_id: inactive.document.doc_id,
+                        lifecycle_gen: inactive.document.lifecycle_gen,
+                        durable_rev: Revision(0),
+                        meta: DocMeta {
+                            title: "unhydrated_c.rs".into(),
+                            path: Some(unhydrated_c_path.clone()),
+                            ..DocMeta::default()
+                        },
+                        has_checkpoint: false,
+                    }),
+                );
+                if ws.visible_targets().any(|target| target == inactive)
+                    || !matches!(ws.view_slot(inactive.view_id), Some(TabSlot::Dehydrated(_)))
+                {
+                    return Err(
+                        "metadata-only filter fixture is not inactive and Dehydrated".into(),
+                    );
+                }
                 ws.set_soft_wrap(false, window, cx);
                 ws.set_show_whitespaces(true, window, cx);
                 ws.set_indent_prefs(4, false, window, cx);

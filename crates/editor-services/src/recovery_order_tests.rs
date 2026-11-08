@@ -54,6 +54,7 @@ impl Fixture {
         let is_new = !self.layout.views.values().any(|v| v.document == key);
         if is_new {
             self.layout.insert_view(
+                self.layout.active_pane_id(),
                 LayoutView {
                     id: ViewId::new(),
                     document: key,
@@ -214,7 +215,7 @@ fn newest_admitted_metadata_wins_in_both_worker_orders_with_saved_baseline() {
             let manifest = layout_store::manifest(&mut f.conn).unwrap();
             assert_current(&manifest.documents[0].meta, expected);
             assert_eq!(
-                manifest.layout.views[&manifest.layout.pane().tabs[0]]
+                manifest.layout.views[&manifest.layout.active_pane().tabs[0]]
                     .view
                     .cursor_byte,
                 3
@@ -365,7 +366,7 @@ fn close_does_not_release_queued_sources_or_stamp_rejected_layouts() {
     let id = DocumentId::new();
     f.queue_metadata(id, DocMeta::default()).unwrap();
     let ack = f.apply_next_layout().unwrap();
-    let target = f.layout.target(f.layout.pane().tabs[0]).unwrap();
+    let target = f.layout.target(f.layout.active_pane().tabs[0]).unwrap();
     f.handle
         .try_commit(commit(id, 1, DocMeta::default()))
         .unwrap();

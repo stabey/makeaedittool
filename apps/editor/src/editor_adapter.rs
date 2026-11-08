@@ -668,7 +668,7 @@ pub struct EditorAdapter {
     pending_programmatic_acks: VecDeque<ExpectedProgrammaticEvent>,
     pub oversized_recovery_warned: bool,
     suppress_events: bool,
-    subscription: Option<Subscription>,
+    subscription: Option<[Subscription; 2]>,
 }
 
 impl EditorAdapter {
@@ -769,7 +769,7 @@ impl EditorAdapter {
         }
     }
 
-    pub fn attach_subscription(&mut self, subscription: Subscription) {
+    pub fn attach_subscription(&mut self, subscription: [Subscription; 2]) {
         self.subscription = Some(subscription);
     }
 

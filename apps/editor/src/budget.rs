@@ -21,7 +21,7 @@ pub struct HydratedSlotInfo {
     pub is_dirty: bool,
     pub has_undo_history: bool,
     pub is_file_backed: bool,
-    pub is_active: bool,
+    pub is_visible: bool,
     pub last_activated_tick: u64,
 }
 
@@ -38,10 +38,10 @@ pub enum AdmissionDecision {
 }
 
 /// Computes whether a candidate ordinary document of `incoming_bytes` can be hydrated into a live
-/// `EditorState`, optionally reclaiming LRU inactive tabs that have **neither** unsaved changes
+/// `EditorState`, optionally reclaiming LRU hidden tabs that have **neither** unsaved changes
 /// (`!is_dirty`) **nor** session undo history (`!has_undo_history`).
 ///
-/// Dirty tabs and edited tabs with undo history are NEVER evicted.
+/// Visible pane selections, dirty tabs and edited tabs with undo history are NEVER evicted.
 pub fn plan_hydration_admission(
     config: HydrationBudgetConfig,
     current_hydrated: &[HydratedSlotInfo],
@@ -74,7 +74,7 @@ pub fn plan_hydration_admission(
             .iter()
             .copied()
             .filter(|slot| {
-                !slot.is_active && !slot.is_dirty && !slot.has_undo_history && slot.is_file_backed
+                !slot.is_visible && !slot.is_dirty && !slot.has_undo_history && slot.is_file_backed
             })
             .collect();
         reclaimable.sort_by_key(|slot| slot.last_activated_tick);
@@ -142,7 +142,7 @@ mod tests {
                 is_dirty: i % 2 == 0,
                 has_undo_history: true,
                 is_file_backed: true,
-                is_active: i == 98,
+                is_visible: i == 98,
                 last_activated_tick: i as u64,
             })
             .collect();
@@ -171,7 +171,7 @@ mod tests {
                 is_dirty: true,
                 has_undo_history: true,
                 is_file_backed: true,
-                is_active: false,
+                is_visible: false,
                 last_activated_tick: 1,
             },
             HydratedSlotInfo {
@@ -180,7 +180,7 @@ mod tests {
                 is_dirty: false,
                 has_undo_history: false,
                 is_file_backed: true,
-                is_active: false,
+                is_visible: false,
                 last_activated_tick: 2,
             },
             HydratedSlotInfo {
@@ -189,7 +189,7 @@ mod tests {
                 is_dirty: false,
                 has_undo_history: true, // Edited then undone -> still has undo/redo history; NEVER evict!
                 is_file_backed: true,
-                is_active: false,
+                is_visible: false,
                 last_activated_tick: 3,
             },
             HydratedSlotInfo {
@@ -198,7 +198,7 @@ mod tests {
                 is_dirty: false,
                 has_undo_history: false,
                 is_file_backed: true,
-                is_active: true,
+                is_visible: true,
                 last_activated_tick: 4,
             },
         ];
@@ -227,7 +227,7 @@ mod tests {
                 is_dirty: true,
                 has_undo_history: true,
                 is_file_backed: false,
-                is_active: i == 3,
+                is_visible: i == 3,
                 last_activated_tick: i as u64,
             })
             .collect();
@@ -252,12 +252,56 @@ mod tests {
                 is_dirty: false,
                 has_undo_history: false,
                 is_file_backed: false,
-                is_active: i == 3,
+                is_visible: i == 3,
                 last_activated_tick: i as u64,
             })
             .collect();
 
         let decision = plan_hydration_admission(config, &four_untitled, 1024);
         assert!(matches!(decision, AdmissionDecision::OverBudget { .. }));
+    }
+    #[test]
+    fn every_visible_pane_is_protected_and_focus_first_admission_keeps_one_editor() {
+        let config = HydrationBudgetConfig {
+            max_hydrated_bytes: 256 * 1024 * 1024,
+            soft_clean_editor_target: 1,
+            max_hydrated_editors: 1,
+        };
+        assert!(matches!(
+            plan_hydration_admission(config, &[], 69_632),
+            AdmissionDecision::Admit { .. }
+        ));
+        let focused = HydratedSlotInfo {
+            doc_id: DocumentId(1),
+            byte_len: 69_632,
+            is_dirty: false,
+            has_undo_history: false,
+            is_file_backed: true,
+            is_visible: true,
+            last_activated_tick: 1,
+        };
+        assert!(matches!(
+            plan_hydration_admission(config, &[focused], 69_632),
+            AdmissionDecision::OverBudget { .. }
+        ));
+        let mut visible = [focused; 8];
+        for (index, slot) in visible.iter_mut().enumerate() {
+            slot.doc_id = DocumentId(index as u128 + 1);
+        }
+        let shared = HydrationBudgetConfig {
+            max_hydrated_editors: 8,
+            ..config
+        };
+        assert!(matches!(
+            plan_hydration_admission(shared, &visible, 1),
+            AdmissionDecision::OverBudget { .. }
+        ));
+        visible[3].is_visible = false;
+        assert_eq!(
+            plan_hydration_admission(shared, &visible, 1),
+            AdmissionDecision::Admit {
+                dehydrate_documents: vec![DocumentId(4)],
+            }
+        );
     }
 }

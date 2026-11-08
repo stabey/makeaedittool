@@ -163,3 +163,15 @@ CI设计与实现经`CiDesignReview`评审。`actionlint 1.7.12`发现并修复�
 首轮标签组CI [42494337544](https://github.com/stabey/makeanotepad/actions/runs/42494337544)：macOS Intel、Windows x64/ARM64和Linux完成测试、release、CLI及打包；macOS ARM在测试辅助函数中直接unwrap清单请求，遇到服务有界队列的正常Busy而失败。修复仅让该辅助函数沿用已有有界`admit`协议，不扩大生产队列、不忽略操作错误、不重跑碰运气；本地62个服务集成测试通过。原日志见[group-ci-first-failure.txt](evidence/group-ci-first-failure.txt)。
 
 修复后[42496139274](https://github.com/stabey/makeanotepad/actions/runs/42496139274)对应`734f8d3998e423e85145b46e4c1f83a273da2fef`：格式检查及五个原生平台job全部成功，均完成workspace测试、release构建、无窗口CLI、二进制架构/校验值/许可检查和unsigned开发ZIP上传。结构化结果见[group-ci-final.json](evidence/group-ci-final.json)。本轮新CI产物未下载运行；原生交互与性能证据来自前述本地最终release，不能混称CI产物验收。任务生成的临时数据库、夹具与无效截图已清理，默认用户数据未用于验证。
+
+## 不同文档分屏交付
+
+- 最终执行 `cargo fmt --all && cargo test --locked --workspace && cargo build --locked --release --workspace`：138个测试通过，release构建成功。
+- 最终二进制身份见[evidence/split-final-identity.json](evidence/split-final-identity.json)。其中base HEAD仅表示开发基线，不冒充未提交源码身份。
+- 最终原生窗口场景 `splits`、`usability`、`groups`、`full` 均exit 0、passed及durable shutdown ACK为true，见`evidence/split-final-accepted-*.json`及对应`-os.txt`。
+- 分屏覆盖2/4/8窗格、拒绝第9窗格、四方向拆分、真实窗口内拖放及Esc取消、240×160最小叶区域、缩小/展开与焦点模式、均分、输入/撤销/保存隔离、分页视图焦点、搜索焦点及resize取消、关闭合并。保护文档的“关闭本窗格标签”实际渲染确认框，验证全会话readonly屏障，Cancel恢复全部身份/正文/修订/undo/readonly；同窗格Keep仅移除目标标签，保留其他窗格及空窗格，并验证重启布局。
+- 原生验证先暴露并修复三项问题：等待帧回调不能保证尺寸变化已落地；右上提示遮住标签拖放起点；边框内测量238px与外框240px混淆。保留`split-final-native-first/second/third.json`失败报告，未放宽240px约束；第四次及最终新增生命周期覆盖通过。
+- 独立回归发现旧usability夹具把Dehydrated文档留作活动标签跨越await，新可见窗格加载机制因此合法加载它。夹具改为先恢复另一个活动标签，再替换非可见stub，并显式断言前置条件；原有过滤不能加载正文的断言保留，最终复测通过。失败报告`split-verifier-usability.json`保留。
+- 100/1024标签×1/2/4/8窗格：24次startup、8次输入场景全部通过；每次实际测量可见窗格数量，不以逻辑树数量替代。额外100标签4窗格、最大1个hydrate预算场景通过，焦点优先且只有69,632 bytes正文。性能口径见性能报告。
+- 独立设计及最终UI复核无阻塞。应用窗口截图仍失败，诊断见`evidence/split-verifier-capture-failure.txt`；不宣称像素、物理HID/IME、Windows ARM GUI或性能通过。本轮未重跑64 GiB扫描。
+

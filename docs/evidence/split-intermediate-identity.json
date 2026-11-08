@@ -1,0 +1,12 @@
+{
+  "binary_sha256": {
+    "editor": "24190f25244152130eb694e31dfc6c126b93c2e10e8a5668c4fe002da4a286cf",
+    "editor-services": "342d41b91e91ed7f24a66db7013db0431ac754f6d1fe3f8d6fc6448d33ee2d85"
+  },
+  "reports": [
+    "split-final-native-second.json",
+    "split-final-core-eight.json",
+    "split-final-core-budget.json"
+  ],
+  "status": "intermediate; native interaction smoke still failing at drag start"
+}

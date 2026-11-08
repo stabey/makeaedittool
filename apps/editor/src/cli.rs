@@ -25,13 +25,15 @@ pub enum InitialTheme {
 pub enum SmokeScenario {
     /// End-to-end native Kit edit, undo/redo, atomic multi-edit, save, reopen/paged search, and clean flush quit.
     Full,
-    /// Startup + recovery verification only (hydrates active tab, records lazy tab count & revisions, then flushes and quits).
+    /// Startup + recovery verification only (hydrates visible pane selections, records counts, then flushes and quits).
     StartupCheck,
     /// End-to-end daily usability verification: command palette focus, switcher/sidebar metadata-only,
     /// lazy view prefs, CRLF single-undo line ops, format-only BOM restart/save, flip-back & save-in-flight, MRU.
     Usability,
     /// Native group mutations, frozen lifecycle cancellation and durable layout restart.
     Groups,
+    /// Different-document panes, real native interactions, restore and visible-pane input measurements.
+    Splits,
 }
 
 #[derive(Clone, Debug)]
@@ -126,7 +128,7 @@ pub fn help_text() -> &'static str {
         "    --max-hydrated-bytes <BYTES>    Aggregate ordinary-editor content admission cap (default: 268435456)\n",
         "    --max-hydrated-editors <COUNT>  Hard max simultaneously hydrated EditorState tabs (default: 128)\n",
         "    --editable-byte-limit <BYTES>   Override editable vs paged file routing threshold (<= 64 MiB)\n",
-        "    --smoke[=<full|startup|usability|groups>] Run scripted in-app native verification and exit cleanly\n",
+        "    --smoke[=<full|startup|usability|groups|splits>] Run scripted in-app native verification and exit cleanly\n",
         "    --smoke-report <PATH>           Write structured smoke evidence JSON (IDs/revisions/timings, no full text)\n",
         "    -h, --help                      Print help information\n",
         "    -V, --version                   Print version information\n"
@@ -203,9 +205,10 @@ impl CliArgs {
                         "startup" | "startup-check" => SmokeScenario::StartupCheck,
                         "usability" => SmokeScenario::Usability,
                         "groups" => SmokeScenario::Groups,
+                        "splits" => SmokeScenario::Splits,
                         other => {
                             return Err(format!(
-                                "unknown --smoke mode '{other}' (expected 'full', 'startup', 'usability', or 'groups')"
+                                "unknown --smoke mode '{other}' (expected 'full', 'startup', 'usability', 'groups', or 'splits')"
                             ));
                         }
                     });
@@ -355,5 +358,10 @@ mod tests {
     fn parses_usability_smoke_mode() {
         let parsed = CliArgs::parse_from(["--smoke=usability"]).expect("usability smoke mode");
         assert_eq!(parsed.smoke, Some(SmokeScenario::Usability));
+    }
+    #[test]
+    fn parses_splits_smoke_mode() {
+        let parsed = CliArgs::parse_from(["--smoke=splits"]).expect("splits smoke mode");
+        assert_eq!(parsed.smoke, Some(SmokeScenario::Splits));
     }
 }

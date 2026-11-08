@@ -73,14 +73,14 @@ fn preflight(conn: &Connection) -> Result<(i64, i64), ServiceError> {
         let mut inspected_view_set = None;
         while let Some(row) = rows.next()? {
             let version: i64 = row.get(0)?;
-            if version != i64::from(LAYOUT_FORMAT_VERSION) {
+            if !(1..=i64::from(LAYOUT_FORMAT_VERSION)).contains(&version) {
                 return Err(error(
                     ErrorKind::Unsupported,
                     "unsupported layout format; preserved without opening a writer",
                 ));
             }
             if let Some(tree) = row.get::<_, Option<Vec<u8>>>(1)? {
-                if let Err(e) = reject_future_tree(&tree)
+                if let Err(e) = reject_future_tree(&tree, version as u32)
                     && e.kind == ErrorKind::Unsupported
                 {
                     return Err(e);
@@ -119,31 +119,102 @@ fn reject_unknown_layout_fields(
     }
     Ok(())
 }
-fn reject_future_tree(bytes: &[u8]) -> Result<(), ServiceError> {
+fn reject_future_tree(bytes: &[u8], sql_version: u32) -> Result<serde_json::Value, ServiceError> {
     let value: serde_json::Value = serde_json::from_slice(bytes)?;
-    if value
-        .get("format_version")
-        .and_then(|v| v.as_u64())
-        .is_some_and(|version| version != u64::from(LAYOUT_FORMAT_VERSION))
-    {
+    let mut corrupt = None;
+    let version = match value.get("format_version") {
+        Some(version) if version.is_number() => version
+            .as_u64()
+            .ok_or_else(|| error(ErrorKind::Unsupported, "invalid layout version"))?,
+        _ => {
+            corrupt = Some(error(
+                ErrorKind::Corrupt,
+                "missing or invalid layout version",
+            ));
+            u64::from(sql_version)
+        }
+    };
+    if !(1..=u64::from(LAYOUT_FORMAT_VERSION)).contains(&version) {
         return Err(error(
             ErrorKind::Unsupported,
             "unsupported layout version; preserved without opening a writer",
         ));
     }
-    reject_unknown_layout_fields(&value, &["format_version", "groups", "root"])?;
+    let keys: &[&str] = if version == 1 {
+        &["format_version", "groups", "root"]
+    } else {
+        &["format_version", "groups", "active_pane", "root"]
+    };
+    reject_unknown_layout_fields(&value, keys)?;
+    let mut nodes = 0;
+    let mut panes = 0;
     if let Some(root) = value.get("root") {
-        reject_unknown_layout_fields(root, &["Pane"])?;
-        if let Some(node) = root.get("Pane") {
-            reject_unknown_layout_fields(node, &["node_id", "pane"])?;
-            if let Some(pane) = node.get("pane") {
-                reject_unknown_layout_fields(pane, &["id", "tabs", "active_view"])?;
-            }
-        }
+        inspect_tree_node(root, version, 1, &mut nodes, &mut panes, &mut corrupt)?;
+    } else {
+        corrupt.get_or_insert_with(|| error(ErrorKind::Corrupt, "missing root"));
     }
     if let Some(groups) = value.get("groups").and_then(|v| v.as_array()) {
-        for group in groups {
+        if groups.len() > MAX_CUSTOM_GROUPS + 1 {
+            corrupt.get_or_insert_with(|| error(ErrorKind::Corrupt, "group bound exceeded"));
+        }
+        for group in groups.iter().take(MAX_CUSTOM_GROUPS + 1) {
             reject_unknown_layout_fields(group, &["id", "name", "color", "collapsed"])?;
+        }
+    }
+    if version != u64::from(sql_version) {
+        corrupt.get_or_insert_with(|| {
+            error(ErrorKind::Corrupt, "SQL and JSON layout versions disagree")
+        });
+    }
+    if let Some(corrupt) = corrupt {
+        return Err(corrupt);
+    }
+    Ok(value)
+}
+fn inspect_tree_node(
+    value: &serde_json::Value,
+    version: u64,
+    depth: usize,
+    nodes: &mut usize,
+    panes: &mut usize,
+    corrupt: &mut Option<ServiceError>,
+) -> Result<(), ServiceError> {
+    if depth > MAX_LAYOUT_NODES || *nodes >= MAX_LAYOUT_NODES {
+        corrupt.get_or_insert_with(|| error(ErrorKind::Corrupt, "layout traversal bound exceeded"));
+        return Ok(());
+    }
+    *nodes += 1;
+    reject_unknown_layout_fields(
+        value,
+        if version == 1 {
+            &["Pane"]
+        } else {
+            &["Pane", "Split"]
+        },
+    )?;
+    if let Some(node) = value.get("Pane") {
+        *panes += 1;
+        if *panes > MAX_PANES {
+            corrupt.get_or_insert_with(|| error(ErrorKind::Corrupt, "pane bound exceeded"));
+        }
+        reject_unknown_layout_fields(node, &["node_id", "pane"])?;
+        if let Some(pane) = node.get("pane") {
+            reject_unknown_layout_fields(pane, &["id", "tabs", "active_view"])?;
+        }
+    }
+    if let Some(node) = value.get("Split") {
+        reject_unknown_layout_fields(node, &["node_id", "axis", "ratio_bps", "first", "second"])?;
+        if let Some(axis) = node.get("axis").and_then(|v| v.as_str()) {
+            if axis != "Horizontal" && axis != "Vertical" {
+                return Err(error(ErrorKind::Unsupported, "unsupported split axis"));
+            }
+        }
+        for key in ["first", "second"] {
+            if let Some(child) = node.get(key) {
+                inspect_tree_node(child, version, depth + 1, nodes, panes, corrupt)?;
+            } else {
+                corrupt.get_or_insert_with(|| error(ErrorKind::Corrupt, "missing split child"));
+            }
         }
     }
     Ok(())
@@ -240,6 +311,7 @@ fn migrate_legacy(conn: &Connection) -> Result<SessionLayout, ServiceError> {
             .unwrap_or_default();
         let view_id = ViewId::new();
         layout.insert_view(
+            layout.active_pane_id(),
             LayoutView {
                 id: view_id,
                 document: stub.key(),
@@ -273,6 +345,7 @@ fn migrate_legacy(conn: &Connection) -> Result<SessionLayout, ServiceError> {
             continue;
         }
         layout.insert_view(
+            layout.active_pane_id(),
             LayoutView {
                 id: ViewId::new(),
                 document: stub.key(),
@@ -386,7 +459,7 @@ fn load_layout(
         [sql_rev(revision.0)?],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
-    if version != LAYOUT_FORMAT_VERSION {
+    if !(1..=LAYOUT_FORMAT_VERSION).contains(&version) {
         return Err(error(ErrorKind::Unsupported, "unsupported layout format"));
     }
     if len < 0 || len as usize > MAX_LAYOUT_TREE_BYTES {
@@ -400,8 +473,16 @@ fn load_layout(
         [sql_rev(revision.0)?],
         |r| r.get(0),
     )?;
-    reject_future_tree(&bytes)?;
-    let tree: LayoutTree = serde_json::from_slice(&bytes)?;
+    let mut value = reject_future_tree(&bytes, version)?;
+    if version == 1 {
+        let pane = value
+            .pointer("/root/Pane/pane/id")
+            .cloned()
+            .ok_or_else(|| error(ErrorKind::Corrupt, "missing legacy pane"))?;
+        value["active_pane"] = pane;
+        value["format_version"] = LAYOUT_FORMAT_VERSION.into();
+    }
+    let tree: LayoutTree = serde_json::from_value(value)?;
     let count: i64 = conn.query_row(
         "SELECT count(*) FROM layout_views WHERE view_set=?1",
         [set],
@@ -511,9 +592,11 @@ fn read_manifest(conn: &Connection, preserve: bool) -> Result<SessionManifest, S
         .ok_or_else(|| error(ErrorKind::Corrupt, "missing current layout"))?;
     let mut warnings = Vec::new();
     let mut source = current;
+    let mut repaired_or_fallback = false;
     let mut layout = match load_layout(conn, current) {
         Ok((layout, _)) => layout,
         Err(e) => {
+            repaired_or_fallback = true;
             if e.kind == ErrorKind::Unsupported {
                 return Err(e);
             }
@@ -543,20 +626,18 @@ fn read_manifest(conn: &Connection, preserve: bool) -> Result<SessionManifest, S
         }
     };
     if layout.views.is_empty() {
-        let fallback = fallback_layout(conn)?;
-        if !fallback.views.is_empty() {
-            layout = fallback;
-        }
+        populate_empty_layout_fallback(conn, &mut layout)?;
+        repaired_or_fallback |= !layout.views.is_empty();
     }
     let mut documents = Vec::with_capacity(layout.views.len());
     let mut removed = Vec::new();
-    for id in &layout.pane().tabs {
-        let view = &layout.views[id];
+    for id in layout.view_ids() {
+        let view = &layout.views[&id];
         let key = view.document;
         let state:Option<(Option<u64>,Option<i64>)>=conn.query_row("SELECT CASE WHEN typeof(gen)='integer' AND gen>=0 THEN gen END,CASE WHEN typeof(state)='integer' AND state IN(0,1,2) THEN state END FROM documents WHERE id=?1",[key.doc_id.key()],|row|Ok((sql_optional_unsigned(row,0)?,row.get(1)?))).optional()?;
         if state != Some((Some(key.lifecycle_gen.0), Some(0))) {
             removed.push(ViewTarget {
-                view_id: *id,
+                view_id: id,
                 document: key,
             });
             continue;
@@ -565,7 +646,7 @@ fn read_manifest(conn: &Connection, preserve: bool) -> Result<SessionManifest, S
             Ok(stub) => documents.push(stub),
             Err(e) => {
                 removed.push(ViewTarget {
-                    view_id: *id,
+                    view_id: id,
                     document: key,
                 });
                 warnings.push(RecoveryWarning {
@@ -576,6 +657,7 @@ fn read_manifest(conn: &Connection, preserve: bool) -> Result<SessionManifest, S
         }
     }
     if !removed.is_empty() {
+        repaired_or_fallback = true;
         if preserve {
             pin(conn, source, "isolated_unreadable_or_stale_references")?;
         }
@@ -587,6 +669,7 @@ fn read_manifest(conn: &Connection, preserve: bool) -> Result<SessionManifest, S
         layout,
         layout_revision: current,
         source_layout_revision: Some(source),
+        repaired_or_fallback,
         documents,
         recovery,
         warnings,
@@ -594,6 +677,13 @@ fn read_manifest(conn: &Connection, preserve: bool) -> Result<SessionManifest, S
 }
 fn fallback_layout(conn: &Connection) -> Result<SessionLayout, ServiceError> {
     let mut layout = SessionLayout::default();
+    populate_empty_layout_fallback(conn, &mut layout)?;
+    Ok(layout)
+}
+fn populate_empty_layout_fallback(
+    conn: &Connection,
+    layout: &mut SessionLayout,
+) -> Result<(), ServiceError> {
     let eligible = eligibility(conn)?;
     let mut stmt = conn.prepare(&format!("SELECT CASE WHEN typeof(d.id)='text' AND LENGTH(CAST(d.id AS BLOB))=32 THEN CAST(d.id AS BLOB) END FROM documents d LEFT JOIN recovery_heads h ON h.doc=d.id WHERE d.state=0 AND ({eligible}) ORDER BY h.doc IS NULL,d.rowid"))?;
     let mut rows = stmt.query([])?;
@@ -611,6 +701,7 @@ fn fallback_layout(conn: &Connection) -> Result<SessionLayout, ServiceError> {
             continue;
         };
         layout.insert_view(
+            layout.active_pane_id(),
             LayoutView {
                 id: ViewId::new(),
                 document: stub.key(),
@@ -621,7 +712,7 @@ fn fallback_layout(conn: &Connection) -> Result<SessionLayout, ServiceError> {
             false,
         )?;
     }
-    Ok(layout)
+    Ok(())
 }
 const CATALOG_LIVE_DOCUMENT: &str = "(typeof(d.state)<>'integer' OR d.state<>2)";
 const LEGACY_ORPHAN_PREDICATE: &str =
@@ -1221,7 +1312,7 @@ pub(super) fn close_views(
         if !expected.views.is_empty() {
             return Err(error(
                 ErrorKind::InvalidInput,
-                "scratch may only replace an empty pane",
+                "scratch may only replace the final document of an empty session",
             ));
         }
         let view = batch
@@ -1236,7 +1327,7 @@ pub(super) fn close_views(
                 "scratch must be empty and Ungrouped",
             ));
         }
-        expected.insert_view(view.clone(), None, true)?;
+        expected.insert_view(expected.active_pane_id(), view.clone(), None, true)?;
         insert_document(&tx, scratch)?;
     }
     if expected != batch.after {
@@ -1256,15 +1347,19 @@ pub(super) fn close_views(
             CloseDisposition::KeepRecovery => {
                 require_durable(&tx, entry)?;
                 let stub = document_stub(&tx, &id)?;
+                let pane = before
+                    .pane_for_view(view.id)
+                    .expect("validated view placement");
                 let position = before
-                    .pane()
+                    .pane(pane)
+                    .unwrap()
                     .tabs
                     .iter()
                     .take_while(|id| **id != view.id)
                     .filter(|id| before.views[id].group_id == view.group_id)
                     .count() as u16;
                 tx.execute("DELETE FROM closed_views WHERE doc=?1", [&id])?;
-                tx.execute("INSERT INTO closed_views(view_id,doc,gen,pane_id,group_id,position,view_state,closed_order) VALUES(?1,?2,?3,?4,?5,?6,?7,COALESCE((SELECT MAX(closed_order)+1 FROM closed_views),1))", params![view.id.key(),id,sql_rev(view.document.lifecycle_gen.0)?,before.pane().id.key(),view.group_id.key(),position,serde_json::to_string(&entry.view)?])?;
+                tx.execute("INSERT INTO closed_views(view_id,doc,gen,pane_id,group_id,position,view_state,closed_order) VALUES(?1,?2,?3,?4,?5,?6,?7,COALESCE((SELECT MAX(closed_order)+1 FROM closed_views),1))", params![view.id.key(),id,sql_rev(view.document.lifecycle_gen.0)?,pane.key(),view.group_id.key(),position,serde_json::to_string(&entry.view)?])?;
                 let close_id = tx.last_insert_rowid() as u64;
                 let changed = tx.execute(
                     "UPDATE documents SET state=1 WHERE id=?1 AND gen=?2 AND state=0",
@@ -1279,7 +1374,7 @@ pub(super) fn close_views(
                         view: entry.view.clone(),
                         ..view.clone()
                     },
-                    pane_id: before.pane().id,
+                    pane_id: pane,
                     position,
                     document: stub,
                 });

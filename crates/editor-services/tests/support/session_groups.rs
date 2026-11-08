@@ -20,7 +20,7 @@ fn bytes_if_present(path: &Path) -> Option<Vec<u8>> {
         Err(e) => panic!("{e}"),
     }
 }
-fn disk_images(path: &Path) -> (Vec<u8>, Option<Vec<u8>>) {
+pub(super) fn disk_images(path: &Path) -> (Vec<u8>, Option<Vec<u8>>) {
     (
         fs::read(path).unwrap(),
         bytes_if_present(&path.with_file_name(format!(
@@ -169,6 +169,7 @@ fn metadata_session_admits_exactly_1024_without_hydration() {
     let (mut layout, targets, _) = metadata_documents(&service, MAX_SESSION_VIEWS);
     let before = layout.clone();
     let too_many = layout.insert_view(
+        layout.active_pane_id(),
         LayoutView {
             id: ViewId::new(),
             document: document_key(DocumentId::new()),
@@ -186,7 +187,10 @@ fn metadata_session_admits_exactly_1024_without_hydration() {
     let manifest = receive(service.request_manifest().unwrap());
     assert_eq!(manifest.layout, layout);
     assert_eq!(manifest.documents.len(), 1024);
-    assert_eq!(manifest.layout.pane().active_view, Some(targets[0].view_id));
+    assert_eq!(
+        manifest.layout.active_pane().active_view,
+        Some(targets[0].view_id)
+    );
     assert!(manifest.documents.iter().all(|stub| !stub.has_checkpoint));
     let conn = Connection::open(&db).unwrap();
     assert_eq!(
@@ -2065,7 +2069,7 @@ fn legacy_non_text_and_invalid_utf8_payloads_are_preserved_and_isolated() {
             };
             assert_eq!(view.view, expected);
         }
-        let active = manifest.layout.pane().active_view.unwrap();
+        let active = manifest.layout.active_pane().active_view.unwrap();
         assert_eq!(
             manifest.layout.views[&active].document.doc_id,
             DocumentId(1)

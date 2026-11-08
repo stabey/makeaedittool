@@ -10,10 +10,10 @@ use std::time::{Duration, Instant};
 use editor_services::{
     CancelToken, ClosedViewRecord, ContentIdentity, DocMeta, DocumentId, DocumentKey, EncodingSpec,
     ErrorKind, FaultInjector, GroupId, HydratedDraft, IndexStatus, LifecycleGen, LineEnding,
-    OpenOptions, OpenOutcome, PagingService, RecoveryEvent, RecoveryHandle, Revision, SaveOutcome,
-    SaveRequest, SearchService, SearchTarget, ServiceError, SessionDocumentStub, SessionLayout,
-    SessionManifest, ShellTheme, TryRecvError, UiShellLoad, UiShellState, UiShellStore, ViewId,
-    ViewState, ViewTarget, ViewportAnchor, open_document, save_document,
+    OpenOptions, OpenOutcome, PagingService, PaneId, RecoveryEvent, RecoveryHandle, Revision,
+    SaveOutcome, SaveRequest, SearchService, SearchTarget, ServiceError, SessionDocumentStub,
+    SessionLayout, SessionManifest, ShellTheme, TryRecvError, UiShellLoad, UiShellState,
+    UiShellStore, ViewId, ViewState, ViewTarget, ViewportAnchor, open_document, save_document,
 };
 #[path = "session_core.rs"]
 mod session_core;
@@ -200,6 +200,7 @@ pub(crate) enum OverlayFocus {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct OverlayOrigin {
+    pub(crate) pane: PaneId,
     pub(crate) view: Option<ViewTarget>,
     pub(crate) focus: OverlayFocus,
 }
@@ -233,6 +234,7 @@ pub struct EditorWorkspace {
     pub(crate) session: SessionLayout,
     pub(crate) documents: HashMap<DocumentId, TabSlot>,
     pub(crate) group_ui: GroupUiState,
+    pane_runtime: PaneRuntime,
     recently_closed: Vec<ClosedViewRecord>,
     persistence: SessionPersistence,
     pending_lifecycle: Option<PendingLifecycle>,
@@ -240,7 +242,7 @@ pub struct EditorWorkspace {
     operation_sequence: u64,
     pending_quit: Option<bool>,
     pending_open_paths: VecDeque<PathBuf>,
-    pending_open_group: Option<GroupId>,
+    pending_open_placement: Option<(PaneId, GroupId)>,
     recovery_browser: RecoveryBrowserState,
     recovery_cancel: Option<CancelToken>,
     draft_export: Option<u64>,
@@ -385,6 +387,7 @@ impl EditorWorkspace {
             session: SessionLayout::default(),
             documents: HashMap::new(),
             group_ui: GroupUiState::default(),
+            pane_runtime: PaneRuntime::default(),
             recently_closed: Vec::new(),
             persistence: SessionPersistence::default(),
             pending_lifecycle: None,
@@ -392,7 +395,7 @@ impl EditorWorkspace {
             operation_sequence: 0,
             pending_quit: None,
             pending_open_paths: VecDeque::new(),
-            pending_open_group: None,
+            pending_open_placement: None,
             recovery_browser: RecoveryBrowserState::default(),
             recovery_cancel: None,
             draft_export: None,
@@ -575,6 +578,7 @@ impl EditorWorkspace {
         }
 
         self.pump_session(window, cx);
+        self.hydrate_visible_panes(window, cx);
         if self.shell_pending_queue && !self.shutting_down {
             self.queue_shell_persistence(window, cx);
         }
@@ -613,14 +617,32 @@ impl EditorWorkspace {
         &self,
         adapter: &EditorAdapter,
         target: ViewTarget,
+        window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Subscription {
-        cx.subscribe(
-            adapter.editor(),
-            move |this: &mut Self, _editor, event: &InputEditsEvent, cx| {
-                this.on_editor_committed_edits(target, event, cx);
-            },
-        )
+    ) -> [Subscription; 2] {
+        [
+            cx.subscribe(
+                adapter.editor(),
+                move |this: &mut Self, _, event: &InputEditsEvent, cx| {
+                    this.on_editor_committed_edits(target, event, cx);
+                },
+            ),
+            cx.subscribe_in(
+                adapter.editor(),
+                window,
+                move |this: &mut Self, _, event: &InputEvent, window, cx| {
+                    if matches!(event, InputEvent::Focus)
+                        && !this.is_lifecycle_busy()
+                        && this.session.resolve(target).is_ok()
+                        && let Some(pane) = this.session.pane_for_view(target.view_id)
+                        && this.is_pane_visible(pane)
+                        && this.active_pane_id() != pane
+                    {
+                        this.activate_view(target, window, cx);
+                    }
+                },
+            ),
+        ]
     }
 
     fn on_editor_committed_edits(
@@ -766,17 +788,23 @@ impl EditorWorkspace {
             loop {
                 let next_job = weak
                     .update(cx, |this, _cx| {
-                        if this.shutting_down || this.ordered_view_ids().is_empty() {
+                        if this.shutting_down || this.session.view_count() == 0 {
                             this.paged_indexer_running = false;
                             return None;
                         }
-                        let len = this.ordered_view_ids().len();
-                        let active_position = this.active_view_id().and_then(|id| this.ordered_view_ids().iter().position(|v| *v == id)).unwrap_or(0);
-                        let pick = (0..len).map(|offset| if offset == 0 { active_position } else { (this.paged_index_rr_cursor + offset) % len })
-                            .find(|&position| matches!(this.view_slot(this.ordered_view_ids()[position]), Some(TabSlot::Paged(pv)) if !pv.is_loading && pv.source_error.is_none() && matches!(pv.index_status, IndexStatus::Indexing { .. })));
-                        if let Some(position) = pick {
-                            this.paged_index_rr_cursor = (position + 1) % len;
-                            let target = this.view_target(this.ordered_view_ids()[position])?;
+                        let len = this.session.view_count();
+                        let ready = |id| matches!(this.view_slot(id), Some(TabSlot::Paged(pv)) if !pv.is_loading && pv.source_error.is_none() && matches!(pv.index_status, IndexStatus::Indexing { .. }));
+                        let visible = this.pane_active_target(this.active_pane_id()).into_iter()
+                            .chain(this.visible_targets()).find(|target| ready(target.view_id));
+                        let pick = visible.map(|target| (None, target)).or_else(|| {
+                            (0..len).find_map(|offset| {
+                                let position = (this.paged_index_rr_cursor + offset) % len;
+                                let (_, id) = this.session.view_at_index(position)?;
+                                ready(id).then(|| (Some(position), this.view_target(id).unwrap()))
+                            })
+                        });
+                        if let Some((position, target)) = pick {
+                            if let Some(position) = position { this.paged_index_rr_cursor = (position + 1) % len; }
                             if let Some(TabSlot::Paged(pv)) = this.view_slot(target.view_id) {
                                 return Some(Ok((target, pv.handle.clone(), pv.source_gen, pv.index_cancel_token())));
                             }
@@ -874,6 +902,7 @@ impl EditorWorkspace {
         if self.shutting_down {
             return;
         }
+        let _ = self.finish_pane_resize(false, window, cx);
         self.shutting_down = true;
         self.search.cancel_active();
 
@@ -1117,6 +1146,7 @@ impl EditorWorkspace {
                                     match crate::smoke::verify_post_shutdown_layout(&data_dir,&report) {
                                         Ok(()) => {
                                             if report.scenario=="groups" { report.group_restart_layout_verified=true; }
+                                            if report.scenario=="splits" { report.split_restart_layout_verified=true; }
                                             if report.scenario=="startup" { report.startup_restart_layout_verified=true; }
                                         }
                                         Err(error) => report.failure_reason=Some(error),
@@ -1276,6 +1306,7 @@ impl EditorWorkspace {
         cx: &mut Context<Self>,
     ) {
         self.cancel_or_dismiss_group_ui(window, cx);
+        self.cancel_pane_resize(cx);
         self.search.visible = true;
         self.search.replace_visible = with_replace;
         self.goto_visible = false;
@@ -1303,7 +1334,8 @@ impl EditorWorkspace {
     }
 
     pub fn close_overlays(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.cancel_or_dismiss_group_ui(window, cx) {
+        let cancelled_ui = self.cancel_or_dismiss_group_ui(window, cx);
+        if self.cancel_pane_resize(cx) || cancelled_ui {
             return;
         }
         if self.cancel_pending_lifecycle(window, cx) {
@@ -1314,17 +1346,22 @@ impl EditorWorkspace {
         self.goto_visible = false;
         self.palette_visible = false;
         self.palette_prior_origin = None;
-        if let Some(TabSlot::Editable(ed)) = self.active_slot() {
-            ed.clear_search_highlights(cx);
-            ed.focus(window, cx);
-        } else {
-            self.focus_handle.focus(window, cx);
-        }
+        self.clear_target_highlights(self.search.target_view, cx);
+        self.clear_target_highlights(
+            self.active_view_id().and_then(|id| self.view_target(id)),
+            cx,
+        );
+        self.focus_active(window, cx);
         cx.notify();
     }
 
     pub fn run_search_from_inputs(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let Some(view_target) = self.active_view_id().and_then(|id| self.view_target(id)) else {
+            self.search.cancel_active();
+            self.search.clear_results();
+            self.search.target_view = None;
+            self.rebuild_search_item_sizes();
+            cx.notify();
             return;
         };
         let query = self.search_query_input.read(cx).value().to_string();
@@ -1820,7 +1857,7 @@ impl EditorWorkspace {
     }
 
     pub(crate) fn on_next_tab(&mut self, _: &NextTab, window: &mut Window, cx: &mut Context<Self>) {
-        let ids = self.ordered_view_ids();
+        let ids = &self.session.active_pane().tabs;
         if let Some(position) = self
             .active_view_id()
             .and_then(|id| ids.iter().position(|v| *v == id))
@@ -1832,7 +1869,7 @@ impl EditorWorkspace {
     }
 
     pub(crate) fn on_prev_tab(&mut self, _: &PrevTab, window: &mut Window, cx: &mut Context<Self>) {
-        let ids = self.ordered_view_ids();
+        let ids = &self.session.active_pane().tabs;
         if let Some(position) = self
             .active_view_id()
             .and_then(|id| ids.iter().position(|v| *v == id))
@@ -1909,6 +1946,10 @@ impl EditorWorkspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let cancelled_ui = self.cancel_or_dismiss_group_ui(window, cx);
+        if self.cancel_pane_resize(cx) || cancelled_ui {
+            return;
+        }
         if self.search.is_running() {
             self.search.cancel_active();
             cx.notify();
@@ -1918,7 +1959,8 @@ impl EditorWorkspace {
     }
 
     pub(crate) fn on_escape(&mut self, _: &Escape, window: &mut Window, cx: &mut Context<Self>) {
-        if self.cancel_or_dismiss_group_ui(window, cx) {
+        let cancelled_ui = self.cancel_or_dismiss_group_ui(window, cx);
+        if self.cancel_pane_resize(cx) || cancelled_ui {
             return;
         }
         if self.cancel_pending_lifecycle(window, cx) {
@@ -1938,6 +1980,7 @@ impl EditorWorkspace {
         cx: &mut Context<Self>,
     ) {
         self.cancel_or_dismiss_group_ui(window, cx);
+        self.cancel_pane_resize(cx);
         self.palette_visible = false;
         self.palette_prior_origin = None;
         self.goto_visible = !self.goto_visible;
@@ -1946,8 +1989,8 @@ impl EditorWorkspace {
                 input.focus(window, cx);
                 input.select_all(window, cx);
             });
-        } else if let Some(TabSlot::Editable(ed)) = self.active_slot() {
-            ed.focus(window, cx);
+        } else {
+            self.focus_active(window, cx);
         }
         cx.notify();
     }
@@ -2154,7 +2197,7 @@ impl EditorWorkspace {
                     };
                     Theme::change(mode, Some(window), cx);
                 }
-                self.apply_prefs_to_active_tab(window, cx);
+                self.apply_view_preferences_to_visible(window, cx);
                 if merged.needs_immediate_persist {
                     self.queue_shell_persistence(window, cx);
                 }
@@ -2242,13 +2285,16 @@ impl EditorWorkspace {
         .detach();
     }
 
-    fn apply_prefs_to_active_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn apply_view_preferences_to_visible(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let prefs = self.current_view_prefs();
-        if let Some(TabSlot::Editable(ed)) = self
-            .active_document_id()
-            .and_then(|id| self.documents.get_mut(&id))
-        {
-            ed.apply_view_prefs(prefs, window, cx);
+        let mut targets = [None; editor_services::MAX_PANES];
+        for (index, target) in self.visible_targets().enumerate() {
+            targets[index] = Some(target);
+        }
+        for target in targets.into_iter().flatten() {
+            if let Some(TabSlot::Editable(ed)) = self.documents.get_mut(&target.document.doc_id) {
+                ed.apply_view_prefs(prefs, window, cx);
+            }
         }
     }
 
@@ -2314,7 +2360,7 @@ impl EditorWorkspace {
         if !self.shell_loaded {
             self.shell_early_overrides.soft_wrap = true;
         }
-        self.apply_prefs_to_active_tab(window, cx);
+        self.apply_view_preferences_to_visible(window, cx);
         self.queue_shell_persistence(window, cx);
         cx.notify();
     }
@@ -2332,7 +2378,7 @@ impl EditorWorkspace {
         if !self.shell_loaded {
             self.shell_early_overrides.show_whitespaces = true;
         }
-        self.apply_prefs_to_active_tab(window, cx);
+        self.apply_view_preferences_to_visible(window, cx);
         self.queue_shell_persistence(window, cx);
         cx.notify();
     }
@@ -2356,7 +2402,7 @@ impl EditorWorkspace {
         if !self.shell_loaded {
             self.shell_early_overrides.indent = true;
         }
-        self.apply_prefs_to_active_tab(window, cx);
+        self.apply_view_preferences_to_visible(window, cx);
         self.queue_shell_persistence(window, cx);
         cx.notify();
     }
@@ -2499,6 +2545,7 @@ impl EditorWorkspace {
         cx: &mut Context<Self>,
     ) {
         self.cancel_or_dismiss_group_ui(window, cx);
+        self.cancel_pane_resize(cx);
         if !self.palette_visible {
             self.palette_prior_origin = Some(self.capture_overlay_origin(window, cx));
         }

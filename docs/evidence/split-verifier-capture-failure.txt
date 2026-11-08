@@ -1,0 +1,23 @@
+# Native Window Capture Diagnostic Evidence
+Tested Target: Window ID 14773 (owned PID 10587, Title: "Editor", Bounds: [Width: 1152, Height: 769, X: 704, Y: 327])
+Binary: target/release/editor (SHA256: 1e46b65bc4b1eadb84d53de6a9bf5b85c62430e5a8d69410847da25171f1293e)
+OS: darwin 27.2.0 (arm64)
+
+1. Command: screencapture -l 14773 docs/evidence/split-verifier-4pane.png
+Exit: 1
+Stderr: could not create image from window
+
+2. ScreenCaptureKit Execution:
+Observed:
+- CGPreflightScreenCaptureAccess(): true
+- SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+  - displays.count: 0
+  - target window: id=14773, title="Editor", frame=(704.0, 327.0, 1152.0, 769.0), onScreen=true, active=true
+- SCScreenshotManager.captureImage(contentFilter: SCContentFilter(desktopIndependentWindow: target), configuration: config)
+  - Result: Error Domain=com.apple.ScreenCaptureKit.SCStreamErrorDomain Code=-3811 "Failed to start stream due to audio/video capture failure"
+
+3. CoreGraphics Legacy API:
+- CGWindowListCreateImage: obsoleted in macOS 15.0 SDK, rejected at compilation.
+
+Summary:
+Window image capture was attempted strictly on window ID 14773 without full desktop capture. Capture did not succeed. Observed displays.count == 0 and SCStreamErrorDomain Code=-3811. No physical display/headless root cause is claimed as proven. No synthetic event inspection is claimed as visual proof.
