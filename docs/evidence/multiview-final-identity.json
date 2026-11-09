@@ -1,5 +1,6 @@
 {
   "source_note": "Isolated experiments measured before commit; production source unchanged",
+  "source_commit": "537db63",
   "binary_sha256": {
     "target/release/shared-text-feasibility": "08a2322cd39360f0a742a5c2f480e1fd0871c78dbc2c1c8e2cbd61362b50873a",
     "target/release/multiview-paged": "a71b209858a67d5729ff2a1adc9e5a5e811a000d00d153b5a0640c3f7522239a"

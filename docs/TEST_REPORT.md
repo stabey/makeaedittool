@@ -214,3 +214,5 @@ release二进制实际创建原生窗口，使用真实`EditorAdapter`、`Editor
 
 最终独立运行验证与Main结果一致：`multiview-verifier-final-shared-text.json`完成66阶段、诊断边界通过、保留相同6个产品安全失败（exit 2）；`multiview-verifier-final-paged-8v.json`全部门槛通过（exit 0），真实异步旧请求及旧source generation完成各被拒绝，最后源/缓存/索引归零。对应`-os.txt`保留实际命令输出；最终二进制SHA-256与矩阵一致，见`multiview-final-identity.json`。
 
+实验源码及原始证据提交为`537db63`；未改变生产工作区，因此本次提交显式跳过原五平台CI，不能把旧CI结果算作这两个新spike的跨平台构建证明。两个spike的实际证据是上述本地macOS release编译、原生运行和独立复核。任务生成的夹具及sentinel已清理；未使用默认用户数据目录。
+
