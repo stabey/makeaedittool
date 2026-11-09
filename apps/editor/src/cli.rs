@@ -34,6 +34,8 @@ pub enum SmokeScenario {
     Groups,
     /// Different-document panes, real native interactions, restore and visible-pane input measurements.
     Splits,
+    /// Native IME settlement, atomic history, real save/recovery and bounded input measurements.
+    Ime,
 }
 
 #[derive(Clone, Debug)]
@@ -128,7 +130,7 @@ pub fn help_text() -> &'static str {
         "    --max-hydrated-bytes <BYTES>    Aggregate ordinary-editor content admission cap (default: 268435456)\n",
         "    --max-hydrated-editors <COUNT>  Hard max simultaneously hydrated EditorState tabs (default: 128)\n",
         "    --editable-byte-limit <BYTES>   Override editable vs paged file routing threshold (<= 64 MiB)\n",
-        "    --smoke[=<full|startup|usability|groups|splits>] Run scripted in-app native verification and exit cleanly\n",
+        "    --smoke[=<full|startup|usability|groups|splits|ime>] Run scripted in-app native verification and exit cleanly\n",
         "    --smoke-report <PATH>           Write structured smoke evidence JSON (IDs/revisions/timings, no full text)\n",
         "    -h, --help                      Print help information\n",
         "    -V, --version                   Print version information\n"
@@ -206,9 +208,10 @@ impl CliArgs {
                         "usability" => SmokeScenario::Usability,
                         "groups" => SmokeScenario::Groups,
                         "splits" => SmokeScenario::Splits,
+                        "ime" => SmokeScenario::Ime,
                         other => {
                             return Err(format!(
-                                "unknown --smoke mode '{other}' (expected 'full', 'startup', 'usability', 'groups', or 'splits')"
+                                "unknown --smoke mode '{other}' (expected 'full', 'startup', 'usability', 'groups', 'splits', or 'ime')"
                             ));
                         }
                     });

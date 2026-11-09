@@ -1,0 +1,34 @@
+   Compiling editor v0.1.0 (/Volumes/macport/makeaedittool/apps/editor)
+    Finished `test` profile [unoptimized] target(s) in 7.87s
+     Running unittests src/lib.rs (target/debug/deps/editor-cea910796fbc4b54)
+
+running 20 tests
+test editor_adapter::ime_tests::native_ime_adapter_cancel_settles_identity_without_revision_or_recovery ... ok
+test editor_adapter::ime_tests::native_ime_cancel_restores_editor_auto_pair_tracking ... ok
+test editor_adapter::ime_tests::native_ime_adapter_queued_multi_edit_ack_and_atomic_replay ... ok
+test editor_adapter::ime_tests::native_ime_active_undo_and_empty_redo_never_publish_preedit_first ... ok
+test editor_adapter::ime_tests::native_ime_input_tokens_keep_semantic_history_without_byte_events ... ok
+test editor_adapter::ime_tests::native_ime_direct_indent_settles_before_its_outer_history_commit ... ok
+test editor_adapter::ime_tests::native_ime_normalized_empty_mark_has_no_owner_or_phantom_event ... ok
+test editor_adapter::ime_tests::native_ime_number_mask_is_one_actual_span ... ok
+test editor_adapter::ime_tests::native_ime_number_blur_does_not_clamp_preedit ... ok
+test editor_adapter::ime_tests::native_ime_prior_character_rewrites_preserve_utf16_history ... ok
+test editor_adapter::ime_tests::native_ime_moved_disjoint_and_covering_ranges_are_incremental ... ok
+test editor_adapter::ime_tests::native_ime_input_completion_cancel_and_history ... ok
+test editor_adapter::ime_tests::native_ime_editor_completion_cancel_and_history ... ok
+test editor_adapter::ime_tests::native_ime_readonly_disabled_reject_new_input_but_allow_unmark ... ok
+test editor_adapter::ime_tests::native_ime_rejected_candidates_keep_owned_preedit ... ok
+test editor_adapter::ime_tests::native_ime_textarea_tokens_keep_semantic_history_without_byte_events ... ok
+test editor_adapter::ime_tests::native_ime_set_value_silently_resets_composition_and_history ... ok
+test editor_adapter::ime_tests::native_ime_utf16_unicode_crlf_and_points ... ok
+test editor_adapter::ime_tests::native_ime_textarea_completion_cancel_and_history ... ok
+test editor_adapter::ime_tests::native_ime_local_commit_and_replay_keep_bounded_payloads ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 1.46s
+
+     Running unittests src/main.rs (target/debug/deps/editor-61dc351659f70e20)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

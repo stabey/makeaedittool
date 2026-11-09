@@ -23,9 +23,12 @@ use crate::search_bar::{SearchQueryKind, SearchStatus};
 use crate::shell::EditorViewPrefs;
 #[path = "smoke_groups.rs"]
 mod groups;
+#[path = "smoke_ime.rs"]
+mod ime;
 #[path = "smoke_splits.rs"]
 mod splits;
 pub(crate) use groups::verify_post_shutdown_layout;
+pub(crate) use ime::verify_post_shutdown_ime;
 pub const TYPING_LATENCY_LABEL: &str = "submission-only, not screen latency";
 pub const TYPING_BENCH_OPS: usize = 128;
 
@@ -56,6 +59,15 @@ pub struct SmokeReport {
     pub split_restart_layout_verified: bool,
     pub split_focus_first_budget_verified: bool,
     pub split_fixture_input_verified: bool,
+    pub ime_commit_undo_redo_verified: bool,
+    pub ime_unmark_and_empty_cancel_verified: bool,
+    pub ime_save_and_lifecycle_verified: bool,
+    pub ime_input_parity_verified: bool,
+    pub ime_post_shutdown_verified: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub ime_benchmarks: Vec<ime::ImeDatasetBenchmark>,
+    #[serde(skip)]
+    pub(crate) expected_ime_post_shutdown: Option<ime::ImePostShutdownExpectation>,
     pub committed_revisions_observed: Vec<u64>,
     pub typing_latency_label: String,
     pub typing_doc_bytes: u64,
@@ -153,6 +165,7 @@ pub fn spawn_smoke_runner(
                 SmokeScenario::Usability => "usability".to_string(),
                 SmokeScenario::Groups => "groups".to_string(),
                 SmokeScenario::Splits => "splits".to_string(),
+                SmokeScenario::Ime => "ime".to_string(),
             },
             typing_latency_label: TYPING_LATENCY_LABEL.to_string(),
             ..Default::default()
@@ -173,6 +186,9 @@ pub fn spawn_smoke_runner(
             }
             SmokeScenario::Splits => {
                 splits::run_split_scenario(&window_handle, &workspace, &mut report, cx).await
+            }
+            SmokeScenario::Ime => {
+                ime::run_ime_scenario(&window_handle, &workspace, &mut report, cx).await
             }
         };
         cx.update(|cx| {

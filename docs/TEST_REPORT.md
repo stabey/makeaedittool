@@ -216,3 +216,18 @@ release二进制实际创建原生窗口，使用真实`EditorAdapter`、`Editor
 
 实验源码及原始证据提交为`537db63`；未改变生产工作区，因此本次提交显式跳过原五平台CI，不能把旧CI结果算作这两个新spike的跨平台构建证明。两个spike的实际证据是上述本地macOS release编译、原生运行和独立复核。任务生成的夹具及sentinel已清理；未使用默认用户数据目录。
 
+
+## 单编辑器IME结算与原子历史修复
+
+本轮使用受维护的`gpui-base 0.9.0`路径补丁，版本不升级、应用层`EditorAdapter`生产逻辑不变。行为修改及私有测试仅在两个原生源文件；来源、修改边界和回退规则见ADR011与vendor NOTICE。设计、实现契约及针对性历史丢失审查均无剩余阻塞。
+
+- 工作区158个测试通过，包含20个公开原生行为用例；移除编译器指出的冗余导入、完成格式化后，20个原生用例再次通过。记录见[工作区测试](evidence/ime-workspace-tests.txt)与[最终定向复验](evidence/ime-native-tests-final.txt)。不是把定向重复执行再累加成新的测试数量。
+- 显式vendor私有测试11个通过、1544个过滤，见[历史pin测试](evidence/ime-private-history-tests.txt)。命令必须启用`--features test-support`，过滤路径是`input::undo_manager::tests::ime_pin_`；根`--workspace`不会运行这些用例。CI的macOS ARM步骤已使用该命令。
+- release主应用及两个活动实验均实际编译。根与两个实验的解析结果均只有一个本地`gpui-base 0.9.0`，原有包名/版本集合未升级；现有打包函数实际找到原LICENSE及`NOTICE-IME-PATCH.json`。二进制、锁文件及原生源文件标识见[本轮身份](evidence/ime-final-identity.json)。
+- [原生诊断](evidence/ime-native-diagnostic-final.json)完成66阶段、exit 0：56个诊断边界和12个产品断言均通过，包含未改动的6个原失败断言。两个未修改版本的旧`source_prediction`不再成立，不是产品失败；不把它们表述为仍满足。
+- 独立验证器运行[真实工作区IME场景](evidence/ime-workspace-final.json)，五个IME验收标志、`passed`及durable shutdown ACK全部为true。覆盖原生逐事件最终快照、preedit期间Save/Close Busy及搜索隔离、零revision取消、单独unmark、first-baseline和已有checkpoint的实际SQLite提交/hydrate、BOM/CRLF真实文件保存、关闭确认框readonly/Cancel/Keep/重开/Discard，以及worker关闭后的新RecoveryHandle重开验证。[OS输出](evidence/ime-workspace-final-os.txt)保留进程指标。
+- [完整](evidence/ime-regression-full.json)、[日常功能](evidence/ime-regression-usability.json)、[标签组](evidence/ime-regression-groups.json)、[分屏](evidence/ime-regression-splits.json)、[启动](evidence/ime-regression-startup.json)顺序运行，均exit 0、passed且观察到正常退出durable ACK。
+- 另起真实进程使用同一个IME数据目录，恢复3个标签，只hydrate活动的8 B草稿，正常退出通过，见[同会话重启](evidence/ime-same-session-restart.json)及[OS输出](evidence/ime-same-session-restart-os.txt)。IME场景已删除其拥有的磁盘夹具；重启没有靠重新读取这些夹具填充正文。
+- 另一受影响调用方的[8视口分页实验](evidence/ime-paged-eight-view.json)也以新补丁实际运行，exit 0、全部门槛通过，关闭至零及scratch清理通过；[构建及OS输出](evidence/ime-paged-eight-view-build-os.txt)保留命令结果。本次不是重跑整个1/2/4/8性能矩阵。
+
+本机为macOS 27.2 / Darwin 27.2.0、ARM64、32 GiB；没有从Darwin版本推算产品版本。1/16/近64 MiB各192次提交的细分延迟与纯打开内存对照见性能报告。真实系统IME候选、重转换、物理HID、屏幕延迟、Windows/Linux GUI与性能仍未验收；Windows/Linux安全保存仍不支持。多平台CI结果另按本次提交记录，不从本地运行外推。

@@ -74,6 +74,9 @@ jobs:
       - name: Test all workspace members
         id: tests
         run: cargo test --locked --workspace --target ${{ matrix.target }}
+      - name: Test maintained native IME history invariants
+        if: matrix.target == 'aarch64-apple-darwin'
+        run: cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-support --lib --target ${{ matrix.target }} --target-dir target -- input::undo_manager::tests::ime_pin_
       - name: Remove successful test build trees before release
         run: ${{ matrix.python }} scripts/ci/clean_debug.py --target ${{ matrix.target }}
       - name: Build all workspace release binaries

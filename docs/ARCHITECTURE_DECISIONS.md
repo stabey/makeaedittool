@@ -120,9 +120,9 @@
 
 第三阶段的固定版本调查及原生诊断结论：**现有Kit公开API上的应用层可编辑多视图为NO-GO**。独立`EditorState`拥有独立正文与历史；复制Entity只共享同一选区/滚动；`set_value`同步会重置历史。预期失败编译进一步确认`text`与`undo_manager`是私有字段。上游“shared engine”指控件复用实现，不是多个独立视图共享一份文档。暂不引入跨十余个原生编辑模块的大型fork，也不以双缓冲同步替代目标。
 
-保留两个独立工作区实验：`spikes/shared-text-feasibility`调用真实公开`EditorAdapter`及原生输入接口，记录组合输入提交、取消、unmark、Undo/Redo的逐事件边界；`spikes/multiview-paged`使用真实`PagingService`、共享`PagedDocHandle`及独立GPUI虚拟列表。实验不修改主应用、服务、注册表源码或恢复库schema，不视为已交付同文档多视图。
+保留两个独立工作区实验：`spikes/shared-text-feasibility`调用真实公开`EditorAdapter`及原生输入接口，记录组合输入提交、取消、unmark、Undo/Redo的逐事件边界；`spikes/multiview-paged`使用真实`PagingService`、共享`PagedDocHandle`及独立GPUI虚拟列表。当前两个实验与主应用统一解析ADR011的受维护依赖；实验不写个人会话或生产恢复库，不视为已交付同文档多视图。
 
-诊断已发现单编辑器组合输入结算及历史事件原子性问题，须先单独评审修复边界，不能把多视图接入建立在未结算状态上。持久化另有`UNIQUE(view_set, doc)`、关闭记录及按文档计数约束；未来必须统一设计布局迁移、关闭视图与关闭最后文档、重载及预算。不能只放开布局校验，也不能仅对Paged放开重复视图，因为重启后同文件可能被判定为Editable。
+单编辑器组合输入结算及历史事件原子性问题已按ADR011独立评审并修复，但这不解除共享可编辑多视图门槛。持久化另有`UNIQUE(view_set, doc)`、关闭记录及按文档计数约束；未来必须统一设计布局迁移、关闭视图与关闭最后文档、重载及预算。不能只放开布局校验，也不能仅对Paged放开重复视图，因为重启后同文件可能被判定为Editable。
 
 第二阶段保持SQLite schema2，布局format2新增二叉Split节点和明确的active_pane；format1只在内存升级，正常写入才轮换快照。严格按格式版本检查字段，损坏兄弟节点不能遮蔽有界范围内的未来字段。有效空分屏树保留，并把无布局的Open崩溃恢复头接入已有活动窗格，不把Closed或tombstoned记录复活。可见正文逐个、焦点优先加载；所有可见编辑器受同一准入预算的驱逐保护，预算不足保留明确失败槽位。空白/分页窗格聚焦工作区，避免键入或Undo流入此前的编辑器。
 
@@ -137,6 +137,24 @@
 CI方案经`CiDesignReview`评审：使用五个原生托管目标（macOS ARM64/Intel、Windows x64/ARM64、Linux x64），固定Rust与Action提交；只读仓库权限，不使用部署密钥，不自动发布正式Release。执行锁定依赖的测试与release构建，并运行无需窗口的真实CLI验证；托管runner不冒充GUI、IME或性能验收环境。
 
 每个产物携带目标相关许可证、资源声明、构建身份及二进制校验值。全部标记为未签名开发构建；当前非macOS保存明确不支持，Windows/Linux产物必须显著携带`EXPERIMENTAL-CANNOT-SAVE.txt`。编译成功不能被表述为这些平台已经可用。实际运行结果另记测试报告。
+
+## ADR 011：有界维护原生IME结算与历史发布
+
+保留Kit/component/base 0.9.0与gpui-pre 0.3.11身份，不编辑注册表缓存。将已发布`gpui-base 0.9.0`原包纳入`vendor/gpui-base`，行为修改仅限`input/base/state.rs`与`undo_manager.rs`；原包SHA、上游提交、修改前后源文件SHA和移除规则记录在`NOTICE-IME-PATCH.json`。根工作区与两个活动实验统一使用路径补丁；NSH独立实验不迁移。
+
+- 组合输入拥有明确生命周期和一层专属历史pin；普通嵌套提交不能消耗它。接受的写入先计入变化跨度和历史，在最终选区/配对元数据记录后恰好结算一次。外层批次语义不变，不新增粘贴专属撤销分组。
+- 真正字节NoOp恢复原始Rope实例，仅移除组合输入拥有的历史尾部，保留外层前缀、元数据及redo。空标记替换真实选区仍是删除。字节相同但token身份变化保留语义历史，只发`Change`，不伪造字节编辑事件。
+- Undo/Redo内部回放不对外发布中间快照；完成后只发一条相对已提交正文、携带最终Rope的编辑。普通程序化多编辑的事件形状及应用层ACK匹配保持不变。
+- 变化跨度按实际裁剪、归一化后的替换累计；遮罩全文改写每次只计一次。相等比较局限于受影响跨度，常见局部编辑保持增量恢复。远距离修改的包围跨度仍可能很大并触发checkpoint，不承诺所有事务都是常量成本。
+- 保留preedit期间Save/Close Busy、Quit等待和不自动blur提交的策略。readonly/disabled拒绝新输入，但unmark仍可结算已接受的组合输入。`set_value`继续静默重置，不作为适配层同步手段。
+
+根工作区运行公开原生回归；被排除的vendor不是`--workspace`测试成员，macOS ARM另行运行：
+
+```sh
+cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-support --lib --target aarch64-apple-darwin --target-dir target -- input::undo_manager::tests::ime_pin_
+```
+
+独立vendor锁文件仅用于这些测试，保留上游dev依赖；共享target由既有CI清理步骤回收。发布许可收集继续使用现有路径依赖规则，携带原LICENSE和修改NOTICE。公开API、SQLite schema、布局格式及普通文件准入预算不变。设计、实现契约与针对性数据丢失审查均无剩余阻塞；真实运行与未覆盖项另见测试报告。
 
 ## 审查来源与证据边界
 

@@ -1,0 +1,84 @@
+{
+  "source_state": "Local working-tree validation; subsequent CI records the committed source revision separately.",
+  "binaries_sha256": {
+    "editor": "9acee6f435ad9a37510159a0326157ec147ab10b06e002ecfa4685855ae0c773",
+    "shared-text-feasibility": "f65865408f30954a0b6100cc6fba25bec8555fa978df6fab775160fcd9ba6787"
+  },
+  "root_lock_sha256": "6cecb7fdda67abc9ca68ad37c4f4d2951bea75acda515d3ea1a0557cfe596ebe",
+  "maintained_package_notice": "../../vendor/gpui-base/NOTICE-IME-PATCH.json",
+  "native_sources": [
+    {
+      "path": "src/input/base/state.rs",
+      "upstream_sha256": "afc5e6ac4dd2540172eac154a69e8ae0af913ca4492239e7df65449d2eb80b93",
+      "local_sha256": "3fa56ed8578c7f977566d4f773ed0d93200ffe8a444e2728f5f6baedaf2449a7"
+    },
+    {
+      "path": "src/input/base/undo_manager.rs",
+      "upstream_sha256": "c71d0526c182b881280159c52b749253bfcbc0e3d3819a37cd3f0eec88db7244",
+      "local_sha256": "a230ae3f1a099c0b82421b9921bd9922188968cf9b320448682ca7b371683b63"
+    }
+  ],
+  "environment": {
+    "product_version": "27.2",
+    "darwin": "27.2.0",
+    "architecture": "arm64",
+    "hardware_model": "Mac16,10",
+    "physical_memory_bytes": 34359738368,
+    "fixture_location": "/tmp/rv-ime-20261109",
+    "cache_state": "warm/unspecified"
+  },
+  "tests": {
+    "workspace_passed": 158,
+    "native_public_focused_passed": 20,
+    "vendor_private_passed": 11,
+    "vendor_private_filtered": 1544
+  },
+  "diagnostic": {
+    "exit_code": 0,
+    "phases": 66,
+    "categories": {
+      "diagnostic_boundary": {
+        "met": 56,
+        "unmet": 0
+      },
+      "product_acceptance": {
+        "met": 12,
+        "unmet": 0
+      },
+      "source_prediction": {
+        "met": 1,
+        "unmet": 2
+      }
+    }
+  },
+  "workspace_scenarios_passed": [
+    "ime",
+    "full",
+    "usability",
+    "groups",
+    "splits",
+    "startup"
+  ],
+  "packaging_probe": {
+    "gpui_base_instances": 1,
+    "version": "0.9.0",
+    "source": "path dependency",
+    "notices": [
+      "LICENSE-APACHE",
+      "NOTICE-IME-PATCH.json"
+    ],
+    "source_fingerprints_match": true
+  },
+  "memory_observation": {
+    "pure_open_peak_rss_bytes": 729284608,
+    "ime_suite_peak_rss_bytes": 862732288,
+    "pure_open_visible_panes_ready_ms": 2570.381292,
+    "interpretation": "Independent whole-process peaks with different workloads. No heap attribution, per-IME additive cost, leak proof, or strict pre/post regression claim."
+  },
+  "unverified": [
+    "Physical OS IME candidates and reconversion",
+    "Physical HID and display-glass latency",
+    "Windows/Linux GUI and performance",
+    "Heap attribution and long-duration memory retention"
+  ]
+}

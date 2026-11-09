@@ -1,3 +1,6 @@
+#[cfg(test)]
+extern crate gpui_kit as gpui;
+
 pub mod actions;
 pub mod app;
 pub mod budget;

@@ -1,0 +1,19 @@
+SMOKE_REPORT_JSON:{"scenario":"full","in_app_checks_passed":true,"clean_shutdown_requested":true,"shutdown_durable_ack_observed":true,"passed":true,"failure_reason":null,"process_to_window_ms":286.60170899999997,"first_interactive_ms":287.09333399999997,"recovery_manifest_ms":488.779375,"visible_panes_ready_ms":null,"total_elapsed_ms":2253.8357499999997,"final_tab_count":4,"hydrated_editor_count":3,"hydrated_content_bytes":104,"paged_tab_count":1,"pane_count":1,"visible_pane_count":1,"compact_layout":false,"focus_only":false,"split_native_ui_verified":false,"split_restart_layout_verified":false,"split_focus_first_budget_verified":false,"split_fixture_input_verified":false,"ime_commit_undo_redo_verified":false,"ime_unmark_and_empty_cancel_verified":false,"ime_save_and_lifecycle_verified":false,"ime_input_parity_verified":false,"ime_post_shutdown_verified":false,"committed_revisions_observed":[1,2,3,4,6],"typing_latency_label":"submission-only, not screen latency","typing_doc_bytes":1048640,"typing_sample_count":128,"typing_submit_p50_ms":0.066333,"typing_submit_p95_ms":0.074792,"typing_submit_max_ms":0.630292,"large_paste_64k_submit_ms":1.405417,"atomic_batch_single_undo_verified":true,"stale_revision_rejected":true,"chained_programmatic_edits_verified":true,"pending_native_edit_guard_verified":true,"replace_preserves_done_search_verified":true,"unicode_search_verified":true,"crlf_bom_roundtrip_verified":true,"reopen_closed_tab_verified":true,"discard_reload_durable_verified":true,"post_shutdown_manifest_verified":true,"clean_untitled_restart_verified":true,"paged_streaming_search_matches":72,"kernel_parity_verified":true,"palette_undo_select_all_focus_verified":false,"settings_nondirty_and_lazy_apply_verified":false,"switcher_metadata_only_verified":false,"crlf_line_ops_single_undo_verified":false,"empty_untitled_prefs_layout_verified":false,"format_flip_back_and_inflight_save_verified":false,"format_only_bom_restart_and_save_verified":false,"mru_persistence_verified":false,"shell_persistence_warning":null,"group_metadata_mutations_verified":false,"group_undo_preserved_verified":false,"group_cancel_restores_editability_verified":false,"group_native_pending_guard_verified":false,"group_close_reopen_verified":false,"group_restart_layout_verified":false,"group_batch_open_verified":false,"group_bulk_cancel_verified":false,"group_bulk_keep_verified":false,"group_drag_drop_verified":false,"group_drag_cancel_verified":false,"group_keyboard_modal_verified":false,"startup_restart_layout_verified":false,"startup_metadata_view_count":0,"startup_group_count":0,"startup_inactive_hydrated_count":0,"startup_cli_overflow_active_hydrated_verified":false}
+        2.27 real         0.90 user         0.12 sys
+           242597888  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               15954  page reclaims
+                  26  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  80  voluntary context switches
+                7249  involuntary context switches
+         13763409004  instructions retired
+          3677606717  cycles elapsed
+           295158960  peak memory footprint

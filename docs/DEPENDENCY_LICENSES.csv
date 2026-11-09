@@ -169,7 +169,7 @@ gimli,0.34.0,MIT OR Apache-2.0,https://github.com/gimli-rs/gimli,registry+https:
 glob,0.3.4,MIT OR Apache-2.0,https://github.com/rust-lang/glob,registry+https://github.com/rust-lang/crates.io-index
 globset,0.4.21,Unlicense OR MIT,https://github.com/BurntSushi/ripgrep/tree/master/crates/globset,registry+https://github.com/rust-lang/crates.io-index
 globwalk,0.8.1,MIT,https://github.com/gilnaa/globwalk,registry+https://github.com/rust-lang/crates.io-index
-gpui-base,0.9.0,Apache-2.0,https://github.com/longbridge/gpui-kit,registry+https://github.com/rust-lang/crates.io-index
+gpui-base,0.9.0,Apache-2.0,https://github.com/longbridge/gpui-kit,path dependency: vendor/gpui-base
 gpui-component,0.9.0,Apache-2.0,https://github.com/longbridge/gpui-kit,registry+https://github.com/rust-lang/crates.io-index
 gpui-component-macros,0.9.0,Apache-2.0,,registry+https://github.com/rust-lang/crates.io-index
 gpui-fast,0.1.13,Apache-2.0,https://github.com/longbridge/gpui-fast,registry+https://github.com/rust-lang/crates.io-index

@@ -1152,6 +1152,15 @@ impl EditorWorkspace {
                                         Err(error) => report.failure_reason=Some(error),
                                     }
                                 }
+                                if report.in_app_checks_passed
+                                    && report.failure_reason.is_none()
+                                    && report.scenario == "ime"
+                                {
+                                    match crate::smoke::verify_post_shutdown_ime(&data_dir, &report) {
+                                        Ok(()) => report.ime_post_shutdown_verified = true,
+                                        Err(error) => report.failure_reason = Some(error),
+                                    }
+                                }
                                 report.total_elapsed_ms =
                                     process_start.elapsed().as_secs_f64() * 1000.0;
                                 report.passed = report.in_app_checks_passed

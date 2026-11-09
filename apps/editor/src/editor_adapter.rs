@@ -1477,6 +1477,10 @@ pub fn rope_to_string(rope: &Rope) -> String {
 }
 
 #[cfg(test)]
+#[path = "editor_adapter_ime_tests.rs"]
+mod ime_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

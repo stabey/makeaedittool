@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/editor-services", "apps/editor"]
-exclude = ["spikes/nsh-eval"]
+exclude = ["spikes/nsh-eval", "vendor/gpui-base"]
 resolver = "2"
 
 [workspace.package]
@@ -11,6 +11,9 @@ rust-version = "1.99"
 
 [workspace.dependencies]
 ropey = "=2.0.0-beta.1"
+
+[patch.crates-io]
+gpui-base = { path = "vendor/gpui-base" }
 
 [profile.release]
 lto = "thin"

@@ -3,6 +3,7 @@
 /.omp/agent-architect.json
 /target/
 /spikes/nsh-eval/target/
+/vendor/gpui-base/target/
 /.bench-data/
 /.smoke-data/
 *.sqlite-wal

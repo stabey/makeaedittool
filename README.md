@@ -113,6 +113,14 @@ CI运行无需窗口的`--help`、`--version`、100文档会话验证，并在ma
 target/release/editor --data-dir .smoke-data/native-full --smoke=full --smoke-report .smoke-data/native-full.json
 ```
 
+IME结算、原子撤销及实际保存/关闭/重启恢复另有macOS原生场景；请使用全新隔离目录，已有的`smoke_ime_artifacts`不会被接管或删除：
+
+```sh
+target/release/editor --data-dir .smoke-data/ime-check --smoke=ime --smoke-report .smoke-data/ime-check.json
+```
+
+本地维护`gpui-base 0.9.0`的两个内部源文件，保留公开API、应用层提交屏障与依赖版本；来源和维护边界见[vendor notice](vendor/gpui-base/NOTICE-IME-PATCH.json)。该修复不提供共享可编辑多视图，也不等于真实系统输入法候选窗口已验收。
+
 ## 候选运行时
 
 ```sh
@@ -131,7 +139,7 @@ CARGO_TARGET_DIR="$PWD/target" cargo run --locked --release --manifest-path spik
 CARGO_TARGET_DIR="$PWD/target" cargo run --locked --release --manifest-path spikes/multiview-paged/Cargo.toml --bin multiview-paged -- --views 8 --report /tmp/multiview-paged.json
 ```
 
-普通编辑器诊断的退出码`2`表示实验完成但发现安全断言失败，不是全部通过；当前会报告组合输入结算和Undo/Redo事件边界问题。分页实验以一个真实文件源挂载`1/2/4/8`个独立虚拟视口；大于4 GiB的稀疏夹具仅验证偏移正确性，不能作为吞吐成绩。可编辑共享文本、同文档视图持久化、真实输入法及像素呈现仍未交付，详见架构决策和测试记录。
+普通编辑器诊断的退出码`2`表示实验完成但发现安全断言失败；受维护补丁后的实际运行为exit `0`，12个产品断言通过，包括此前失败的6项。旧`source_prediction`仅记录未修改版本的预测，不是补丁后的验收条件。分页实验以一个真实文件源挂载`1/2/4/8`个独立虚拟视口；大于4 GiB的稀疏夹具仅验证偏移正确性，不能作为吞吐成绩。可编辑共享文本、同文档视图持久化、真实输入法及像素呈现仍未交付，详见架构决策和测试记录。
 
 ## 证据
 
