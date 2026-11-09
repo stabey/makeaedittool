@@ -1,0 +1,58 @@
+[
+  {
+    "case": "bad-views",
+    "command": [
+      "target/release/multiview-paged",
+      "--views",
+      "3",
+      "--report",
+      "docs/evidence/multiview-negative-bad-views.json"
+    ],
+    "exit_code": 2,
+    "stdio_report_present": true,
+    "failure_diagnostic_present": true,
+    "task_owned_sentinel_survives": true
+  },
+  {
+    "case": "removed-scratch-option",
+    "command": [
+      "target/release/multiview-paged",
+      "--scratch-dir",
+      ".smoke-data/multiview-owned-cleanup-probe",
+      "--report",
+      "docs/evidence/multiview-negative-scratch-option.json"
+    ],
+    "exit_code": 2,
+    "stdio_report_present": true,
+    "failure_diagnostic_present": true,
+    "task_owned_sentinel_survives": true
+  },
+  {
+    "case": "unwritable-report",
+    "command": [
+      "target/release/multiview-paged",
+      "--views",
+      "2",
+      "--report",
+      "/dev/null/fail.json"
+    ],
+    "exit_code": 1,
+    "stdio_report_present": true,
+    "failure_diagnostic_present": true,
+    "task_owned_sentinel_survives": true
+  },
+  {
+    "case": "ambiguous-report",
+    "command": [
+      "target/release/multiview-paged",
+      "--views",
+      "2",
+      "--report",
+      ".smoke-data/multiview-missing-segment/../ambiguous.json"
+    ],
+    "exit_code": 1,
+    "stdio_report_present": true,
+    "failure_diagnostic_present": true,
+    "task_owned_sentinel_survives": true
+  }
+]

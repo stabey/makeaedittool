@@ -122,6 +122,17 @@ cargo run --locked --release --manifest-path spikes/nsh-eval/Cargo.toml --featur
 
 结果与上游兼容性问题见 [NSH_EVALUATION](docs/NSH_EVALUATION.md)。默认编辑器不因候选失败改用未验证依赖。
 
+## 同文档多视图实验
+
+这不是主应用功能开关。两个隔离工作区用于验证现有组件的边界，不修改个人会话或生产恢复库；当前运行证据仅来自macOS ARM。
+
+```sh
+CARGO_TARGET_DIR="$PWD/target" cargo run --locked --release --manifest-path spikes/shared-text-feasibility/Cargo.toml --bin shared-text-feasibility -- --report /tmp/shared-text-feasibility.json
+CARGO_TARGET_DIR="$PWD/target" cargo run --locked --release --manifest-path spikes/multiview-paged/Cargo.toml --bin multiview-paged -- --views 8 --report /tmp/multiview-paged.json
+```
+
+普通编辑器诊断的退出码`2`表示实验完成但发现安全断言失败，不是全部通过；当前会报告组合输入结算和Undo/Redo事件边界问题。分页实验以一个真实文件源挂载`1/2/4/8`个独立虚拟视口；大于4 GiB的稀疏夹具仅验证偏移正确性，不能作为吞吐成绩。可编辑共享文本、同文档视图持久化、真实输入法及像素呈现仍未交付，详见架构决策和测试记录。
+
 ## 证据
 
 - [架构决策](docs/ARCHITECTURE_DECISIONS.md)

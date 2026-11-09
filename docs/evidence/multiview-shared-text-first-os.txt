@@ -1,0 +1,19 @@
+SHARED_TEXT_DIAGNOSTIC status=completed_with_failed_assertions exit=2 phases=66 failed_assertions=6 report=docs/evidence/multiview-shared-text-first.json
+        1.30 real         0.18 user         0.06 sys
+           124157952  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+                8202  page reclaims
+                 391  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                 327  voluntary context switches
+                2403  involuntary context switches
+          2903662742  instructions retired
+           886500777  cycles elapsed
+           121635824  peak memory footprint

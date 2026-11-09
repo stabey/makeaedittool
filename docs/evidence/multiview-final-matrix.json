@@ -1,0 +1,776 @@
+{
+  "identity": {
+    "source_note": "Isolated experiments measured before commit; production source unchanged",
+    "binary_sha256": {
+      "target/release/shared-text-feasibility": "08a2322cd39360f0a742a5c2f480e1fd0871c78dbc2c1c8e2cbd61362b50873a",
+      "target/release/multiview-paged": "a71b209858a67d5729ff2a1adc9e5a5e811a000d00d153b5a0640c3f7522239a"
+    },
+    "pinned_dependencies": {
+      "gpui-kit": [
+        [
+          "0.9.0",
+          "2c464934b5cdb85dd3fc511e60d09fb446fba422de159a80038368f52893c14b"
+        ]
+      ],
+      "gpui-base": [
+        [
+          "0.9.0",
+          "cff6377e30f0c857681662e7edc7286bf30f5606033390401b0706d7bd930833"
+        ]
+      ],
+      "gpui-component": [
+        [
+          "0.9.0",
+          "45bbfdba0efa392190f2fd446ec311325302eb047d5ce45dc1bcf189cb18f5eb"
+        ]
+      ],
+      "gpui-pre": [
+        [
+          "0.3.11",
+          "9303c771abf2acff2a96d706f69d9a82088c4770173a07cce88f0002431d887d"
+        ]
+      ],
+      "ropey": [
+        [
+          "2.0.0-beta.1",
+          "4045a00dc327d084a2bbf126976e14125b54f23bd30511d45b842eba76c52d74"
+        ]
+      ],
+      "serde": [
+        [
+          "1.0.229",
+          "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
+        ]
+      ],
+      "serde_json": [
+        [
+          "1.0.151",
+          "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
+        ]
+      ]
+    }
+  },
+  "cache_state": "warm/unspecified",
+  "runs": [
+    {
+      "views": 1,
+      "sample": 1,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "1",
+        "--report",
+        "docs/evidence/multiview-paged-final-1v-1.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-1v-1.json",
+      "peak_rss_bytes": 111853568,
+      "real_seconds": 0.51,
+      "measurements": {
+        "process_to_window_ms": 196.41025000000002,
+        "attach_n_views_and_first_draw_ms": 3.4205,
+        "same_offset_hydration_and_draw_ms": 15.0465,
+        "disjoint_offset_hydration_and_draw_ms": 12.508834,
+        "disjoint_steady_frame_draw_ms": 0.5999589999999999,
+        "native_wheel_scroll_and_draw_ms": 0.870667,
+        "total_elapsed_ms": 504.695958
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 1,
+        "total_cached_segments": 1019,
+        "total_item_size_entries": 1019,
+        "total_visible_rendered_rows": 42,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 1,
+        "total_cached_segments": 1019,
+        "total_item_size_entries": 1019,
+        "total_visible_rendered_rows": 42,
+        "paging_sources": 1,
+        "paging_pages": 2,
+        "paging_cached_bytes": 131072,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 1,
+      "sample": 2,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "1",
+        "--report",
+        "docs/evidence/multiview-paged-final-1v-2.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-1v-2.json",
+      "peak_rss_bytes": 112181248,
+      "real_seconds": 0.51,
+      "measurements": {
+        "process_to_window_ms": 203.981875,
+        "attach_n_views_and_first_draw_ms": 3.472167,
+        "same_offset_hydration_and_draw_ms": 14.919917,
+        "disjoint_offset_hydration_and_draw_ms": 14.766958,
+        "disjoint_steady_frame_draw_ms": 0.610666,
+        "native_wheel_scroll_and_draw_ms": 0.9089579999999999,
+        "total_elapsed_ms": 505.92454200000003
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 1,
+        "total_cached_segments": 1019,
+        "total_item_size_entries": 1019,
+        "total_visible_rendered_rows": 42,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 1,
+        "total_cached_segments": 1019,
+        "total_item_size_entries": 1019,
+        "total_visible_rendered_rows": 42,
+        "paging_sources": 1,
+        "paging_pages": 2,
+        "paging_cached_bytes": 131072,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 1,
+      "sample": 3,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "1",
+        "--report",
+        "docs/evidence/multiview-paged-final-1v-3.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-1v-3.json",
+      "peak_rss_bytes": 111820800,
+      "real_seconds": 0.51,
+      "measurements": {
+        "process_to_window_ms": 199.006083,
+        "attach_n_views_and_first_draw_ms": 3.4671670000000003,
+        "same_offset_hydration_and_draw_ms": 15.739291999999999,
+        "disjoint_offset_hydration_and_draw_ms": 11.676084,
+        "disjoint_steady_frame_draw_ms": 0.599459,
+        "native_wheel_scroll_and_draw_ms": 0.8710420000000001,
+        "total_elapsed_ms": 509.257583
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 1,
+        "total_cached_segments": 1019,
+        "total_item_size_entries": 1019,
+        "total_visible_rendered_rows": 42,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 1,
+        "total_cached_segments": 1019,
+        "total_item_size_entries": 1019,
+        "total_visible_rendered_rows": 42,
+        "paging_sources": 1,
+        "paging_pages": 2,
+        "paging_cached_bytes": 131072,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 2,
+      "sample": 1,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "2",
+        "--report",
+        "docs/evidence/multiview-paged-final-2v-1.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-2v-1.json",
+      "peak_rss_bytes": 115720192,
+      "real_seconds": 0.56,
+      "measurements": {
+        "process_to_window_ms": 199.68529199999998,
+        "attach_n_views_and_first_draw_ms": 3.606,
+        "same_offset_hydration_and_draw_ms": 19.63275,
+        "disjoint_offset_hydration_and_draw_ms": 13.551292,
+        "disjoint_steady_frame_draw_ms": 1.1995829999999998,
+        "native_wheel_scroll_and_draw_ms": 1.485209,
+        "total_elapsed_ms": 555.001125
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 2,
+        "total_cached_segments": 2038,
+        "total_item_size_entries": 2038,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 2,
+        "total_cached_segments": 2038,
+        "total_item_size_entries": 2038,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 2,
+        "paging_cached_bytes": 131072,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 2,
+      "sample": 2,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "2",
+        "--report",
+        "docs/evidence/multiview-paged-final-2v-2.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-2v-2.json",
+      "peak_rss_bytes": 115671040,
+      "real_seconds": 0.55,
+      "measurements": {
+        "process_to_window_ms": 199.357333,
+        "attach_n_views_and_first_draw_ms": 3.466667,
+        "same_offset_hydration_and_draw_ms": 17.125667,
+        "disjoint_offset_hydration_and_draw_ms": 15.538458,
+        "disjoint_steady_frame_draw_ms": 1.137458,
+        "native_wheel_scroll_and_draw_ms": 1.46,
+        "total_elapsed_ms": 546.580791
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 2,
+        "total_cached_segments": 2038,
+        "total_item_size_entries": 2038,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 2,
+        "total_cached_segments": 2038,
+        "total_item_size_entries": 2038,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 2,
+        "paging_cached_bytes": 131072,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 2,
+      "sample": 3,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "2",
+        "--report",
+        "docs/evidence/multiview-paged-final-2v-3.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-2v-3.json",
+      "peak_rss_bytes": 115605504,
+      "real_seconds": 0.56,
+      "measurements": {
+        "process_to_window_ms": 201.404709,
+        "attach_n_views_and_first_draw_ms": 3.549875,
+        "same_offset_hydration_and_draw_ms": 19.430334000000002,
+        "disjoint_offset_hydration_and_draw_ms": 14.276375,
+        "disjoint_steady_frame_draw_ms": 1.168833,
+        "native_wheel_scroll_and_draw_ms": 1.449292,
+        "total_elapsed_ms": 559.119334
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 2,
+        "total_cached_segments": 2038,
+        "total_item_size_entries": 2038,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 2,
+        "total_cached_segments": 2038,
+        "total_item_size_entries": 2038,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 2,
+        "paging_cached_bytes": 131072,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 4,
+      "sample": 1,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "4",
+        "--report",
+        "docs/evidence/multiview-paged-final-4v-1.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-4v-1.json",
+      "peak_rss_bytes": 116637696,
+      "real_seconds": 0.56,
+      "measurements": {
+        "process_to_window_ms": 200.14779099999998,
+        "attach_n_views_and_first_draw_ms": 3.7880420000000004,
+        "same_offset_hydration_and_draw_ms": 15.999458,
+        "disjoint_offset_hydration_and_draw_ms": 17.631667,
+        "disjoint_steady_frame_draw_ms": 1.2880420000000001,
+        "native_wheel_scroll_and_draw_ms": 1.570041,
+        "total_elapsed_ms": 556.7345
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 4,
+        "total_cached_segments": 4076,
+        "total_item_size_entries": 4076,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 4,
+        "total_cached_segments": 4076,
+        "total_item_size_entries": 4076,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 4,
+        "paging_cached_bytes": 262144,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 4,
+      "sample": 2,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "4",
+        "--report",
+        "docs/evidence/multiview-paged-final-4v-2.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-4v-2.json",
+      "peak_rss_bytes": 116637696,
+      "real_seconds": 0.56,
+      "measurements": {
+        "process_to_window_ms": 199.80404199999998,
+        "attach_n_views_and_first_draw_ms": 3.740291,
+        "same_offset_hydration_and_draw_ms": 18.507125,
+        "disjoint_offset_hydration_and_draw_ms": 15.326875,
+        "disjoint_steady_frame_draw_ms": 1.30525,
+        "native_wheel_scroll_and_draw_ms": 1.562792,
+        "total_elapsed_ms": 560.5884169999999
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 4,
+        "total_cached_segments": 4076,
+        "total_item_size_entries": 4076,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 4,
+        "total_cached_segments": 4076,
+        "total_item_size_entries": 4076,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 4,
+        "paging_cached_bytes": 262144,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 4,
+      "sample": 3,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "4",
+        "--report",
+        "docs/evidence/multiview-paged-final-4v-3.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-4v-3.json",
+      "peak_rss_bytes": 117260288,
+      "real_seconds": 0.6,
+      "measurements": {
+        "process_to_window_ms": 199.311167,
+        "attach_n_views_and_first_draw_ms": 3.868042,
+        "same_offset_hydration_and_draw_ms": 16.378334000000002,
+        "disjoint_offset_hydration_and_draw_ms": 16.136042,
+        "disjoint_steady_frame_draw_ms": 1.3005829999999998,
+        "native_wheel_scroll_and_draw_ms": 1.553708,
+        "total_elapsed_ms": 593.5014170000001
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 4,
+        "total_cached_segments": 4076,
+        "total_item_size_entries": 4076,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 4,
+        "total_cached_segments": 4076,
+        "total_item_size_entries": 4076,
+        "total_visible_rendered_rows": 84,
+        "paging_sources": 1,
+        "paging_pages": 4,
+        "paging_cached_bytes": 262144,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 8,
+      "sample": 1,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "8",
+        "--report",
+        "docs/evidence/multiview-paged-final-8v-1.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-8v-1.json",
+      "peak_rss_bytes": 123633664,
+      "real_seconds": 0.64,
+      "measurements": {
+        "process_to_window_ms": 199.584375,
+        "attach_n_views_and_first_draw_ms": 4.313458,
+        "same_offset_hydration_and_draw_ms": 21.750375,
+        "disjoint_offset_hydration_and_draw_ms": 19.871625,
+        "disjoint_steady_frame_draw_ms": 2.244875,
+        "native_wheel_scroll_and_draw_ms": 2.416833,
+        "total_elapsed_ms": 640.440708
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 8,
+        "total_cached_segments": 8152,
+        "total_item_size_entries": 8152,
+        "total_visible_rendered_rows": 168,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 8,
+        "total_cached_segments": 8152,
+        "total_item_size_entries": 8152,
+        "total_visible_rendered_rows": 168,
+        "paging_sources": 1,
+        "paging_pages": 8,
+        "paging_cached_bytes": 524288,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 8,
+      "sample": 2,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "8",
+        "--report",
+        "docs/evidence/multiview-paged-final-8v-2.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-8v-2.json",
+      "peak_rss_bytes": 121946112,
+      "real_seconds": 0.61,
+      "measurements": {
+        "process_to_window_ms": 199.376542,
+        "attach_n_views_and_first_draw_ms": 4.2402500000000005,
+        "same_offset_hydration_and_draw_ms": 21.29175,
+        "disjoint_offset_hydration_and_draw_ms": 21.577875,
+        "disjoint_steady_frame_draw_ms": 2.172834,
+        "native_wheel_scroll_and_draw_ms": 2.39575,
+        "total_elapsed_ms": 603.1118749999999
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 8,
+        "total_cached_segments": 8152,
+        "total_item_size_entries": 8152,
+        "total_visible_rendered_rows": 168,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 8,
+        "total_cached_segments": 8152,
+        "total_item_size_entries": 8152,
+        "total_visible_rendered_rows": 168,
+        "paging_sources": 1,
+        "paging_pages": 8,
+        "paging_cached_bytes": 524288,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    },
+    {
+      "views": 8,
+      "sample": 3,
+      "command": [
+        "/usr/bin/time",
+        "-l",
+        "target/release/multiview-paged",
+        "--views",
+        "8",
+        "--report",
+        "docs/evidence/multiview-paged-final-8v-3.json"
+      ],
+      "exit_code": 0,
+      "report": "docs/evidence/multiview-paged-final-8v-3.json",
+      "peak_rss_bytes": 121454592,
+      "real_seconds": 0.61,
+      "measurements": {
+        "process_to_window_ms": 200.5045,
+        "attach_n_views_and_first_draw_ms": 4.301292,
+        "same_offset_hydration_and_draw_ms": 19.539250000000003,
+        "disjoint_offset_hydration_and_draw_ms": 21.617,
+        "disjoint_steady_frame_draw_ms": 2.1965830000000004,
+        "native_wheel_scroll_and_draw_ms": 2.417167,
+        "total_elapsed_ms": 606.0868750000001
+      },
+      "same_offset_stats": {
+        "phase": "dense_same_offset",
+        "mounted_views": 8,
+        "total_cached_segments": 8152,
+        "total_item_size_entries": 8152,
+        "total_visible_rendered_rows": 168,
+        "paging_sources": 1,
+        "paging_pages": 1,
+        "paging_cached_bytes": 65536,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      },
+      "disjoint_offset_stats": {
+        "phase": "dense_disjoint_offsets",
+        "mounted_views": 8,
+        "total_cached_segments": 8152,
+        "total_item_size_entries": 8152,
+        "total_visible_rendered_rows": 168,
+        "paging_sources": 1,
+        "paging_pages": 8,
+        "paging_cached_bytes": 524288,
+        "paging_cache_budget": 67108864,
+        "paging_index_bytes": 0,
+        "paging_index_budget": 16777216,
+        "active_open_jobs": 0,
+        "peak_open_jobs": 1,
+        "active_index_jobs": 0,
+        "peak_index_jobs": 0
+      }
+    }
+  ]
+}

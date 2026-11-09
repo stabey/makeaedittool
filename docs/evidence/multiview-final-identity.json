@@ -1,0 +1,51 @@
+{
+  "source_note": "Isolated experiments measured before commit; production source unchanged",
+  "binary_sha256": {
+    "target/release/shared-text-feasibility": "08a2322cd39360f0a742a5c2f480e1fd0871c78dbc2c1c8e2cbd61362b50873a",
+    "target/release/multiview-paged": "a71b209858a67d5729ff2a1adc9e5a5e811a000d00d153b5a0640c3f7522239a"
+  },
+  "pinned_dependencies": {
+    "gpui-kit": [
+      [
+        "0.9.0",
+        "2c464934b5cdb85dd3fc511e60d09fb446fba422de159a80038368f52893c14b"
+      ]
+    ],
+    "gpui-base": [
+      [
+        "0.9.0",
+        "cff6377e30f0c857681662e7edc7286bf30f5606033390401b0706d7bd930833"
+      ]
+    ],
+    "gpui-component": [
+      [
+        "0.9.0",
+        "45bbfdba0efa392190f2fd446ec311325302eb047d5ce45dc1bcf189cb18f5eb"
+      ]
+    ],
+    "gpui-pre": [
+      [
+        "0.3.11",
+        "9303c771abf2acff2a96d706f69d9a82088c4770173a07cce88f0002431d887d"
+      ]
+    ],
+    "ropey": [
+      [
+        "2.0.0-beta.1",
+        "4045a00dc327d084a2bbf126976e14125b54f23bd30511d45b842eba76c52d74"
+      ]
+    ],
+    "serde": [
+      [
+        "1.0.229",
+        "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
+      ]
+    ],
+    "serde_json": [
+      [
+        "1.0.151",
+        "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14"
+      ]
+    ]
+  }
+}

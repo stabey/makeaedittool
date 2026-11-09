@@ -1,0 +1,10 @@
+{
+  "command": "CARGO_TARGET_DIR=/Volumes/macport/makeaedittool/target cargo check --locked --offline --release --manifest-path spikes/shared-text-feasibility/Cargo.toml --features private-probe --bin private_state_probe",
+  "exit_code": 101,
+  "expected_failure": true,
+  "diagnostics": [
+    "E0616: private text",
+    "E0616: private undo_manager"
+  ],
+  "positive_native_binary_previously_compiled": true
+}

@@ -1,0 +1,37 @@
+[package]
+name = "shared-text-feasibility"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+publish = false
+default-run = "shared-text-feasibility"
+autobins = false
+
+[workspace]
+resolver = "2"
+
+[features]
+default = []
+private-probe = []
+
+[dependencies]
+editor = { path = "../../apps/editor" }
+editor-services = { path = "../../crates/editor-services" }
+gpui-kit = { version = "=0.9.0", features = ["syntect"] }
+ropey = "=2.0.0-beta.1"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+
+[[bin]]
+name = "shared-text-feasibility"
+path = "src/main.rs"
+
+[[bin]]
+name = "private_state_probe"
+path = "src/bin/private_state_probe.rs"
+required-features = ["private-probe"]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

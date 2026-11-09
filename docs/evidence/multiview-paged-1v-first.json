@@ -1,0 +1,238 @@
+{
+  "experiment": "multiview-paged-stage3-feasibility",
+  "configured_views": 1,
+  "segmenter_authority": "editor::paged_view::build_display_segments (public crate reuse, zero product edits)",
+  "foreground_file_io_count": 0,
+  "rss_measurement_note": "Measure process max RSS externally via OS `/usr/bin/time -l`; in-app report records retained segment/item-size counts and PagingService byte/page/source counters.",
+  "passed": true,
+  "failure_reason": null,
+  "process_to_window_ms": 219.402291,
+  "window_viewport_width_px": 1440.0,
+  "window_viewport_height_px": 860.0,
+  "window_scale_factor": 2.0,
+  "window_is_active": false,
+  "native_frame_drawn": true,
+  "frames_drawn_total": 49,
+  "all_views_min_bounds_240x160_verified": true,
+  "min_leaf_width_px": 1440.0,
+  "min_leaf_height_px": 832.0,
+  "min_vlist_width_px": 1440.0,
+  "min_vlist_height_px": 806.0,
+  "dense_source_open_ms": 0.076875,
+  "attach_n_views_and_first_draw_ms": 7.141375,
+  "same_offset_hydration_and_draw_ms": 27.085250000000002,
+  "disjoint_offset_hydration_and_draw_ms": 12.336042,
+  "disjoint_steady_frame_draw_ms": 0.6055,
+  "cooperative_full_index_ms": 11.552625,
+  "native_wheel_scroll_and_draw_ms": 0.906792,
+  "total_elapsed_ms": 518.175666,
+  "dense_fixture": {
+    "byte_len": 8388608,
+    "expected_lines": 131017,
+    "expected_search_matches": 8,
+    "purpose": "Bounded 8 MiB UTF-8 fixture for full cooperative SparseIndex build, streaming literal SearchService scan, cache deduplication/budget, native wheel scroll/culling, request cancellation, close lifecycle, and SourceChanged invalidation."
+  },
+  "sparse_fixture": {
+    "logical_byte_len": 4299161600,
+    "min_high_offset_byte": 4295229440,
+    "sparse_set_len_supported": true,
+    "sparse_error": null,
+    "purpose": "Separate >4 GiB sparse marker source solely for 64-bit (>u32::MAX) byte offset, ViewState, and gutter formatting correctness; never used for throughput, full indexing, or full-file search."
+  },
+  "same_offset_stats": {
+    "phase": "dense_same_offset",
+    "mounted_views": 1,
+    "total_cached_segments": 1019,
+    "total_item_size_entries": 1019,
+    "total_visible_rendered_rows": 42,
+    "paging_sources": 1,
+    "paging_pages": 1,
+    "paging_cached_bytes": 65536,
+    "paging_cache_budget": 67108864,
+    "paging_index_bytes": 0,
+    "paging_index_budget": 16777216,
+    "active_open_jobs": 0,
+    "peak_open_jobs": 1,
+    "active_index_jobs": 0,
+    "peak_index_jobs": 0
+  },
+  "disjoint_offset_stats": {
+    "phase": "dense_disjoint_offsets",
+    "mounted_views": 1,
+    "total_cached_segments": 1019,
+    "total_item_size_entries": 1019,
+    "total_visible_rendered_rows": 42,
+    "paging_sources": 1,
+    "paging_pages": 2,
+    "paging_cached_bytes": 131072,
+    "paging_cache_budget": 67108864,
+    "paging_index_bytes": 0,
+    "paging_index_budget": 16777216,
+    "active_open_jobs": 0,
+    "peak_open_jobs": 1,
+    "active_index_jobs": 0,
+    "peak_index_jobs": 0
+  },
+  "post_index_stats": {
+    "phase": "dense_post_index",
+    "mounted_views": 1,
+    "total_cached_segments": 1019,
+    "total_item_size_entries": 1019,
+    "total_visible_rendered_rows": 42,
+    "paging_sources": 1,
+    "paging_pages": 2,
+    "paging_cached_bytes": 131072,
+    "paging_cache_budget": 67108864,
+    "paging_index_bytes": 2048,
+    "paging_index_budget": 16777216,
+    "active_open_jobs": 0,
+    "peak_open_jobs": 1,
+    "active_index_jobs": 0,
+    "peak_index_jobs": 1
+  },
+  "close_to_zero_dense_stats": {
+    "phase": "dense_closed_to_zero",
+    "mounted_views": 0,
+    "total_cached_segments": 0,
+    "total_item_size_entries": 0,
+    "total_visible_rendered_rows": 0,
+    "paging_sources": 0,
+    "paging_pages": 0,
+    "paging_cached_bytes": 0,
+    "paging_cache_budget": 67108864,
+    "paging_index_bytes": 0,
+    "paging_index_budget": 16777216,
+    "active_open_jobs": 0,
+    "peak_open_jobs": 1,
+    "active_index_jobs": 0,
+    "peak_index_jobs": 1
+  },
+  "per_view_disjoint_audit": [
+    {
+      "slot_index": 0,
+      "view_id": "f94e72b34f4a45748c611952fbee70a5",
+      "leaf_bounds_xywh_px": [
+        0.0,
+        28.0,
+        1440.0,
+        832.0
+      ],
+      "vlist_bounds_xywh_px": [
+        0.0,
+        54.0,
+        1440.0,
+        806.0
+      ],
+      "slice_byte_range": [
+        1048576,
+        1114112
+      ],
+      "captured_cursor_byte": 1048576,
+      "captured_scroll_byte": 1048576,
+      "cached_segment_count": 1019,
+      "item_size_count": 1019,
+      "continuation_segment_count": 2,
+      "visible_row_range_before_wheel": [
+        0,
+        42
+      ],
+      "culled_properly": true,
+      "scroll_offset_y_before_wheel_px": 0.0,
+      "scroll_offset_y_after_wheel_px": -260.0,
+      "visible_row_range_after_wheel": [
+        13,
+        55
+      ]
+    }
+  ],
+  "search_ownership_audit": {
+    "active_tasks_peak": 1,
+    "matches_emitted": 8,
+    "bytes_scanned": 8388608,
+    "initial_active_view_id": "f94e72b34f4a45748c611952fbee70a5",
+    "initial_highlighted_views": [
+      "f94e72b34f4a45748c611952fbee70a5"
+    ],
+    "switched_active_view_id": null,
+    "prior_view_highlight_cleared_on_switch": null,
+    "switched_highlighted_views": [],
+    "switched_anchor_byte": null,
+    "non_active_anchors_unchanged": true
+  },
+  "cancel_isolation_audit": {
+    "multi_view_applicable": false,
+    "superseded_token_cancelled": true,
+    "replacement_token_completed": true,
+    "sibling_token_uncancelled": null,
+    "sibling_request_completed": null,
+    "stale_req_seq_completions_dropped": 2
+  },
+  "close_lifecycle_audit": {
+    "initial_views": 1,
+    "close_to_one_applicable": false,
+    "closed_views_count": 0,
+    "closed_view_tokens_cancelled": true,
+    "sources_at_one_surviving_view": null,
+    "index_cancel_cancelled_at_one_view": null,
+    "index_complete_preserved_at_one_view": null,
+    "index_checkpoints_at_one_view": null,
+    "surviving_view_fresh_read_verified": null,
+    "sources_after_last_view_closed": 0,
+    "pages_after_last_view_closed": 0,
+    "cached_bytes_after_last_view_closed": 0,
+    "index_bytes_after_last_view_closed": 0,
+    "index_cancel_cancelled_after_last_view_closed": true
+  },
+  "sparse_64bit_audit": {
+    "sources_before_open": 0,
+    "sources_while_open": 1,
+    "mounted_views": 1,
+    "view_anchors_64bit": [
+      4295229440
+    ],
+    "captured_scroll_bytes_64bit": [
+      4295229440
+    ],
+    "rendered_gutter_samples": [
+      "     ~ @0x100040000"
+    ],
+    "continuation_segments_verified": true,
+    "offset_gt_u32_max_verified": true,
+    "frame_drawn": true,
+    "sources_after_close": 0,
+    "pages_after_close": 0,
+    "cached_bytes_after_close": 0
+  },
+  "source_changed_audit": {
+    "sources_before_mutation": 1,
+    "source_change_count": 1,
+    "index_cancel_cancelled": true,
+    "pages_after_invalidation": 0,
+    "cached_bytes_after_invalidation": 0,
+    "sources_after_invalidation": 0,
+    "expected_views_invalidated": 1,
+    "prepainted_invalidated_views": 1,
+    "stale_source_gen_completions_dropped": 1,
+    "frame_drawn": true
+  },
+  "single_source_authority_verified": true,
+  "same_offset_cache_dedup_verified": true,
+  "disjoint_offsets_within_budget_verified": true,
+  "cooperative_index_complete_verified": true,
+  "segment_virtualization_culling_verified": true,
+  "native_wheel_independent_scroll_verified": true,
+  "search_and_focus_highlight_ownership_verified": true,
+  "request_cancel_isolation_verified": true,
+  "close_n_to_1_preserved_verified": null,
+  "close_1_to_0_released_verified": true,
+  "sparse_64bit_offset_verified": true,
+  "source_changed_all_views_invalidated_verified": true,
+  "scratch_cleanup_verified": true,
+  "unverified_limits": [
+    "No physical display/Metal compositor pixel capture or Retina glyph contrast proof (`window.draw` + hitbox/bounds/virtual_list probes verify GPUI layout, culling, and paint closure execution only).",
+    "No physical OS HID mouse wheel or NSScrollView trackpad momentum gesture routing through macOS WindowServer (`Window::dispatch_event(PlatformInput::Scroll)` injects synthetic window-level events).",
+    "No physical CJK/system IME NSTextInputClient marked-text composition or candidate window proof.",
+    "Sparse >4 GiB marker fixture verifies 64-bit (>u32::MAX) offset math, ViewState capture, and gutter formatting only; zero sparse I/O throughput claim.",
+    "Ephemeral in-memory multiview harness only; production persisted multiview remains gated on SQLite Schema v3 (`recovery_layout.rs`), `SessionLayout` duplicate-DocumentId lifecycle rules, and shared Editable multiview."
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "command": [
+    "target/release/multiview-paged",
+    "--views",
+    "1",
+    "--scratch-dir",
+    ".smoke-data/multiview-owned-cleanup-probe",
+    "--report",
+    "docs/evidence/multiview-cleanup-before.json"
+  ],
+  "exit_code": 0,
+  "task_owned_sentinel_survives": true,
+  "note": "Only Main-created throwaway directory used; no user files involved. Existing path must not be adopted or removed."
+}

@@ -177,3 +177,40 @@ CI设计与实现经`CiDesignReview`评审。`actionlint 1.7.12`发现并修复�
 
 分屏提交`f1c1507170c7f4cb2499bee8ddec51cf05d06efa`的[五平台CI 42510374861](https://github.com/stabey/makeanotepad/actions/runs/42510374861)全部成功：macOS ARM/Intel、Windows ARM/x64、Linux x64，以及格式检查。五个平台均执行workspace测试、release构建、无窗口CLI、架构/校验值检查并上传unsigned开发ZIP；结构化结果见[evidence/split-ci-final.json](evidence/split-ci-final.json)。本轮未下载运行CI产物，不将其视为跨平台GUI验收。任务创建的分屏夹具数据库和失败smoke残留文件已清理，原始JSON/资源日志保留，默认用户数据未使用。
 
+
+## 同文档多视图：隔离可行性实验
+
+实验独立于生产工作区，使用固定版本的真实GPUI Kit和已有公开服务/适配器；没有修改生产代码、Cargo注册表或恢复schema。嵌套锁文件从根锁选择起步，并按macOS ARM目标核验Kit/base/component 0.9.0、gpui-pre 0.3.11、Ropey 2.0.0-beta.1的版本及校验值。全目标offline metadata曾因未缓存的`rsqlite-vfs`失败，限定实际macOS目标后成功；没有升级依赖规避问题。
+
+### 普通编辑器诊断
+
+release二进制实际创建原生窗口，使用真实`EditorAdapter`、`Editor`和输入回调。覆盖两份独立状态的反例、Entity别名、不可变Rope快照、`set_value`清空历史、`n → ni → 你`提交与Undo/Redo、单独unmark、空标记取消、组合中焦点切换。每个输入前聚焦绘制，每步独立派发/刷新；unmark和取消之后只绘制，不追加编辑掩盖状态。
+
+首次执行完成66个阶段，退出码2；全部诊断边界断言通过，6个产品安全断言失败，不能标记为全通过：
+
+| 原生场景 | 实际观察 |
+|---|---|
+| IME Undo/Redo | 每次产生3个编辑事件，适配层committed快照及`build_recovery_commit()`载荷依次出现`ani`/`an`；最后事件恢复正确最终正文 |
+| 仅unmark | mark已清除，原生正文`an`，committed仍为`a`，无编辑事件/恢复载荷，身份屏障持续为true |
+| 空标记取消 | 两边正文均为`a`，无新增revision/dirty/恢复载荷，但Rope实例不同，身份屏障持续为true |
+
+后两项分别在立即观察和纯绘制后观察失败；加上Undo/Redo共6项。窗口及11个原生编辑器弱引用均释放，零剩余窗口、无清理错误。见`evidence/multiview-shared-text-first.json`及对应OS日志。这里构造的是内存恢复载荷，未运行RecoveryHandle、SQLite、工作区Save/Close/Quit；不能宣称中间快照已经写盘，也未证明真实输入法会走每种合成回调序列。
+
+正向目标编译/运行后，单独运行带`--features private-probe --bin private_state_probe`的release `cargo check`，退出101且仅有两个预期`E0616`：`text`及`undo_manager`不可公开访问。目标以非默认feature隔离，不破坏正常构建。命令及诊断见`evidence/multiview-private-probe.{json,txt}`。
+
+### 共享源分页原生实验
+
+最终release的1/2/4/8视口各3次串行执行全部exit 0、passed true。每次均验证真实布局最小尺寸、虚拟列表裁剪、原生窗口内滚轮独立滚动、搜索焦点/高亮归属、单源缓存去重、完整索引、关闭至1和最后关闭、取消隔离、64位偏移及所有视口的源变化失效。8视口为2×4网格，实际叶区域360×416，列表358×388逻辑像素。矩阵及逐次路径见`evidence/multiview-final-matrix.json`。
+
+首次8视口失败来自断言写死`@0x1000`前缀，错误拒绝正确的`@0x100100000`；改为与期望完整64位anchor一致后通过。保留`multiview-paged-8v-first.json`，未放宽偏移、marker或continuation约束。
+
+复核要求的修正均在隔离实验内：检查真实handle的最新source generation；通过持有真实后台读取的异步完成结果，分别跨越请求替换和源失效，验证迟到结果不能覆盖当前视口，不再用同步手工调用冒充异步完成；区分取消与过期结果。1视口加载计时与其他N同口径，搜索槽位记录原始采样值而非强制至少1。前台I/O字段改为源码检查说明，不使用硬编码0冒充运行监测。
+
+临时夹具使用固定版本`tempfile`的原子目录所有权；正常清理等待后台操作、搜索及共享源释放，不以固定睡眠假定完成。panic或任务排空失败保留并报告自有残留，不在工作任务仍活动时递归删除。报告写入失败仍输出并flush诊断；拒绝含缺失路径后`..`的歧义报告路径。已执行非法视口数、移除的scratch选项、不可写报告目标、歧义报告路径四个负面场景，均非零退出并输出JSON/失败诊断，Main自建的既存目录sentinel始终保留；见`evidence/multiview-negative-cases.json`。
+
+调查中曾怀疑旧scratch参数会删除调用者目录；只在Main自建目录运行后，sentinel实际保留，证明旧实现创建的是独立子目录，**未复现调用者目录删除**。后续去掉该非必要选项并改用TempDir是收紧实验所有权边界，不宣称修复已发生的数据丢失。
+
+本阶段不修改主应用/服务，不重新宣称五平台GUI或生产多视图通过；隔离spike不在现有五平台CI工作区成员中。真实物理IME、HID、像素呈现、长期资源分布、共享可编辑文档及布局迁移仍未验收。
+
+最终独立运行验证与Main结果一致：`multiview-verifier-final-shared-text.json`完成66阶段、诊断边界通过、保留相同6个产品安全失败（exit 2）；`multiview-verifier-final-paged-8v.json`全部门槛通过（exit 0），真实异步旧请求及旧source generation完成各被拒绝，最后源/缓存/索引归零。对应`-os.txt`保留实际命令输出；最终二进制SHA-256与矩阵一致，见`multiview-final-identity.json`。
+
