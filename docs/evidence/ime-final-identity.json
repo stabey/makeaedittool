@@ -1,5 +1,7 @@
 {
-  "source_state": "Local working-tree validation; subsequent CI records the committed source revision separately.",
+  "source_state": "Local macOS binaries validated against production source committed as source_commit; CI results are recorded separately.",
+  "source_commit": "dd70272319249d4f5bb2ef1ebd1f592c9196311f",
+  "ci_run_url": "https://github.com/stabey/makeanotepad/actions/runs/42590963834",
   "binaries_sha256": {
     "editor": "9acee6f435ad9a37510159a0326157ec147ab10b06e002ecfa4685855ae0c773",
     "shared-text-feasibility": "f65865408f30954a0b6100cc6fba25bec8555fa978df6fab775160fcd9ba6787"

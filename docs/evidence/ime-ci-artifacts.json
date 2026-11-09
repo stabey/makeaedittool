@@ -1,0 +1,105 @@
+{
+  "total_count": 5,
+  "artifacts": [
+    {
+      "id": 13662366409,
+      "node_id": "MDg6QXJ0aWZhY3QxMzY2MjM2NjQwOQ==",
+      "name": "makeaedittool-0.1.0-aarch64-apple-darwin-dd7027231924-unsigned-dev.zip",
+      "size_in_bytes": 15352232,
+      "url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662366409",
+      "archive_download_url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662366409/zip",
+      "expired": false,
+      "digest": "sha256:f39013001d71413884554a676b86fc31d03a6356b1c39db4503eab8cdcef74e4",
+      "created_at": "2026-11-09T09:24:48Z",
+      "updated_at": "2026-11-09T09:24:48Z",
+      "expires_at": "2026-11-23T09:24:47Z",
+      "workflow_run": {
+        "id": 42590963834,
+        "repository_id": 1449560868,
+        "head_repository_id": 1449560868,
+        "head_branch": "main",
+        "head_sha": "dd70272319249d4f5bb2ef1ebd1f592c9196311f"
+      }
+    },
+    {
+      "id": 13662152912,
+      "node_id": "MDg6QXJ0aWZhY3QxMzY2MjE1MjkxMg==",
+      "name": "makeaedittool-0.1.0-x86_64-apple-darwin-dd7027231924-unsigned-dev.zip",
+      "size_in_bytes": 16017096,
+      "url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662152912",
+      "archive_download_url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662152912/zip",
+      "expired": false,
+      "digest": "sha256:4f927b113593c7e88c5d34b3842be7576b010cf922c2c9332503383d851acf94",
+      "created_at": "2026-11-09T09:27:45Z",
+      "updated_at": "2026-11-09T09:27:45Z",
+      "expires_at": "2026-11-23T09:27:43Z",
+      "workflow_run": {
+        "id": 42590963834,
+        "repository_id": 1449560868,
+        "head_repository_id": 1449560868,
+        "head_branch": "main",
+        "head_sha": "dd70272319249d4f5bb2ef1ebd1f592c9196311f"
+      }
+    },
+    {
+      "id": 13662147229,
+      "node_id": "MDg6QXJ0aWZhY3QxMzY2MjE0NzIyOQ==",
+      "name": "makeaedittool-0.1.0-x86_64-unknown-linux-gnu-dd7027231924-unsigned-dev.zip",
+      "size_in_bytes": 24299861,
+      "url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662147229",
+      "archive_download_url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662147229/zip",
+      "expired": false,
+      "digest": "sha256:343518c517341ad31f5ff56c1ebe12436a4dd5d53c0c3b4228df34ec94a4582c",
+      "created_at": "2026-11-09T09:21:18Z",
+      "updated_at": "2026-11-09T09:21:18Z",
+      "expires_at": "2026-11-23T09:21:16Z",
+      "workflow_run": {
+        "id": 42590963834,
+        "repository_id": 1449560868,
+        "head_repository_id": 1449560868,
+        "head_branch": "main",
+        "head_sha": "dd70272319249d4f5bb2ef1ebd1f592c9196311f"
+      }
+    },
+    {
+      "id": 13662073073,
+      "node_id": "MDg6QXJ0aWZhY3QxMzY2MjA3MzA3Mw==",
+      "name": "makeaedittool-0.1.0-aarch64-pc-windows-msvc-dd7027231924-unsigned-dev.zip",
+      "size_in_bytes": 15258935,
+      "url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662073073",
+      "archive_download_url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13662073073/zip",
+      "expired": false,
+      "digest": "sha256:7158177fab489a74cbf7424700c6843b43aa7ebd561b7309ce270c41a85aec9e",
+      "created_at": "2026-11-09T09:26:25Z",
+      "updated_at": "2026-11-09T09:26:25Z",
+      "expires_at": "2026-11-23T09:26:24Z",
+      "workflow_run": {
+        "id": 42590963834,
+        "repository_id": 1449560868,
+        "head_repository_id": 1449560868,
+        "head_branch": "main",
+        "head_sha": "dd70272319249d4f5bb2ef1ebd1f592c9196311f"
+      }
+    },
+    {
+      "id": 13661298553,
+      "node_id": "MDg6QXJ0aWZhY3QxMzY2MTI5ODU1Mw==",
+      "name": "makeaedittool-0.1.0-x86_64-pc-windows-msvc-dd7027231924-unsigned-dev.zip",
+      "size_in_bytes": 16238572,
+      "url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13661298553",
+      "archive_download_url": "https://api.github.com/repos/stabey/makeanotepad/actions/artifacts/13661298553/zip",
+      "expired": false,
+      "digest": "sha256:f4fba7798e3b2c4a24e34f2b1a91eab2261e1a12c178324bb63cea020ac8195a",
+      "created_at": "2026-11-09T09:19:50Z",
+      "updated_at": "2026-11-09T09:19:50Z",
+      "expires_at": "2026-11-23T09:19:48Z",
+      "workflow_run": {
+        "id": 42590963834,
+        "repository_id": 1449560868,
+        "head_repository_id": 1449560868,
+        "head_branch": "main",
+        "head_sha": "dd70272319249d4f5bb2ef1ebd1f592c9196311f"
+      }
+    }
+  ]
+}

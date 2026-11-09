@@ -1,0 +1,29 @@
+target=aarch64-apple-darwin
+commit=dd70272319249d4f5bb2ef1ebd1f592c9196311f
+build_status=SUCCESS (workspace tests, release build, and headless CLI checks)
+atomic_save_support=SUPPORTED (macOS)
+gui_smoke_executed=false
+macos_services_smoke=success
+created_utc=2026-11-09T09:24:44.754186+00:00
+ci_run_url=https://github.com/stabey/makeanotepad/actions/runs/42590963834
+cargo_lock_sha256=6cecb7fdda67abc9ca68ad37c4f4d2951bea75acda515d3ea1a0557cfe596ebe
+workspace_tests=cargo test --locked --workspace --target aarch64-apple-darwin
+release_build=cargo build --locked --release --workspace --target aarch64-apple-darwin
+architecture_check=machine-header check with SHA-256 integrity; not cryptographic native-execution proof
+rust_standard_library_license=MIT OR Apache-2.0
+rust_toolchain_notices=bundled
+artifact_kind=unsigned development build
+runtime_evidence=HEADLESS_SMOKE.json; no hosted GUI validation
+
+rustc_verbose_version:
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+binary: rustc
+commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67
+commit-date: 2026-10-13
+host: aarch64-apple-darwin
+release: 1.99.1
+LLVM version: 23.1.1
+
+binaries:
+editor machine_header=Mach-O 64-bit cputype=0x0100000c sha256=9666d7e6aebc8878137fdc30eb2d2873470f6c4eea08de1bcfc878badc08e5c5
+editor-services machine_header=Mach-O 64-bit cputype=0x0100000c sha256=48b332a6611eba34ccfc7d71980ce0c2e83a742866e9d767422c4a70a7cd9039

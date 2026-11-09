@@ -227,6 +227,9 @@ target/release/editor --data-dir /tmp/makeanotepad-groups-unique --smoke=groups 
 | 进程场景 | 整次运行秒 | peak RSS MiB | OS peak memory footprint MiB |
 |---|---:|---:|---:|
 | 单份近64 MiB纯打开/退出 | 2.68 | 695.51 | 768.63 |
-| 整套IME/生命周期/三规格基准 | 9.65 | 822.76 | 852.97 |
+| 本地构建：整套IME/生命周期/三规格基准 | 9.65 | 822.76 | 852.97 |
+| 下载的CI Mac ARM产物：同IME场景 | 9.93 | 922.31 | 752.64 |
 
 纯打开内部`visible_panes_ready_ms`为2570.38；不是屏幕像素首帧。输入提交快并不代表文件加载与内存已达标。上述为不同进程、不同工作量的独立峰值，不能相减认定IME新增占用；没有堆剖析，不归因于Rope、排版缓存或其他具体对象，也不证明泄漏。下一步优先测量普通加载路径的分配、持有者与阶段耗时，再决定优化方案。
+
+CI下载产物的额外运行见[报告](evidence/ime-ci-macos-native.json)、[OS指标](evidence/ime-ci-macos-native-os.txt)及[构建身份](evidence/ime-ci-macos-build-identity.txt)。它仍在本机执行，夹具位于`/Volumes/macport/Caches/tmp`，与前述本地构建的二进制SHA和存储位置不同。此运行用于验证实际产物，不与前表合并分位数，也不作为托管runner性能数据。

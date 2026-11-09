@@ -231,3 +231,9 @@ release二进制实际创建原生窗口，使用真实`EditorAdapter`、`Editor
 - 另一受影响调用方的[8视口分页实验](evidence/ime-paged-eight-view.json)也以新补丁实际运行，exit 0、全部门槛通过，关闭至零及scratch清理通过；[构建及OS输出](evidence/ime-paged-eight-view-build-os.txt)保留命令结果。本次不是重跑整个1/2/4/8性能矩阵。
 
 本机为macOS 27.2 / Darwin 27.2.0、ARM64、32 GiB；没有从Darwin版本推算产品版本。1/16/近64 MiB各192次提交的细分延迟与纯打开内存对照见性能报告。真实系统IME候选、重转换、物理HID、屏幕延迟、Windows/Linux GUI与性能仍未验收；Windows/Linux安全保存仍不支持。多平台CI结果另按本次提交记录，不从本地运行外推。
+
+生产修复提交`dd70272319249d4f5bb2ef1ebd1f592c9196311f`的[CI 42590963834](https://github.com/stabey/makeanotepad/actions/runs/42590963834)全部6个job成功：格式/打包检查，以及macOS ARM/Intel、Windows ARM/x64、Linux x64的测试、release、CLI、架构/校验值检查和unsigned开发ZIP上传。[运行结果](evidence/ime-ci-final.json)与[5份产物元数据](evidence/ime-ci-artifacts.json)绑定同一提交；[macOS ARM日志摘录](evidence/ime-ci-private-tests.txt)确认私有筛选实际执行11个测试，而不是零测试成功。
+
+已下载**本轮CI的Mac ARM产物**，两份可执行文件的SHA256SUMS验证通过；其`gpui-base`原LICENSE和修改NOTICE均存在，NOTICE内容与维护源一致。该产物在本机执行`--smoke=ime`也exit 0，五个IME标志、passed及durable ACK全部为true，见[产物原生报告](evidence/ime-ci-macos-native.json)、[校验及OS输出](evidence/ime-ci-macos-native-os.txt)、[构建身份](evidence/ime-ci-macos-build-identity.txt)。构建身份中的`gui_smoke_executed=false`描述托管CI；下载后本地执行单独记证。未下载运行其余平台GUI，未宣称签名、公证或正式Release完成。
+
+本轮原始报告已归档；任务拥有的运行夹具、SQLite会话及下载验证临时目录已清理，未使用或删除默认用户数据目录。

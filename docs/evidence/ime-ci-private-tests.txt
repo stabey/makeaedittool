@@ -1,0 +1,14 @@
+Source: https://github.com/stabey/makeanotepad/actions/runs/42590963834/job/129072177296
+Commit: dd70272319249d4f5bb2ef1ebd1f592c9196311f
+Selected private test results from completed job log:
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4088090Z test input::undo_manager::tests::ime_pin_clear_silently_discards_owner_and_pending_intent ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4090100Z test input::undo_manager::tests::ime_pin_empty_outer_metadata_survives_cancel ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4106090Z test input::undo_manager::tests::ime_pin_cancel_preserves_outer_metadata_and_depth ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4114520Z test input::undo_manager::tests::ime_pin_ignoring_requires_state_settlement - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4118380Z test input::undo_manager::tests::ime_pin_noop_preserves_redo_and_cancelled_typing_boundary ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4120710Z test input::undo_manager::tests::ime_pin_redo_requires_state_settlement - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4167340Z test input::undo_manager::tests::ime_pin_regular_commit_cannot_consume_pin - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4183580Z test input::undo_manager::tests::ime_pin_survives_outer_close_and_regular_inner_brackets ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4186110Z test input::undo_manager::tests::ime_pin_undo_requires_state_settlement - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4226540Z test input::undo_manager::tests::ime_pin_readonly_rejection_preserves_intent_and_cut_does_not_set_one ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-09T09:16:15.4251320Z test input::undo_manager::tests::ime_pin_native_outer_prefix_direct_edit_and_late_empty_mark ... ok
