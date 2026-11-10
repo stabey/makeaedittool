@@ -1,0 +1,690 @@
+{
+  "conclusion": "success",
+  "headSha": "4f3087fb5711d29b5d703237eda00ff509dad96c",
+  "jobs": [
+    {
+      "completedAt": "2026-11-10T15:50:02Z",
+      "conclusion": "success",
+      "databaseId": 129930955891,
+      "name": "aarch64-pc-windows-msvc",
+      "startedAt": "2026-11-10T15:31:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-10T15:31:51Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-10T15:31:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-11-10T15:31:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:18Z",
+          "conclusion": "success",
+          "name": "Assert native OS and Rust host; prepare platform tools",
+          "number": 3,
+          "startedAt": "2026-11-10T15:32:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:39:16Z",
+          "conclusion": "success",
+          "name": "Test all workspace members",
+          "number": 4,
+          "startedAt": "2026-11-10T15:32:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:39:16Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native IME history invariants",
+          "number": 5,
+          "startedAt": "2026-11-10T15:39:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:39:16Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native row-layout invariants",
+          "number": 6,
+          "startedAt": "2026-11-10T15:39:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:39:19Z",
+          "conclusion": "success",
+          "name": "Remove successful test build trees before release",
+          "number": 7,
+          "startedAt": "2026-11-10T15:39:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:48Z",
+          "conclusion": "success",
+          "name": "Build all workspace release binaries",
+          "number": 8,
+          "startedAt": "2026-11-10T15:39:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:49Z",
+          "conclusion": "success",
+          "name": "Exercise actual release CLIs without a GUI",
+          "number": 9,
+          "startedAt": "2026-11-10T15:49:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:52Z",
+          "conclusion": "success",
+          "name": "Check machine headers and package notices with SHA integrity",
+          "number": 10,
+          "startedAt": "2026-11-10T15:49:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:56Z",
+          "conclusion": "success",
+          "name": "Upload unsigned development zip",
+          "number": 11,
+          "startedAt": "2026-11-10T15:49:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:56Z",
+          "conclusion": "success",
+          "name": "Report exercised and unsupported behavior",
+          "number": 12,
+          "startedAt": "2026-11-10T15:49:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:50:00Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 24,
+          "startedAt": "2026-11-10T15:49:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:50:00Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-11-10T15:50:00Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569/job/129930955891"
+    },
+    {
+      "completedAt": "2026-11-10T15:57:04Z",
+      "conclusion": "success",
+      "databaseId": 129930956194,
+      "name": "x86_64-apple-darwin",
+      "startedAt": "2026-11-10T15:31:51Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-10T15:31:54Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-10T15:31:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:01Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-11-10T15:31:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:26Z",
+          "conclusion": "success",
+          "name": "Assert native OS and Rust host; prepare platform tools",
+          "number": 3,
+          "startedAt": "2026-11-10T15:32:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:42:00Z",
+          "conclusion": "success",
+          "name": "Test all workspace members",
+          "number": 4,
+          "startedAt": "2026-11-10T15:32:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:42:00Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native IME history invariants",
+          "number": 5,
+          "startedAt": "2026-11-10T15:42:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:42:00Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native row-layout invariants",
+          "number": 6,
+          "startedAt": "2026-11-10T15:42:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:42:03Z",
+          "conclusion": "success",
+          "name": "Remove successful test build trees before release",
+          "number": 7,
+          "startedAt": "2026-11-10T15:42:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:56:50Z",
+          "conclusion": "success",
+          "name": "Build all workspace release binaries",
+          "number": 8,
+          "startedAt": "2026-11-10T15:42:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:56:52Z",
+          "conclusion": "success",
+          "name": "Exercise actual release CLIs without a GUI",
+          "number": 9,
+          "startedAt": "2026-11-10T15:56:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:56:56Z",
+          "conclusion": "success",
+          "name": "Check machine headers and package notices with SHA integrity",
+          "number": 10,
+          "startedAt": "2026-11-10T15:56:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:57:00Z",
+          "conclusion": "success",
+          "name": "Upload unsigned development zip",
+          "number": 11,
+          "startedAt": "2026-11-10T15:56:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:57:00Z",
+          "conclusion": "success",
+          "name": "Report exercised and unsupported behavior",
+          "number": 12,
+          "startedAt": "2026-11-10T15:57:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:57:00Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 24,
+          "startedAt": "2026-11-10T15:57:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:57:01Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-11-10T15:57:00Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569/job/129930956194"
+    },
+    {
+      "completedAt": "2026-11-10T15:49:43Z",
+      "conclusion": "success",
+      "databaseId": 129930956225,
+      "name": "aarch64-apple-darwin",
+      "startedAt": "2026-11-10T15:31:50Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-10T15:31:51Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-10T15:31:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:31:54Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-11-10T15:31:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:05Z",
+          "conclusion": "success",
+          "name": "Assert native OS and Rust host; prepare platform tools",
+          "number": 3,
+          "startedAt": "2026-11-10T15:31:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:36:47Z",
+          "conclusion": "success",
+          "name": "Test all workspace members",
+          "number": 4,
+          "startedAt": "2026-11-10T15:32:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:40:45Z",
+          "conclusion": "success",
+          "name": "Test maintained native IME history invariants",
+          "number": 5,
+          "startedAt": "2026-11-10T15:36:47Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:40:48Z",
+          "conclusion": "success",
+          "name": "Test maintained native row-layout invariants",
+          "number": 6,
+          "startedAt": "2026-11-10T15:40:46Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:40:49Z",
+          "conclusion": "success",
+          "name": "Remove successful test build trees before release",
+          "number": 7,
+          "startedAt": "2026-11-10T15:40:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:31Z",
+          "conclusion": "success",
+          "name": "Build all workspace release binaries",
+          "number": 8,
+          "startedAt": "2026-11-10T15:40:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:32Z",
+          "conclusion": "success",
+          "name": "Exercise actual release CLIs without a GUI",
+          "number": 9,
+          "startedAt": "2026-11-10T15:49:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:36Z",
+          "conclusion": "success",
+          "name": "Check machine headers and package notices with SHA integrity",
+          "number": 10,
+          "startedAt": "2026-11-10T15:49:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:38Z",
+          "conclusion": "success",
+          "name": "Upload unsigned development zip",
+          "number": 11,
+          "startedAt": "2026-11-10T15:49:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:38Z",
+          "conclusion": "success",
+          "name": "Report exercised and unsupported behavior",
+          "number": 12,
+          "startedAt": "2026-11-10T15:49:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:39Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 24,
+          "startedAt": "2026-11-10T15:49:38Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:41Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-11-10T15:49:39Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569/job/129930956225"
+    },
+    {
+      "completedAt": "2026-11-10T15:32:04Z",
+      "conclusion": "success",
+      "databaseId": 129930956250,
+      "name": "fmt",
+      "startedAt": "2026-11-10T15:31:50Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-10T15:31:51Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-10T15:31:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:31:53Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-11-10T15:31:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:31:53Z",
+          "conclusion": "success",
+          "name": "Check packaging edge cases",
+          "number": 3,
+          "startedAt": "2026-11-10T15:31:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:01Z",
+          "conclusion": "success",
+          "name": "Assert native Linux and install pinned Rust",
+          "number": 4,
+          "startedAt": "2026-11-10T15:31:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:01Z",
+          "conclusion": "success",
+          "name": "Check workspace formatting",
+          "number": 5,
+          "startedAt": "2026-11-10T15:32:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:02Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 10,
+          "startedAt": "2026-11-10T15:32:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:02Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-11-10T15:32:02Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569/job/129930956250"
+    },
+    {
+      "completedAt": "2026-11-10T15:41:13Z",
+      "conclusion": "success",
+      "databaseId": 129930956500,
+      "name": "x86_64-unknown-linux-gnu",
+      "startedAt": "2026-11-10T15:31:49Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-10T15:31:51Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-10T15:31:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:31:53Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-11-10T15:31:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:16Z",
+          "conclusion": "success",
+          "name": "Assert native OS and Rust host; prepare platform tools",
+          "number": 3,
+          "startedAt": "2026-11-10T15:31:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:34:49Z",
+          "conclusion": "success",
+          "name": "Test all workspace members",
+          "number": 4,
+          "startedAt": "2026-11-10T15:32:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:34:49Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native IME history invariants",
+          "number": 5,
+          "startedAt": "2026-11-10T15:34:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:34:49Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native row-layout invariants",
+          "number": 6,
+          "startedAt": "2026-11-10T15:34:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:34:49Z",
+          "conclusion": "success",
+          "name": "Remove successful test build trees before release",
+          "number": 7,
+          "startedAt": "2026-11-10T15:34:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:41:05Z",
+          "conclusion": "success",
+          "name": "Build all workspace release binaries",
+          "number": 8,
+          "startedAt": "2026-11-10T15:34:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:41:05Z",
+          "conclusion": "success",
+          "name": "Exercise actual release CLIs without a GUI",
+          "number": 9,
+          "startedAt": "2026-11-10T15:41:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:41:07Z",
+          "conclusion": "success",
+          "name": "Check machine headers and package notices with SHA integrity",
+          "number": 10,
+          "startedAt": "2026-11-10T15:41:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:41:10Z",
+          "conclusion": "success",
+          "name": "Upload unsigned development zip",
+          "number": 11,
+          "startedAt": "2026-11-10T15:41:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:41:10Z",
+          "conclusion": "success",
+          "name": "Report exercised and unsupported behavior",
+          "number": 12,
+          "startedAt": "2026-11-10T15:41:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:41:10Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 24,
+          "startedAt": "2026-11-10T15:41:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:41:10Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-11-10T15:41:10Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569/job/129930956500"
+    },
+    {
+      "completedAt": "2026-11-10T15:49:29Z",
+      "conclusion": "success",
+      "databaseId": 129930956962,
+      "name": "x86_64-pc-windows-msvc",
+      "startedAt": "2026-11-10T15:31:50Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-10T15:31:52Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-10T15:31:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:01Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 2,
+          "startedAt": "2026-11-10T15:31:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:32:15Z",
+          "conclusion": "success",
+          "name": "Assert native OS and Rust host; prepare platform tools",
+          "number": 3,
+          "startedAt": "2026-11-10T15:32:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:38:16Z",
+          "conclusion": "success",
+          "name": "Test all workspace members",
+          "number": 4,
+          "startedAt": "2026-11-10T15:32:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:38:16Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native IME history invariants",
+          "number": 5,
+          "startedAt": "2026-11-10T15:38:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:38:16Z",
+          "conclusion": "skipped",
+          "name": "Test maintained native row-layout invariants",
+          "number": 6,
+          "startedAt": "2026-11-10T15:38:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:38:17Z",
+          "conclusion": "success",
+          "name": "Remove successful test build trees before release",
+          "number": 7,
+          "startedAt": "2026-11-10T15:38:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:16Z",
+          "conclusion": "success",
+          "name": "Build all workspace release binaries",
+          "number": 8,
+          "startedAt": "2026-11-10T15:38:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:17Z",
+          "conclusion": "success",
+          "name": "Exercise actual release CLIs without a GUI",
+          "number": 9,
+          "startedAt": "2026-11-10T15:49:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:21Z",
+          "conclusion": "success",
+          "name": "Check machine headers and package notices with SHA integrity",
+          "number": 10,
+          "startedAt": "2026-11-10T15:49:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:24Z",
+          "conclusion": "success",
+          "name": "Upload unsigned development zip",
+          "number": 11,
+          "startedAt": "2026-11-10T15:49:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:24Z",
+          "conclusion": "success",
+          "name": "Report exercised and unsupported behavior",
+          "number": 12,
+          "startedAt": "2026-11-10T15:49:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:26Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 24,
+          "startedAt": "2026-11-10T15:49:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-10T15:49:26Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-11-10T15:49:26Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569/job/129930956962"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569"
+}

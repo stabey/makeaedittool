@@ -264,3 +264,5 @@ CI下载产物的额外运行见[报告](evidence/ime-ci-macos-native.json)、[O
 `visible_panes_ready_ms`定义未变；`total_elapsed_ms`还包括显式原生draw和正常退出确认，降低的不是仅仅一个被提前发布的就绪计时。两者仍不代表像素首帧。B与C合并验证，没有分别宣称单项速度收益。
 
 **仍未达终态：** 密集短行近64 MiB仍需约456 MiB进程峰值、1.43秒正文就绪。每行SumTree项、首次布局/折行及系统图形资源仍有成本；稳定绘制后的堆、长期多文档内存、冷盘和实体屏幕延迟尚未完成本轮验收。后续继续定位已绘制路径，不靠改为只读或取消恢复保护获得数字。
+
+下载的本轮CI Mac ARM产物另在本机运行，近64 MiB启动与IME场景均通过；其OS原始指标见[产物报告](evidence/load-ci-macos-native.json)。启动进程peak RSS为452.78 MiB，整套IME场景为672.73 MiB；二进制、工作量和采样时间不同，不并入旧/新本地均值或分解为IME额外占用。后台无draw证明及误用CLI的排除记录保留在[无效对照说明](evidence/load-excluded-observations.json)。

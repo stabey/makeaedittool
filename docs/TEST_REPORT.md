@@ -252,3 +252,11 @@ ADR012实现与复审无剩余阻塞；不改变IME事件/历史协议、应用�
 - [新版实际绘制采样](evidence/load-sample-after-draw.txt)绑定PID 9697的`--smoke=startup`进程，[同进程报告](evidence/load-sampled-startup.txt)passed、durable ACK及67,108,860 B正文均确认。采样开销下的时间不并入未插桩性能均值。另一个无强制draw后台进程的148.6 MiB被排除出稳定内存对照。
 
 只验证本机macOS ARM64。没有物理系统IME、像素首帧、长期多文档稳定堆、Windows/Linux GUI或性能的新结论；Windows/Linux保存仍不支持。
+
+使用上述IME场景的同一数据目录另起真实进程，`--smoke=startup`恢复3个标签、仅hydrate活动8 B草稿并取得durable ACK，见[同会话新进程记录](evidence/load-same-session-restart.txt)。这额外覆盖服务层恢复Rope经新构造器进入原生编辑器的路径，不仅在同一进程打开RecoveryHandle。
+
+生产优化提交`4f3087fb5711d29b5d703237eda00ff509dad96c`的[CI 42845274569](https://github.com/stabey/makeanotepad/actions/runs/42845274569)全部6个job成功：格式/打包检查及macOS ARM/Intel、Windows ARM/x64、Linux x64五个原生目标。各目标测试、release、CLI、校验和未签名ZIP上传均成功；[最终运行](evidence/load-ci-final.json)、[5份产物元数据](evidence/load-ci-artifacts.json)及[Mac ARM私有测试日志](evidence/load-ci-private-tests.txt)绑定该提交，确认行布局19个和历史11个实际执行，不是零匹配。
+
+下载的本轮Mac ARM产物两个二进制SHA校验通过，携带原Apache LICENSE及与维护源一致的三文件NOTICE。[构建身份](evidence/load-ci-macos-build-identity.txt)中的`gui_smoke_executed=false`描述托管CI；下载后本机另行运行近64 MiB `--smoke=startup`及完整`--smoke=ime`，均exit 0、passed并取得durable ACK，见[产物运行报告](evidence/load-ci-macos-native.json)。其他平台没有新增GUI或性能验收。
+
+运行证据归档后，任务独占的`/tmp/runtime_verify_profile`及Mac ARM产物下载临时目录已清理；仅保留源码、release构建与证据，没有使用或删除默认用户数据目录。

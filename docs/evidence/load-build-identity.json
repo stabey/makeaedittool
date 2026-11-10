@@ -1,4 +1,6 @@
 {
+  "source_commit": "4f3087fb5711d29b5d703237eda00ff509dad96c",
+  "ci_run_url": "https://github.com/stabey/makeanotepad/actions/runs/42845274569",
   "baseline_product_commit": "dd70272319249d4f5bb2ef1ebd1f592c9196311f",
   "baseline_checkout_commit": "e47d6d844105d7f59c6e048c09ad8dc36c5ab8de",
   "binary_sha256": {

@@ -1,0 +1,34 @@
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9594470Z running 11 tests
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9604410Z test input::undo_manager::tests::ime_pin_clear_silently_discards_owner_and_pending_intent ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9733970Z test input::undo_manager::tests::ime_pin_empty_outer_metadata_survives_cancel ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9747450Z test input::undo_manager::tests::ime_pin_cancel_preserves_outer_metadata_and_depth ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9749700Z test input::undo_manager::tests::ime_pin_ignoring_requires_state_settlement - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9750470Z test input::undo_manager::tests::ime_pin_noop_preserves_redo_and_cancelled_typing_boundary ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9751070Z test input::undo_manager::tests::ime_pin_redo_requires_state_settlement - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9751860Z test input::undo_manager::tests::ime_pin_regular_commit_cannot_consume_pin - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9752680Z test input::undo_manager::tests::ime_pin_readonly_rejection_preserves_intent_and_cut_does_not_set_one ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9753370Z test input::undo_manager::tests::ime_pin_survives_outer_close_and_regular_inner_brackets ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9753950Z test input::undo_manager::tests::ime_pin_undo_requires_state_settlement - should panic ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9797280Z test input::undo_manager::tests::ime_pin_native_outer_prefix_direct_edit_and_late_empty_mark ... ok
+aarch64-apple-darwin	Test maintained native IME history invariants	2026-11-10T15:40:45.9800150Z test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 1548 filtered out; finished in 0.02s
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6426670Z running 19 tests
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6452910Z test input::display_map::text_wrapper::tests::clicking_past_a_wrapped_row_keeps_the_caret_on_that_row ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6457400Z test input::display_map::text_wrapper::tests::a_wrap_boundary_offset_resolves_to_the_row_the_caret_is_drawn_on ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6462900Z test input::display_map::text_wrapper::tests::measured_wrap_preserves_words_graphemes_and_indentation ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6471040Z test input::display_map::text_wrapper::tests::test_edit_last_line_and_full_delete ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6479610Z test input::display_map::text_wrapper::tests::measured_wrap_keeps_cjk_latin_boundary_stable_during_edits ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6480500Z test input::display_map::text_wrapper::tests::test_line_layout ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6481250Z test input::display_map::text_wrapper::tests::test_longest_row_after_shrink ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6481980Z test input::display_map::text_wrapper::tests::test_offset_to_display_point ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6482800Z test input::display_map::text_wrapper::tests::test_position_for_index_prefers_first_leading_empty_visual_line ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6486280Z test input::display_map::text_wrapper::tests::test_streamed_lines_keep_continuation_byte_offsets ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6488340Z test input::display_map::text_wrapper::tests::test_streamed_lines_reuse_keeps_absolute_byte_offsets ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6501420Z test input::display_map::text_wrapper::tests::test_update ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6502880Z test input::display_map::text_wrapper::tests::test_streamed_lines_preserve_lf_byte_semantics ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6504490Z test input::display_map::text_wrapper::tests::test_wrap_indent_offsets_continuation_lines ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6506040Z test input::display_map::text_wrapper::tests::test_wrap_row_buffer_line_boundaries ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6508120Z test input::display_map::text_wrapper::tests::test_wrap_row_queries_after_incremental_splice ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6508960Z test input::display_map::text_wrapper::tests::test_streamed_lines_splice_newline_boundaries ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6509850Z test input::display_map::text_wrapper::tests::test_wrapping_indent_none_continuation_lines_wrapped_at_full_width ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6510710Z test input::display_map::text_wrapper::tests::test_wrapping_indent_same_keeps_indent_reserved ... ok
+aarch64-apple-darwin	Test maintained native row-layout invariants	2026-11-10T15:40:48.6511480Z test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 1540 filtered out; finished in 0.01s
