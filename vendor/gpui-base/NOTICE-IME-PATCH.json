@@ -12,18 +12,25 @@
   "purpose": [
     "Settle accepted IME composition exactly once, restoring original Rope identity for byte no-ops.",
     "Preserve scoped history ownership, outer transaction metadata, token semantics, and redo across cancellation.",
-    "Publish Undo/Redo as a bounded, final-snapshot committed transition without preedit snapshots."
+    "Publish Undo/Redo as a bounded, final-snapshot committed transition without preedit snapshots.",
+    "Adopt an already validated Rope only into a fresh EditorMode state without an initial edit transaction or full-text copies.",
+    "Build row layout from sequential LF lines directly into SumTree while preserving incremental splice and width-reuse semantics."
   ],
   "maintained_source_files": [
     {
       "path": "src/input/base/state.rs",
       "upstream_sha256": "afc5e6ac4dd2540172eac154a69e8ae0af913ca4492239e7df65449d2eb80b93",
-      "local_sha256": "3fa56ed8578c7f977566d4f773ed0d93200ffe8a444e2728f5f6baedaf2449a7"
+      "local_sha256": "080b14ff1421a5c4203a1b8e6cad690c53279416d06d6755008763537239a83e"
     },
     {
       "path": "src/input/base/undo_manager.rs",
       "upstream_sha256": "c71d0526c182b881280159c52b749253bfcbc0e3d3819a37cd3f0eec88db7244",
       "local_sha256": "a230ae3f1a099c0b82421b9921bd9922188968cf9b320448682ca7b371683b63"
+    },
+    {
+      "path": "src/input/editor/display_map/text_wrapper.rs",
+      "upstream_sha256": "d5f410453e00bd3240bd25abf71734c24f64c004437f63e807a5e5d4f15227a2",
+      "local_sha256": "715bef487b0878091f8db886b751e9305eee474b89592218360abd53f74479b7"
     }
   ],
   "package_metadata_changes": [
@@ -31,5 +38,6 @@
     "This notice records source provenance and the maintained patch boundary."
   ],
   "private_test_command": "cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-support --lib --target aarch64-apple-darwin --target-dir target -- input::undo_manager::tests::ime_pin_",
+  "private_layout_test_command": "cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-support --lib --target aarch64-apple-darwin --target-dir target -- input::display_map::text_wrapper::tests::",
   "removal_rule": "Remove this patch after a published upstream version passes the same native, actual-workspace and platform acceptance. Migrate the root and both active diagnostic patch tables and lockfiles together."
 }

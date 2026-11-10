@@ -119,7 +119,9 @@ IME结算、原子撤销及实际保存/关闭/重启恢复另有macOS原生场�
 target/release/editor --data-dir .smoke-data/ime-check --smoke=ime --smoke-report .smoke-data/ime-check.json
 ```
 
-本地维护`gpui-base 0.9.0`的两个内部源文件，保留公开API、应用层提交屏障与依赖版本；来源和维护边界见[vendor notice](vendor/gpui-base/NOTICE-IME-PATCH.json)。该修复不提供共享可编辑多视图，也不等于真实系统输入法候选窗口已验收。
+本地维护`gpui-base 0.9.0`的三个源文件：IME结算/历史发布，以及普通文件加载与行布局优化；依赖版本和应用层提交屏障不变，新增仅用于新建EditorMode的Rope接管构造器。来源和维护边界见[vendor notice](vendor/gpui-base/NOTICE-IME-PATCH.json)与ADR012。该补丁不提供共享可编辑多视图，也不等于真实系统输入法候选窗口已验收。
+
+同机旧/新release交替各3次的近64 MiB短行文件对照中，平均peak RSS从690.66降至456.16 MiB，正文就绪从2.33降至1.43秒；包含显式draw与正常退出的总耗时也下降。160个工作区测试、19个私有行布局测试、11个私有IME历史测试及真实窗口回归通过。仍有较高的行布局成本，不承诺常驻内存或任意文件达到相同比例；测量边界与原始证据见[性能记录](docs/PERFORMANCE_REPORT.md)。
 
 ## 候选运行时
 

@@ -140,7 +140,7 @@ CI方案经`CiDesignReview`评审：使用五个原生托管目标（macOS ARM64
 
 ## ADR 011：有界维护原生IME结算与历史发布
 
-保留Kit/component/base 0.9.0与gpui-pre 0.3.11身份，不编辑注册表缓存。将已发布`gpui-base 0.9.0`原包纳入`vendor/gpui-base`，行为修改仅限`input/base/state.rs`与`undo_manager.rs`；原包SHA、上游提交、修改前后源文件SHA和移除规则记录在`NOTICE-IME-PATCH.json`。根工作区与两个活动实验统一使用路径补丁；NSH独立实验不迁移。
+保留Kit/component/base 0.9.0与gpui-pre 0.3.11身份，不编辑注册表缓存。将已发布`gpui-base 0.9.0`原包纳入`vendor/gpui-base`，本次IME修复的行为修改仅限`input/base/state.rs`与`undo_manager.rs`（后续加载优化见ADR012）；原包SHA、上游提交、修改前后源文件SHA和移除规则记录在`NOTICE-IME-PATCH.json`。根工作区与两个活动实验统一使用路径补丁；NSH独立实验不迁移。
 
 - 组合输入拥有明确生命周期和一层专属历史pin；普通嵌套提交不能消耗它。接受的写入先计入变化跨度和历史，在最终选区/配对元数据记录后恰好结算一次。外层批次语义不变，不新增粘贴专属撤销分组。
 - 真正字节NoOp恢复原始Rope实例，仅移除组合输入拥有的历史尾部，保留外层前缀、元数据及redo。空标记替换真实选区仍是删除。字节相同但token身份变化保留语义历史，只发`Change`，不伪造字节编辑事件。
@@ -155,6 +155,19 @@ cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-
 ```
 
 独立vendor锁文件仅用于这些测试，保留上游dev依赖；共享target由既有CI清理步骤回收。发布许可收集继续使用现有路径依赖规则，携带原LICENSE和修改NOTICE。公开API、SQLite schema、布局格式及普通文件准入预算不变。设计、实现契约与针对性数据丢失审查均无剩余阻塞；真实运行与未覆盖项另见测试报告。
+
+## ADR 012：新编辑器接管Rope与顺序行布局
+
+普通文件打开的调用栈与分配栈显示：初始正文经`set_value`进入全文编辑路径，构造额外正文副本及行树；逐行布局反复从Rope根节点定位行。采用两项同步、无新增后台任务的修改，不降低64 MiB可编辑准入、不关闭恢复/撤销/折行，也不改变持久化格式。
+
+- 仅在`InputBaseState<EditorMode>`新增`new_with_rope`新建构造器，直接接管服务层已验证的Rope；没有对已使用实体换正文的setter。诊断状态随正文初始化，布局保持既有builder的延迟准备语义；不归一化字节、不制造加载编辑事件或撤销项。
+- `EditorAdapter::new`先计算UTF-8/CRLF安全光标，再移动正文，保留语言与视图配置顺序、readonly及原生正文身份屏障。删除过时的`rope_to_string`，同步更新实验的边界描述。
+- `TextWrapper::update_lines`按LF顺序迭代完整新正文的受影响行，保持原有包含终点的行范围和前后缀拼接。仅去掉末尾LF，保留CR、尾空行和其他Unicode字符。绝对字节位置在宽度缓存复用分支之前推进。
+- 行项直接流入`SumTree::from_iter`，消费完借用后再替换行树；不再收集全文行项数组。原有SumTree表示、宽度判断、增量映射、旧/新树重叠生命周期均不变。
+
+设计与实现契约均经独立`design-review`检查。维护范围扩为三个原生源文件，来源与SHA仍集中在既有`NOTICE-IME-PATCH.json`；没有依赖升级。CI的macOS ARM额外执行整个`input::display_map::text_wrapper::tests::`，保留IME历史测试。
+
+验收包括初始正文身份/无历史、Unicode与CRLF光标裁剪及首次绘制可见性、LF行语义、跨块文本、换行增删、宽度复用与续行绝对坐标。性能比较使用保留的旧release二进制和相同夹具；同时比较显式draw及正常退出在内的总耗时与进程峰值，不能把延迟布局或未绘制的后台窗口当作收益。实测与剩余风险见性能报告。
 
 ## 审查来源与证据边界
 

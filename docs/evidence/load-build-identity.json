@@ -1,0 +1,45 @@
+{
+  "baseline_product_commit": "dd70272319249d4f5bb2ef1ebd1f592c9196311f",
+  "baseline_checkout_commit": "e47d6d844105d7f59c6e048c09ad8dc36c5ab8de",
+  "binary_sha256": {
+    "target/release/editor": "adde34b0eb468b8d9e180cd5c462847d51653d22ffed08c67bbea6a7dd5f145a",
+    "target/release/editor-services": "342d41b91e91ed7f24a66db7013db0431ac754f6d1fe3f8d6fc6448d33ee2d85",
+    "/tmp/runtime_verify_profile/editor-before": "9acee6f435ad9a37510159a0326157ec147ab10b06e002ecfa4685855ae0c773"
+  },
+  "files_sha256": {
+    "apps/editor/src/editor_adapter.rs": "3cbcd95eef5732ff98ec7dfc10df7283f1b3adbb6884ff9ab35c83a3ce6e0ec2",
+    "apps/editor/src/editor_adapter_ime_tests.rs": "c184cf80a633bca0d5efbff596435221af17f7c0b9f27d7cd54f482aca1008f5",
+    "vendor/gpui-base/src/input/base/state.rs": "080b14ff1421a5c4203a1b8e6cad690c53279416d06d6755008763537239a83e",
+    "vendor/gpui-base/src/input/editor/display_map/text_wrapper.rs": "715bef487b0878091f8db886b751e9305eee474b89592218360abd53f74479b7",
+    "vendor/gpui-base/src/input/base/undo_manager.rs": "a230ae3f1a099c0b82421b9921bd9922188968cf9b320448682ca7b371683b63",
+    "vendor/gpui-base/NOTICE-IME-PATCH.json": "df0ba3e6d14397c266ed4f159caaff9cd2d51c8b231c6aba4eadae17a79ce1f8",
+    "Cargo.lock": "6cecb7fdda67abc9ca68ad37c4f4d2951bea75acda515d3ea1a0557cfe596ebe",
+    "spikes/shared-text-feasibility/Cargo.lock": "039a364acec21812d769e9a30b0c96a290dc2cac331e1dd2c95254d2c2cace63",
+    "spikes/multiview-paged/Cargo.lock": "76932f04fe6c5e89dbd4224e6b3ca07bb5a390b25a15aea491edd4b188d21830"
+  },
+  "upstream_archive_sha256": "cff6377e30f0c857681662e7edc7286bf30f5606033390401b0706d7bd930833",
+  "upstream_differing_members": [
+    "Cargo.lock",
+    "src/input/base/state.rs",
+    "src/input/base/undo_manager.rs",
+    "src/input/editor/display_map/text_wrapper.rs"
+  ],
+  "notice_source_hashes_verified": true,
+  "acceptance": {
+    "workspace_tests_passed": 160,
+    "vendor_layout_tests_passed": 19,
+    "vendor_ime_history_tests_passed": 11,
+    "workspace_release_built": true,
+    "both_active_spikes_release_built": true,
+    "native_scenarios_passed": [
+      "startup",
+      "full",
+      "ime",
+      "usability",
+      "groups",
+      "splits"
+    ],
+    "design_review": "B+C proposal and implementation approved with C-B1..3/C-C1..3 satisfied"
+  },
+  "runtime_scope": "macOS ARM64; actual native draw and lifecycle, not physical IME/HID/pixel latency"
+}

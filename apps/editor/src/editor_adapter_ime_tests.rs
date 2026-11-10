@@ -184,6 +184,49 @@ fn replay_events(before: &str, events: &[InputEditsEvent]) -> String {
     text
 }
 
+#[gpui_kit::test]
+fn native_rope_hydration_preserves_bytes_identity_and_empty_history(cx: &mut TestAppContext) {
+    for text in ["", "  \té\r\n尾\rnext\n"] {
+        let original = Rope::from_str(text);
+        let adopted = original.clone();
+        let fixture = NativeFixture::<EditorMode>::new(cx, move |window, cx| {
+            EditorState::new_with_rope(adopted, window, cx)
+        });
+        assert!(ropes_are_instances(&original, &fixture.text(cx)));
+        assert_eq!(fixture.text(cx).to_string(), text);
+        fixture.assert_idle(cx);
+        fixture.assert_no_events();
+        fixture.draw(cx);
+        fixture.assert_no_events();
+        assert!(ropes_are_instances(&original, &fixture.text(cx)));
+        fixture.update(cx, |state, _, _| {
+            assert_eq!(
+                state.display_map().buffer_line_count(),
+                original.len_lines(ropey::LineType::LF)
+            );
+            assert!(state.cursor_layout().is_some());
+        });
+
+        fixture.action(Undo, cx);
+        fixture.action(Redo, cx);
+        fixture.assert_no_events();
+        assert!(ropes_are_instances(&original, &fixture.text(cx)));
+        fixture.update(cx, |state, _, cx| {
+            state.set_selected_range(text.len()..text.len(), cx);
+        });
+        fixture.commit("!", cx);
+        let edited = format!("{text}!");
+        fixture.assert_transition(text, &edited);
+        fixture.clear_events();
+        fixture.action(Undo, cx);
+        fixture.assert_transition(&edited, text);
+        assert_eq!(fixture.text(cx).to_string(), text);
+        fixture.clear_events();
+        fixture.action(Redo, cx);
+        fixture.assert_transition(text, &edited);
+    }
+}
+
 fn exercise_composition_contract<M: InputModeKind>(f: &NativeFixture<M>, cx: &mut TestAppContext) {
     f.reset("a", cx);
     f.mark("n", cx);
@@ -740,7 +783,8 @@ fn native_ime_local_commit_and_replay_keep_bounded_payloads(cx: &mut TestAppCont
 struct AdapterRoot {
     adapter: EditorAdapter,
     events: Vec<InputEditsEvent>,
-    _subscription: Subscription,
+    changes: usize,
+    _subscriptions: [Subscription; 2],
 }
 
 impl Render for AdapterRoot {
@@ -750,6 +794,15 @@ impl Render for AdapterRoot {
 }
 
 fn adapter_window(cx: &mut TestAppContext, text: &str) -> WindowHandle<AdapterRoot> {
+    adapter_window_with_cursor(cx, text, text.len() as u64, true)
+}
+
+fn adapter_window_with_cursor(
+    cx: &mut TestAppContext,
+    text: &str,
+    cursor_byte: u64,
+    is_clean_at_load: bool,
+) -> WindowHandle<AdapterRoot> {
     cx.update(|cx| {
         gpui_kit::init(cx);
         cx.open_window(Default::default(), |window, cx| {
@@ -769,10 +822,10 @@ fn adapter_window(cx: &mut TestAppContext, text: &str) -> WindowHandle<AdapterRo
                         rope,
                         initial_rev: Revision(1),
                         durable_rev: Revision(1),
-                        is_clean_at_load: true,
+                        is_clean_at_load,
                         disk_conflict: false,
                         initial_view: ViewState {
-                            cursor_byte: text.len() as u64,
+                            cursor_byte,
                             scroll_byte: 0,
                         },
                         initial_prefs: EditorViewPrefs::default(),
@@ -781,22 +834,97 @@ fn adapter_window(cx: &mut TestAppContext, text: &str) -> WindowHandle<AdapterRo
                     window,
                     cx,
                 );
-                let subscription = cx.subscribe(
+                let edits_subscription = cx.subscribe(
                     adapter.editor(),
                     |this: &mut AdapterRoot, _, event: &InputEditsEvent, _| {
                         this.adapter.ingest_edits_event(event);
                         this.events.push(event.clone());
                     },
                 );
+                let change_subscription = cx.subscribe(
+                    adapter.editor(),
+                    |this: &mut AdapterRoot, _, event: &NativeInputEvent, _| {
+                        if matches!(event, NativeInputEvent::Change) {
+                            this.changes += 1;
+                        }
+                    },
+                );
                 AdapterRoot {
                     adapter,
                     events: Vec::new(),
-                    _subscription: subscription,
+                    changes: 0,
+                    _subscriptions: [edits_subscription, change_subscription],
                 }
             })
         })
         .unwrap()
     })
+}
+
+#[gpui_kit::test]
+fn native_rope_hydration_restores_and_reveals_clipped_caret(cx: &mut TestAppContext) {
+    let prefix = "row\n".repeat(256);
+    let text = format!("{prefix}é\r\n尾\t");
+    let cases = [
+        (prefix.len() + 1, prefix.len(), true),
+        (prefix.len() + 3, prefix.len() + 2, false),
+        (text.len() + 10, text.len(), true),
+    ];
+    for (requested, expected, is_clean) in cases {
+        let window = adapter_window_with_cursor(cx, &text, requested as u64, is_clean);
+        window
+            .update(cx, |root, window, cx| {
+                let state = root.adapter.editor().read(cx);
+                assert_eq!(state.selected_range(), expected..expected);
+                assert_eq!(state.text().to_string(), text);
+                assert!(ropes_are_instances(
+                    state.text(),
+                    &root.adapter.committed_rope
+                ));
+                assert!(!root.adapter.has_pending_native_edit(cx));
+                assert!(!root.adapter.has_undo_history());
+                assert_eq!(root.adapter.is_dirty(), !is_clean);
+                assert!(root.events.is_empty());
+                assert_eq!(root.changes, 0);
+                root.adapter
+                    .editor()
+                    .clone()
+                    .update(cx, |state, cx| state.focus(window, cx));
+            })
+            .unwrap();
+
+        draw_window(window, cx);
+        window
+            .update(cx, |root, _, cx| {
+                let state = root.adapter.editor().read(cx);
+                assert_eq!(state.selected_range(), expected..expected);
+                assert!(ropes_are_instances(
+                    state.text(),
+                    &root.adapter.committed_rope
+                ));
+                assert_eq!(
+                    state.display_map().buffer_line_count(),
+                    state.text().len_lines(ropey::LineType::LF)
+                );
+                let (caret, _) = state
+                    .cursor_layout()
+                    .expect("first draw must lay out the caret");
+                let viewport = state.input_bounds();
+                let scroll = state.scroll_offset();
+                let top = caret.origin.y - viewport.origin.y + scroll.y;
+                assert!(scroll.y < gpui_kit::px(0.));
+                assert!(
+                    top >= gpui_kit::px(0.) && top + caret.size.height <= viewport.size.height,
+                    "restored caret {caret:?} must be visible in {viewport:?} at {scroll:?}"
+                );
+                assert!(!root.adapter.has_pending_native_edit(cx));
+                assert!(!root.adapter.has_undo_history());
+                assert_eq!(root.adapter.is_dirty(), !is_clean);
+                assert!(root.events.is_empty());
+                assert_eq!(root.changes, 0);
+            })
+            .unwrap();
+    }
 }
 
 #[gpui_kit::test]

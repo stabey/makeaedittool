@@ -233,3 +233,34 @@ target/release/editor --data-dir /tmp/makeanotepad-groups-unique --smoke=groups 
 纯打开内部`visible_panes_ready_ms`为2570.38；不是屏幕像素首帧。输入提交快并不代表文件加载与内存已达标。上述为不同进程、不同工作量的独立峰值，不能相减认定IME新增占用；没有堆剖析，不归因于Rope、排版缓存或其他具体对象，也不证明泄漏。下一步优先测量普通加载路径的分配、持有者与阶段耗时，再决定优化方案。
 
 CI下载产物的额外运行见[报告](evidence/ime-ci-macos-native.json)、[OS指标](evidence/ime-ci-macos-native-os.txt)及[构建身份](evidence/ime-ci-macos-build-identity.txt)。它仍在本机执行，夹具位于`/Volumes/macport/Caches/tmp`，与前述本地构建的二进制SHA和存储位置不同。此运行用于验证实际产物，不与前表合并分位数，也不作为托管runner性能数据。
+
+## 普通文件加载优化：相同夹具的旧/新release对照
+
+采用ADR012：新EditorMode直接接管服务层Rope，行布局顺序遍历LF行并流入SumTree，移除初始全文编辑路径和行项暂存数组。版本、普通可编辑上限、恢复/撤销与折行策略不变。以下只代表本机macOS ARM64，不外推Windows或持续屏幕延迟。
+
+### 归因与边界
+
+- [旧版启动采样](evidence/load-sample-before.txt)在`complete_disk_open`的240个活动样本中，222个位于适配器构造，135个经过逐行`slice_line`，22个经过Rope插入；样本数不是精确墙钟占比。
+- [直接分配栈节选](evidence/load-allocation-stacks-before.json)来自另一个启用`MallocStackLogging=1`的进程。两个选中的SumTree栈组共95,328次存活分配、122,019,840 B（116.37 MiB）；三个选中的Rope插入栈组共90,108,928 B，含1024/1280 B分配。这是采样时存活栈组，不是完整堆普查或瞬时峰值分解。
+- Instruments Allocations尝试受SIP/目标限制而未取得有效结果；改用`sample`与`malloc_history`，未修改SIP或系统安全配置。
+- 新版普通后台启动的`vmmap`曾得到148.6 MiB，但缺少已完成布局/绘制的证据；旧版初始化会提前构造行树，新版是延迟准备。因此该数值**不用于前后稳定内存比较**，不宣称常驻内存已降至148.6 MiB。
+- [新版已绘制启动采样](evidence/load-sample-after-draw.txt)来自PID 9697的`--smoke=startup`，`sample 9697 3 1`与目标进程均exit 0，[同进程smoke报告](evidence/load-sampled-startup.txt)确认正常退出。1430个主线程样本中878个经过`TextElement::prepaint`，809个经过`TextWrapper::update_wrapped`，434个经过grapheme遍历；顺序行迭代为29个样本。它指出下一热点仍在首次折行，不用不同采样窗口的计数差计算速度收益。
+
+### 同夹具对照
+
+平台为macOS 27.2、Mac16,10、32 GiB。保留旧二进制SHA `9acee6…`，新版为`adde34…`；完整SHA、每次原始smoke报告、OS输出、命令和夹具生成规则见[对照数据](evidence/load-startup-paired.json)。均使用独立`/tmp`夹具/恢复目录，未清除OS缓存，标为warm/unspecified。
+
+两份夹具均为67,108,860 B（64 MiB−4 B，不是64 GiB）。短行夹具为64 B行，1,048,576个换行符；长行形状对照为64 KiB行，1024个换行符，均含尾空逻辑行。短行按旧/新交替各运行3次，长行各1次；各次均为1个普通hydrate编辑器、0个分页标签，并正常退出取得durable ACK。
+
+| 夹具/版本 | 样本数 | 平均正文就绪 ms | 平均场景总耗时 ms | 平均进程peak RSS MiB | 平均退休指令数 十亿 |
+|---|---:|---:|---:|---:|---:|
+| 短行/旧版 | 3 | 2325.56 | 2433.54 | 690.66 | 45.38 |
+| 短行/新版 | 3 | 1429.85 | 1521.88 | 456.16 | 31.14 |
+| 长行/旧版 | 1 | 1292.86 | 1392.90 | 517.75 | 26.39 |
+| 长行/新版 | 1 | 1223.67 | 1317.17 | 226.78 | 25.37 |
+
+短行本次样本的平均peak RSS下降34.0%，正文就绪下降38.5%，场景总耗时下降37.5%，退休指令数下降31.4%。长行单次对照的peak RSS下降56.2%；不能将两个修改的独立贡献或各个缓冲区峰值从这些进程差值中分解出来，也不承诺任意文件有相同比例。
+
+`visible_panes_ready_ms`定义未变；`total_elapsed_ms`还包括显式原生draw和正常退出确认，降低的不是仅仅一个被提前发布的就绪计时。两者仍不代表像素首帧。B与C合并验证，没有分别宣称单项速度收益。
+
+**仍未达终态：** 密集短行近64 MiB仍需约456 MiB进程峰值、1.43秒正文就绪。每行SumTree项、首次布局/折行及系统图形资源仍有成本；稳定绘制后的堆、长期多文档内存、冷盘和实体屏幕延迟尚未完成本轮验收。后续继续定位已绘制路径，不靠改为只读或取消恢复保护获得数字。

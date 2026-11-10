@@ -12975,6 +12975,20 @@ impl InputBaseState<crate::input::EditorMode> {
         state
     }
 
+    /// Create a fresh editor by adopting an existing UTF-8 rope without copying its text.
+    ///
+    /// The bytes are preserved exactly. History and composition start empty, no change
+    /// event is emitted, and display layout and language features prepare on first render.
+    pub fn new_with_rope(rope: Rope, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut state = Self::new(window, cx);
+        state.text = rope;
+        if let Some(diagnostics) = state.mode.diagnostics_mut() {
+            diagnostics.reset(&state.text);
+        }
+        state._pending_update = true;
+        state
+    }
+
     /// Set the language to highlight, e.g. `"rust"`.
     ///
     /// See [`Self::set_highlighter`] to change it after construction.

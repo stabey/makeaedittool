@@ -683,14 +683,24 @@ impl EditorAdapter {
             || params.meta.line_ending == LineEnding::MixedReadOnly;
         let initial_prefs = params.initial_prefs;
 
-        let initial_text = rope_to_string(&params.rope);
+        let initial_cursor = if params.initial_view.cursor_byte > 0 {
+            let clamped = (params.initial_view.cursor_byte as usize).min(params.rope.len());
+            let safe = params.rope.floor_char_boundary(clamped);
+            Some(if splits_crlf(&params.rope, safe) {
+                safe.saturating_sub(1)
+            } else {
+                safe
+            })
+        } else {
+            None
+        };
 
         let editor = cx.new(|cx| {
             // CRITICAL (`search.rs:283` guard): `EditorState::new` defaults `searchable = true`.
             // Explicitly set `.searchable(false)` so `Cmd+F` / `Cmd+Shift+F` propagate to our
             // workspace search bar and never hit upstream's UTF-8-vs-UTF-16 `replace_all_search_matches`.
             // Note: `.language(...)` initializes `LayoutMode::CodeEditor`, so `.tab_size(...)` MUST follow it.
-            let mut state = EditorState::new(window, cx)
+            let mut state = EditorState::new_with_rope(params.rope, window, cx)
                 .searchable(false)
                 .language(language.id)
                 .soft_wrap(initial_prefs.soft_wrap)
@@ -699,25 +709,17 @@ impl EditorAdapter {
                     tab_size: initial_prefs.tab_size as usize,
                     hard_tabs: initial_prefs.hard_tabs,
                 });
-            state.set_value(initial_text, window, cx);
             if is_readonly {
                 state.set_readonly(true, cx);
             }
-            if params.initial_view.cursor_byte > 0 {
-                let clamped = (params.initial_view.cursor_byte as usize).min(params.rope.len());
-                let safe = params.rope.floor_char_boundary(clamped);
-                let safe = if splits_crlf(&params.rope, safe) {
-                    safe.saturating_sub(1)
-                } else {
-                    safe
-                };
+            if let Some(safe) = initial_cursor {
                 state.set_selected_range(safe..safe, cx);
             }
             state
         });
 
-        // CRITICAL (`DesignReview` A2 §1): Clone `state.text()` AFTER `set_value` so `committed_rope`
-        // shares the exact underlying `Rope` `Arc` instance as `EditorState` from initial load!
+        // Clone the canonical native text after construction so the committed snapshot
+        // shares its exact underlying Rope identity, including before the first layout.
         let committed_rope = editor.read(cx).text().clone();
 
         let search_decorations = editor.update(cx, |state, cx| {
@@ -1466,14 +1468,6 @@ impl EditorAdapter {
             meta_changed
         }
     }
-}
-
-pub fn rope_to_string(rope: &Rope) -> String {
-    let mut out = String::with_capacity(rope.len());
-    for chunk in rope.chunks() {
-        out.push_str(chunk);
-    }
-    out
 }
 
 #[cfg(test)]

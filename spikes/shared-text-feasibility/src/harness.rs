@@ -257,7 +257,7 @@ impl Harness {
             });
             samples.push(json!({"scenario": scenario, "control": label, "fixture_bytes": fixture.rope.len(),
                 "adapter_hydration_ms": hydration_ms,
-                "boundary": "EditorAdapter::new only; includes its actual String hydration; excludes subscription setup and first frame",
+                "boundary": "EditorAdapter::new only; includes direct Rope adoption; excludes subscription setup and first frame",
                 "classification": "NONSHARING"}));
         }
         cx.notify();

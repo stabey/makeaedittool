@@ -237,3 +237,18 @@ release二进制实际创建原生窗口，使用真实`EditorAdapter`、`Editor
 已下载**本轮CI的Mac ARM产物**，两份可执行文件的SHA256SUMS验证通过；其`gpui-base`原LICENSE和修改NOTICE均存在，NOTICE内容与维护源一致。该产物在本机执行`--smoke=ime`也exit 0，五个IME标志、passed及durable ACK全部为true，见[产物原生报告](evidence/ime-ci-macos-native.json)、[校验及OS输出](evidence/ime-ci-macos-native-os.txt)、[构建身份](evidence/ime-ci-macos-build-identity.txt)。构建身份中的`gui_smoke_executed=false`描述托管CI；下载后本地执行单独记证。未下载运行其余平台GUI，未宣称签名、公证或正式Release完成。
 
 本轮原始报告已归档；任务拥有的运行夹具、SQLite会话及下载验证临时目录已清理，未使用或删除默认用户数据目录。
+
+## 普通加载Rope接管与顺序行布局
+
+ADR012实现与复审无剩余阻塞；不改变IME事件/历史协议、应用层身份屏障、可编辑准入、恢复/保存或布局schema。维护源为原IME两文件加`text_wrapper.rs`，新增公开接口仅为EditorMode的新建构造器。
+
+- [集成测试日志](evidence/load-tests.txt)：`cargo test --locked --workspace`为160通过；两个新增原生用例覆盖准确字节/Rope身份、零加载事件/历史、首次编辑Undo/Redo、UTF-8/CRLF/EOF光标恢复及首次draw后的光标可见性。
+- 显式vendor行布局模块19通过，包含四个新增边界用例；IME历史pin模块11通过。行布局覆盖LF/尾空行/CR/Unicode/跨块、换行拆分/合并/全删、行摘要及坐标映射、混合宽度复用和续行绝对字节位置。CI的macOS ARM新增同一行布局筛选命令，不依赖被排除vendor自动进入工作区。
+- [构建日志](evidence/load-builds.txt)：release工作区及两个活动实验均成功。原包比对仅有三个维护源和独立测试锁文件差异，额外NOTICE记录用途和来源；修改后源SHA与NOTICE相符。
+- [真实工作区报告](evidence/load-native-regressions.json)：startup/full/ime/usability/groups/splits六场景均passed并取得durable shutdown ACK。IME五项验收标志均为true，真实编辑/撤销、BOM/CRLF保存、关闭取消/保留/丢弃及恢复路径没有回归。
+- [相同夹具交替对照](evidence/load-startup-paired.json)：短行旧/新release各3次，长行形状对照各1次；每次都实际hydrate一份67,108,860 B普通正文，0个分页标签，显式draw后正常退出。性能与缓存限制见性能报告，不用更早的就绪时间替代总工作量。
+- [共享文本诊断](evidence/load-shared-text-diagnostic.json)：66阶段、exit 0，56个诊断边界及12个产品断言均满足；3个历史源码预测仅1个仍成立，不将旧预测计为产品失败或全部满足。
+- [分页8视口实验](evidence/load-paged-eight-view.json)实际运行通过；不是重跑完整1/2/4/8性能矩阵。
+- [新版实际绘制采样](evidence/load-sample-after-draw.txt)绑定PID 9697的`--smoke=startup`进程，[同进程报告](evidence/load-sampled-startup.txt)passed、durable ACK及67,108,860 B正文均确认。采样开销下的时间不并入未插桩性能均值。另一个无强制draw后台进程的148.6 MiB被排除出稳定内存对照。
+
+只验证本机macOS ARM64。没有物理系统IME、像素首帧、长期多文档稳定堆、Windows/Linux GUI或性能的新结论；Windows/Linux保存仍不支持。

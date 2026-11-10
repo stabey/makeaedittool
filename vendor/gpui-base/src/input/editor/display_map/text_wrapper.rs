@@ -11,7 +11,7 @@ use wrap_width::{MeasuredWrap, WidthRange};
 use gpui::{
     App, Font, LineFragment, Pixels, Point, ShapedLine, Size, TextAlign, Window, point, px, size,
 };
-use ropey::Rope;
+use ropey::{LineType, Rope};
 use smallvec::SmallVec;
 use sum_tree::{Bias, Dimensions, SumTree};
 use unicode_segmentation::UnicodeSegmentation as _;
@@ -728,22 +728,34 @@ impl TextWrapper {
             .offset_to_point(range.start + new_text.len())
             .row;
 
-        let mut new_lines = Vec::with_capacity(new_end_row.saturating_sub(new_start_row) + 1);
+        let row_count = new_end_row.saturating_sub(new_start_row) + 1;
+        let mut next_line_start = changed_text.line_to_byte_idx(new_start_row, LineType::LF);
+        let raw_lines = changed_text
+            .lines_at(new_start_row, LineType::LF)
+            .take(row_count);
         let wrap_width = self.wrap_width;
+        let wrapping_indent = self.wrapping_indent;
         let mut previous = self.lines.iter();
         debug_assert!(!reuse_widths || (new_start_row == 0 && range == &(0..self.text.len())));
 
-        // line not contains `\n`.
-        for row in new_start_row..=new_end_row {
+        // Walk the rope once, including the empty row after a final LF.
+        let new_lines = raw_lines.map(|raw_line| {
+            let line_start = next_line_start;
+            let raw_len = raw_line.len();
+            next_line_start += raw_len;
             if reuse_widths {
                 if let Some(previous) = previous.next()
                     && wrap_width.is_some_and(|width| previous.valid_widths.contains(width))
                 {
-                    new_lines.push(previous.clone());
-                    continue;
+                    return previous.clone();
                 }
             }
-            let line = changed_text.slice_line(row);
+            // Match RopeExt::slice_line: exclude LF, but retain CR and all other bytes.
+            let line = if raw_len > 0 && raw_line.byte(raw_len - 1) == b'\n' {
+                raw_line.slice(..raw_len - 1)
+            } else {
+                raw_line
+            };
             let mut wrapped_lines = SmallVec::<[Range<usize>; 1]>::new();
             let mut prev_boundary_ix = 0;
             let mut indent_chars = 0;
@@ -753,12 +765,11 @@ impl TextWrapper {
             if let Some(wrap_width) = wrap_width {
                 // Borrowed for lines within a single rope chunk.
                 let line_str: Cow<str> = line.into();
-                match self.wrapping_indent {
+                match wrapping_indent {
                     WrappingIndent::Same => {
                         // Here only have wrapped line, if there is no wrap meet, the `line_wraps`
                         // result will empty.
-                        let measured =
-                            wrap_line(&line_str, wrap_width, changed_text.line_start_offset(row));
+                        let measured = wrap_line(&line_str, wrap_width, line_start);
                         valid_widths.intersect(measured.valid_widths);
                         for boundary in measured.boundaries {
                             wrapped_lines.push(prev_boundary_ix..boundary.ix);
@@ -769,18 +780,14 @@ impl TextWrapper {
                     WrappingIndent::None => {
                         // The first visual line keeps the line's leading indentation, so it is
                         // wrapped as is.
-                        let boundaries =
-                            wrap_line(&line_str, wrap_width, changed_text.line_start_offset(row));
+                        let boundaries = wrap_line(&line_str, wrap_width, line_start);
                         valid_widths.intersect(boundaries.valid_widths);
                         if let Some(first_ix) = boundaries.boundaries.first().map(|b| b.ix) {
                             wrapped_lines.push(prev_boundary_ix..first_ix);
                             prev_boundary_ix = first_ix;
 
-                            let continuation = wrap_line(
-                                &line_str[first_ix..],
-                                wrap_width,
-                                changed_text.line_start_offset(row) + first_ix,
-                            );
+                            let continuation =
+                                wrap_line(&line_str[first_ix..], wrap_width, line_start + first_ix);
                             valid_widths.intersect(continuation.valid_widths);
                             for boundary in continuation.boundaries {
                                 let ix = first_ix + boundary.ix;
@@ -797,23 +804,24 @@ impl TextWrapper {
                 wrapped_lines.push(prev_boundary_ix..line.len());
             }
 
-            new_lines.push(LineItem {
+            LineItem {
                 len: line.len(),
                 indent: indent_chars,
                 wrapped_lines,
                 valid_widths,
-            });
-        }
+            }
+        });
 
+        let replacement = SumTree::from_iter(new_lines, &());
         drop(previous);
         if self.lines.is_empty() {
-            self.lines = SumTree::from_iter(new_lines, &());
+            self.lines = replacement;
         } else {
             let mut cursor = self.lines.cursor::<BufferRows>(&());
             let mut new_tree = cursor.slice(&BufferRows(start_row), Bias::Right);
             // Skip the replaced rows
             cursor.seek_forward(&BufferRows(end_row + 1), Bias::Right);
-            new_tree.extend(new_lines, &());
+            new_tree.append(replacement, &());
             // Untouched rows after the edit
             new_tree.append(cursor.suffix(), &());
             drop(cursor);
@@ -1662,6 +1670,179 @@ mod tests {
             features: FontFeatures::default(),
             fallbacks: None,
         }
+    }
+
+    #[track_caller]
+    fn assert_unwrapped_rows_match_rope(wrapper: &TextWrapper, text: &Rope) {
+        let lengths: Vec<_> = (0..text.len_lines(LineType::LF))
+            .map(|row| text.slice_line(row).len())
+            .collect();
+        assert_eq!(wrapper.lines_count(), lengths.len());
+        assert_eq!(wrapper.len(), lengths.len());
+        assert_eq!(wrapper.lines.summary().bytes, lengths.iter().sum::<usize>());
+        let longest = lengths.iter().max().unwrap();
+        assert_eq!(
+            wrapper.longest_row(),
+            lengths.iter().position(|len| len == longest).unwrap()
+        );
+        for (row, (line, &len)) in wrapper.iter_lines().zip(&lengths).enumerate() {
+            assert_eq!(line.len(), len);
+            assert_eq!(line.indent, 0);
+            assert_eq!(line.wrapped_lines.as_slice(), [0..len]);
+            assert_eq!(wrapper.buffer_line_to_first_wrap_row(row), row);
+            assert_eq!(wrapper.buffer_line_to_wrap_row_range(row), row..row + 1);
+            assert_eq!(wrapper.wrap_row_to_buffer_line(row), row);
+        }
+        assert_eq!(
+            wrapper.buffer_line_to_wrap_row_range(lengths.len()),
+            lengths.len()..lengths.len()
+        );
+    }
+
+    #[test]
+    fn test_streamed_lines_preserve_lf_byte_semantics() {
+        let multi_chunk = format!("head\n{}\r\n{}\n", "é🦀\t".repeat(1024), "尾".repeat(1024));
+        assert!(Rope::from_str(&multi_chunk).chunks().count() > 1);
+        for source in [
+            String::new(),
+            "a\n".into(),
+            "\n\n".into(),
+            "a\r\n".into(),
+            "a\rb".into(),
+            "\r\n\n\r".into(),
+            "é\u{2028}🦀\u{2029}尾".into(),
+            multi_chunk,
+        ] {
+            let text = Rope::from_str(&source);
+            let expected: Vec<_> = (0..text.len_lines(LineType::LF))
+                .map(|row| {
+                    (
+                        text.slice_line(row).to_string(),
+                        text.line_start_offset(row),
+                    )
+                })
+                .collect();
+            let mut wrapper = TextWrapper::new(test_font(), px(14.), Some(px(100.)));
+            let mut measured = Vec::new();
+            wrapper.update_lines(&text, &(0..0), &text, false, &mut |line, _, start| {
+                measured.push((line.to_string(), start));
+                MeasuredWrap::uncached(Vec::new())
+            });
+            assert_eq!(measured, expected);
+            assert_unwrapped_rows_match_rope(&wrapper, &text);
+        }
+    }
+
+    #[test]
+    fn test_streamed_lines_splice_newline_boundaries() {
+        fn apply(wrapper: &mut TextWrapper, text: &mut Rope, range: Range<usize>, value: &str) {
+            text.replace(range.clone(), value);
+            wrapper._update(text, &range, &Rope::from(value), &mut |_, _, _| vec![]);
+            assert_unwrapped_rows_match_rope(wrapper, text);
+        }
+
+        let mut wrapper = TextWrapper::new(test_font(), px(14.), None);
+        let mut text = Rope::from("a\r\né\nlast");
+        wrapper._update(&text, &(0..0), &text, &mut |_, _, _| vec![]);
+        assert_unwrapped_rows_match_rope(&wrapper, &text);
+
+        // Both the newly inserted row and the pre-existing target row must be rebuilt.
+        apply(&mut wrapper, &mut text, 0..0, "line\n");
+        let end = text.len();
+        apply(&mut wrapper, &mut text, end..end, "\n");
+        // Removing only LF retains the CR and merges two rows, with untouched rows on both sides.
+        let lf = text.line_start_offset(2) - 1;
+        assert_eq!(text.byte(lf), b'\n');
+        apply(&mut wrapper, &mut text, lf..lf + 1, "");
+        let end = text.len();
+        apply(&mut wrapper, &mut text, end..end, "🦀\tend");
+        let end = text.len();
+        apply(&mut wrapper, &mut text, 0..end, "");
+        apply(&mut wrapper, &mut text, 0..0, "\n\n");
+    }
+
+    #[test]
+    fn test_streamed_lines_reuse_keeps_absolute_byte_offsets() {
+        let text = Rope::from("é\r\n\ttwo\n尾\n");
+        let reused_row_start = text.line_start_offset(2);
+        let mut wrapper = TextWrapper::new(test_font(), px(14.), Some(px(100.)));
+        wrapper.update_lines(&text, &(0..0), &text, false, &mut |_, _, start| {
+            MeasuredWrap {
+                boundaries: Vec::new(),
+                valid_widths: if start == 0 || start == reused_row_start {
+                    WidthRange::all()
+                } else {
+                    WidthRange::empty()
+                },
+            }
+        });
+
+        let mut measured = Vec::new();
+        wrapper.update_lines(
+            &text,
+            &(0..text.len()),
+            &text,
+            true,
+            &mut |line, _, start| {
+                measured.push((line.to_string(), start));
+                MeasuredWrap::uncached(Vec::new())
+            },
+        );
+        assert_eq!(
+            measured,
+            vec![
+                ("\ttwo".into(), text.line_start_offset(1)),
+                (String::new(), text.line_start_offset(3)),
+            ]
+        );
+        assert_unwrapped_rows_match_rope(&wrapper, &text);
+    }
+
+    #[test]
+    fn test_streamed_lines_keep_continuation_byte_offsets() {
+        let text = Rope::from("é🦀z\n尾xy\n");
+        let mut wrapper = TextWrapper::new(test_font(), px(14.), Some(px(100.)));
+        wrapper.wrapping_indent = WrappingIndent::None;
+        let mut measured = Vec::new();
+        wrapper.update_lines(&text, &(0..0), &text, false, &mut |line, _, start| {
+            measured.push((line.to_string(), start));
+            let first = match line {
+                "é🦀z" => Some(2),
+                "尾xy" => Some(3),
+                _ => None,
+            };
+            MeasuredWrap::uncached(
+                first
+                    .map(|ix| Boundary { ix, next_indent: 0 })
+                    .into_iter()
+                    .collect(),
+            )
+        });
+        assert_eq!(
+            measured,
+            vec![
+                ("é🦀z".into(), 0),
+                ("🦀z".into(), 2),
+                ("尾xy".into(), 8),
+                ("xy".into(), 11),
+                (String::new(), 14),
+            ]
+        );
+        assert_eq!(wrapper.lines_count(), 3);
+        assert_eq!(wrapper.len(), 5);
+        assert_eq!(wrapper.longest_row(), 0);
+        assert_eq!(
+            wrapper.line(0).unwrap().wrapped_lines.as_slice(),
+            [0..2, 2..7]
+        );
+        assert_eq!(
+            wrapper.line(1).unwrap().wrapped_lines.as_slice(),
+            [0..3, 3..5]
+        );
+        assert_eq!(wrapper.line(2).unwrap().wrapped_lines.as_slice(), [0..0]);
+        assert_eq!(wrapper.buffer_line_to_wrap_row_range(0), 0..2);
+        assert_eq!(wrapper.buffer_line_to_wrap_row_range(1), 2..4);
+        assert_eq!(wrapper.buffer_line_to_wrap_row_range(2), 4..5);
     }
 
     /// The longest-row summary stays exact when the previously-longest line is shrunk.
