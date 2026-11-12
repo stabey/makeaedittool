@@ -1,0 +1,192 @@
+{
+  "aarch64-apple-darwin": {
+    "artifact_dir": "makeaedittool-0.1.0-aarch64-apple-darwin-9a32ba80a137-unsigned-dev.zip",
+    "has_cannot_save_banner": false,
+    "has_unsigned_banner": true,
+    "has_vendor_notice": true,
+    "sha256sums": [
+      "2bccb86b6f2d54d0c14947aa8267faacf7674cc6f37af12074611f4f585cef77  editor",
+      "df855849dc71837cc49d9278236548ff49273aeee05292fa6927f1bad963aa4b  editor-services"
+    ],
+    "headless_smoke": {
+      "target": "aarch64-apple-darwin",
+      "status": "success",
+      "editor_version_status": "success",
+      "editor_help_status": "success",
+      "editor_version": "editor 0.1.0",
+      "session_bench_status": "success",
+      "session_bench": {
+        "metric": "lazy_session",
+        "tabs": "100",
+        "views": "100",
+        "worker_open_us": "2046",
+        "metadata_us": "5490",
+        "active_hydrate_us": "1080",
+        "hydrated_documents": "1",
+        "active_bytes": "69632",
+        "inactive_hydrated": "0",
+        "database": "/Users/runner/work/_temp/makeaedittool-ci-05yonydy/session/session-3025eb5c-51de-47c6-91af-7c12ec27ca2b.sqlite3"
+      },
+      "services_smoke": "success",
+      "atomic_save_support": "SUPPORTED (macOS)",
+      "gui_smoke_executed": false,
+      "binary_sha256": {
+        "editor": "2bccb86b6f2d54d0c14947aa8267faacf7674cc6f37af12074611f4f585cef77",
+        "editor-services": "df855849dc71837cc49d9278236548ff49273aeee05292fa6927f1bad963aa4b"
+      }
+    },
+    "build_identity": "target=aarch64-apple-darwin\ncommit=9a32ba80a137dac8f5a74d2c8ee9abd7124e4f57\nbuild_status=SUCCESS (workspace tests, release build, and headless CLI checks)\natomic_save_support=SUPPORTED (macOS)\ngui_smoke_executed=false\nservices_smoke=success\ncreated_utc=2026-11-12T11:14:12.179861+00:00\nci_run_url=https://github.com/stabey/makeanotepad/actions/runs/43204649933\ncargo_lock_sha256=6cecb7fdda67abc9ca68ad37c4f4d2951bea75acda515d3ea1a0557cfe596ebe\nworkspace_tests=cargo test --locked --workspace --target aarch64-apple-darwin\nrelease_build=cargo build --locked --release --workspace --target aarch64-apple-darwin\narchitecture_check=machine-header check with SHA-256 integrity; not cryptographic native-execution proof\nrust_standard_library_license=MIT OR Apache-2.0\nrust_toolchain_notices=bundled\nartifact_kind=unsigned development build\nruntime_evidence=HEADLESS_SMOKE.json; no hosted GUI validation\n\nrustc_verbose_version:\nrustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n\nbinaries:\neditor machine_header=Mach-O 64-bit cputype=0x0100000c sha256=2bccb86b6f2d54d0c14947aa8267faacf7674cc6f37af12074611f4f585cef77\neditor-services machine_header=Mach-O 64-bit cputype=0x0100000c sha256=df855849dc71837cc49d9278236548ff49273aeee05292fa6927f1bad963aa4b\n"
+  },
+  "x86_64-apple-darwin": {
+    "artifact_dir": "makeaedittool-0.1.0-x86_64-apple-darwin-9a32ba80a137-unsigned-dev.zip",
+    "has_cannot_save_banner": false,
+    "has_unsigned_banner": true,
+    "has_vendor_notice": true,
+    "sha256sums": [
+      "747ccad44c825ad3204028e7b6f0c322f2f61d5d6fa6a266ed2e6ee327b9c9a2  editor",
+      "7650804a20f79a52c39eb4e957857052bee342f4a3517cd1fd6de9a3ca7c1aac  editor-services"
+    ],
+    "headless_smoke": {
+      "target": "x86_64-apple-darwin",
+      "status": "success",
+      "editor_version_status": "success",
+      "editor_help_status": "success",
+      "editor_version": "editor 0.1.0",
+      "session_bench_status": "success",
+      "session_bench": {
+        "metric": "lazy_session",
+        "tabs": "100",
+        "views": "100",
+        "worker_open_us": "4899",
+        "metadata_us": "15662",
+        "active_hydrate_us": "861",
+        "hydrated_documents": "1",
+        "active_bytes": "69632",
+        "inactive_hydrated": "0",
+        "database": "/Users/runner/work/_temp/makeaedittool-ci-zoo8cuyl/session/session-68706bc0-e66c-42dd-a55b-1b802ec418d6.sqlite3"
+      },
+      "services_smoke": "success",
+      "atomic_save_support": "SUPPORTED (macOS)",
+      "gui_smoke_executed": false,
+      "binary_sha256": {
+        "editor": "747ccad44c825ad3204028e7b6f0c322f2f61d5d6fa6a266ed2e6ee327b9c9a2",
+        "editor-services": "7650804a20f79a52c39eb4e957857052bee342f4a3517cd1fd6de9a3ca7c1aac"
+      }
+    },
+    "build_identity": "target=x86_64-apple-darwin\ncommit=9a32ba80a137dac8f5a74d2c8ee9abd7124e4f57\nbuild_status=SUCCESS (workspace tests, release build, and headless CLI checks)\natomic_save_support=SUPPORTED (macOS)\ngui_smoke_executed=false\nservices_smoke=success\ncreated_utc=2026-11-12T11:25:08.932108+00:00\nci_run_url=https://github.com/stabey/makeanotepad/actions/runs/43204649933\ncargo_lock_sha256=6cecb7fdda67abc9ca68ad37c4f4d2951bea75acda515d3ea1a0557cfe596ebe\nworkspace_tests=cargo test --locked --workspace --target x86_64-apple-darwin\nrelease_build=cargo build --locked --release --workspace --target x86_64-apple-darwin\narchitecture_check=machine-header check with SHA-256 integrity; not cryptographic native-execution proof\nrust_standard_library_license=MIT OR Apache-2.0\nrust_toolchain_notices=bundled\nartifact_kind=unsigned development build\nruntime_evidence=HEADLESS_SMOKE.json; no hosted GUI validation\n\nrustc_verbose_version:\nrustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: x86_64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n\nbinaries:\neditor machine_header=Mach-O 64-bit cputype=0x01000007 sha256=747ccad44c825ad3204028e7b6f0c322f2f61d5d6fa6a266ed2e6ee327b9c9a2\neditor-services machine_header=Mach-O 64-bit cputype=0x01000007 sha256=7650804a20f79a52c39eb4e957857052bee342f4a3517cd1fd6de9a3ca7c1aac\n"
+  },
+  "aarch64-pc-windows-msvc": {
+    "artifact_dir": "makeaedittool-0.1.0-aarch64-pc-windows-msvc-9a32ba80a137-unsigned-dev.zip",
+    "has_cannot_save_banner": false,
+    "has_unsigned_banner": true,
+    "has_vendor_notice": true,
+    "sha256sums": [
+      "f852e75b2a738a3a8a0ab3fe647d27f05400ef4793ac8074036b448eb1a705a5  editor.exe",
+      "edd8cbe82f0a0a6048746a84597dcb7dc0ea9c17f28f93deb6d21be05008e017  editor-services.exe"
+    ],
+    "headless_smoke": {
+      "target": "aarch64-pc-windows-msvc",
+      "status": "success",
+      "editor_version_status": "success",
+      "editor_help_status": "success",
+      "editor_version": "editor 0.1.0",
+      "session_bench_status": "success",
+      "session_bench": {
+        "metric": "lazy_session",
+        "tabs": "100",
+        "views": "100",
+        "worker_open_us": "3119",
+        "metadata_us": "4438",
+        "active_hydrate_us": "637",
+        "hydrated_documents": "1",
+        "active_bytes": "69632",
+        "inactive_hydrated": "0",
+        "database": "C:\\a\\_temp\\makeaedittool-ci-r1i76pjw\\session\\session-e7eeef3b-99bb-4ba8-8600-c8b949acc768.sqlite3"
+      },
+      "services_smoke": "success",
+      "atomic_save_support": "SUPPORTED (Windows)",
+      "gui_smoke_executed": false,
+      "binary_sha256": {
+        "editor": "f852e75b2a738a3a8a0ab3fe647d27f05400ef4793ac8074036b448eb1a705a5",
+        "editor-services": "edd8cbe82f0a0a6048746a84597dcb7dc0ea9c17f28f93deb6d21be05008e017"
+      }
+    },
+    "build_identity": "target=aarch64-pc-windows-msvc\ncommit=9a32ba80a137dac8f5a74d2c8ee9abd7124e4f57\nbuild_status=SUCCESS (workspace tests, release build, and headless CLI checks)\natomic_save_support=SUPPORTED (Windows)\ngui_smoke_executed=false\nservices_smoke=success\ncreated_utc=2026-11-12T11:14:26.776281+00:00\nci_run_url=https://github.com/stabey/makeanotepad/actions/runs/43204649933\ncargo_lock_sha256=1e9ab0cc0358246cd881e5daed02393b4df3307acb9be60c9f3e919946d636be\nworkspace_tests=cargo test --locked --workspace --target aarch64-pc-windows-msvc\nrelease_build=cargo build --locked --release --workspace --target aarch64-pc-windows-msvc\narchitecture_check=machine-header check with SHA-256 integrity; not cryptographic native-execution proof\nrust_standard_library_license=MIT OR Apache-2.0\nrust_toolchain_notices=bundled\nartifact_kind=unsigned development build\nruntime_evidence=HEADLESS_SMOKE.json; no hosted GUI validation\n\nrustc_verbose_version:\nrustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-pc-windows-msvc\nrelease: 1.99.1\nLLVM version: 23.1.1\n\nbinaries:\neditor.exe machine_header=PE Machine=0xaa64 sha256=f852e75b2a738a3a8a0ab3fe647d27f05400ef4793ac8074036b448eb1a705a5\neditor-services.exe machine_header=PE Machine=0xaa64 sha256=edd8cbe82f0a0a6048746a84597dcb7dc0ea9c17f28f93deb6d21be05008e017\n"
+  },
+  "x86_64-pc-windows-msvc": {
+    "artifact_dir": "makeaedittool-0.1.0-x86_64-pc-windows-msvc-9a32ba80a137-unsigned-dev.zip",
+    "has_cannot_save_banner": false,
+    "has_unsigned_banner": true,
+    "has_vendor_notice": true,
+    "sha256sums": [
+      "71031732da0081910bbfadd9e0b52f9c6b138df5c81fbf1cccba675feba1c595  editor.exe",
+      "00434a45bdd849bb78524c395a527e550127193a8dceccc4ae44f33595d1e5b9  editor-services.exe"
+    ],
+    "headless_smoke": {
+      "target": "x86_64-pc-windows-msvc",
+      "status": "success",
+      "editor_version_status": "success",
+      "editor_help_status": "success",
+      "editor_version": "editor 0.1.0",
+      "session_bench_status": "success",
+      "session_bench": {
+        "metric": "lazy_session",
+        "tabs": "100",
+        "views": "100",
+        "worker_open_us": "2623",
+        "metadata_us": "11889",
+        "active_hydrate_us": "566",
+        "hydrated_documents": "1",
+        "active_bytes": "69632",
+        "inactive_hydrated": "0",
+        "database": "D:\\a\\_temp\\makeaedittool-ci-4yeggawg\\session\\session-0f60b538-ad85-4945-9f93-4e5cd56fc6bd.sqlite3"
+      },
+      "services_smoke": "success",
+      "atomic_save_support": "SUPPORTED (Windows)",
+      "gui_smoke_executed": false,
+      "binary_sha256": {
+        "editor": "71031732da0081910bbfadd9e0b52f9c6b138df5c81fbf1cccba675feba1c595",
+        "editor-services": "00434a45bdd849bb78524c395a527e550127193a8dceccc4ae44f33595d1e5b9"
+      }
+    },
+    "build_identity": "target=x86_64-pc-windows-msvc\ncommit=9a32ba80a137dac8f5a74d2c8ee9abd7124e4f57\nbuild_status=SUCCESS (workspace tests, release build, and headless CLI checks)\natomic_save_support=SUPPORTED (Windows)\ngui_smoke_executed=false\nservices_smoke=success\ncreated_utc=2026-11-12T11:13:48.137934+00:00\nci_run_url=https://github.com/stabey/makeanotepad/actions/runs/43204649933\ncargo_lock_sha256=1e9ab0cc0358246cd881e5daed02393b4df3307acb9be60c9f3e919946d636be\nworkspace_tests=cargo test --locked --workspace --target x86_64-pc-windows-msvc\nrelease_build=cargo build --locked --release --workspace --target x86_64-pc-windows-msvc\narchitecture_check=machine-header check with SHA-256 integrity; not cryptographic native-execution proof\nrust_standard_library_license=MIT OR Apache-2.0\nrust_toolchain_notices=bundled\nartifact_kind=unsigned development build\nruntime_evidence=HEADLESS_SMOKE.json; no hosted GUI validation\n\nrustc_verbose_version:\nrustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: x86_64-pc-windows-msvc\nrelease: 1.99.1\nLLVM version: 23.1.1\n\nbinaries:\neditor.exe machine_header=PE Machine=0x8664 sha256=71031732da0081910bbfadd9e0b52f9c6b138df5c81fbf1cccba675feba1c595\neditor-services.exe machine_header=PE Machine=0x8664 sha256=00434a45bdd849bb78524c395a527e550127193a8dceccc4ae44f33595d1e5b9\n"
+  },
+  "x86_64-unknown-linux-gnu": {
+    "artifact_dir": "makeaedittool-0.1.0-x86_64-unknown-linux-gnu-9a32ba80a137-unsigned-dev.zip",
+    "has_cannot_save_banner": false,
+    "has_unsigned_banner": true,
+    "has_vendor_notice": true,
+    "sha256sums": [
+      "0af0a558c39afb28162d378c87ddccc31d9265e8c9237a23a64da6e01947046a  editor",
+      "92af8d5d2296ba528956b326ead37db8932d69e55a76691638bc97395c4d26d1  editor-services"
+    ],
+    "headless_smoke": {
+      "target": "x86_64-unknown-linux-gnu",
+      "status": "success",
+      "editor_version_status": "success",
+      "editor_help_status": "success",
+      "editor_version": "editor 0.1.0",
+      "session_bench_status": "success",
+      "session_bench": {
+        "metric": "lazy_session",
+        "tabs": "100",
+        "views": "100",
+        "worker_open_us": "1628",
+        "metadata_us": "4174",
+        "active_hydrate_us": "433",
+        "hydrated_documents": "1",
+        "active_bytes": "69632",
+        "inactive_hydrated": "0",
+        "database": "/home/runner/work/_temp/makeaedittool-ci-b_y1pz9h/session/session-68cf817d-87a0-45a1-9854-fca0a69ec563.sqlite3"
+      },
+      "services_smoke": "success",
+      "atomic_save_support": "SUPPORTED (Linux)",
+      "gui_smoke_executed": false,
+      "binary_sha256": {
+        "editor": "0af0a558c39afb28162d378c87ddccc31d9265e8c9237a23a64da6e01947046a",
+        "editor-services": "92af8d5d2296ba528956b326ead37db8932d69e55a76691638bc97395c4d26d1"
+      }
+    },
+    "build_identity": "target=x86_64-unknown-linux-gnu\ncommit=9a32ba80a137dac8f5a74d2c8ee9abd7124e4f57\nbuild_status=SUCCESS (workspace tests, release build, and headless CLI checks)\natomic_save_support=SUPPORTED (Linux)\ngui_smoke_executed=false\nservices_smoke=success\ncreated_utc=2026-11-12T11:10:09.010930+00:00\nci_run_url=https://github.com/stabey/makeanotepad/actions/runs/43204649933\ncargo_lock_sha256=6cecb7fdda67abc9ca68ad37c4f4d2951bea75acda515d3ea1a0557cfe596ebe\nworkspace_tests=cargo test --locked --workspace --target x86_64-unknown-linux-gnu\nrelease_build=cargo build --locked --release --workspace --target x86_64-unknown-linux-gnu\narchitecture_check=machine-header check with SHA-256 integrity; not cryptographic native-execution proof\nrust_standard_library_license=MIT OR Apache-2.0\nrust_toolchain_notices=bundled\nartifact_kind=unsigned development build\nruntime_evidence=HEADLESS_SMOKE.json; no hosted GUI validation\n\nrustc_verbose_version:\nrustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.1\nLLVM version: 23.1.1\n\nbinaries:\neditor machine_header=ELF64 little-endian e_machine=62 (x86_64) sha256=0af0a558c39afb28162d378c87ddccc31d9265e8c9237a23a64da6e01947046a\neditor-services machine_header=ELF64 little-endian e_machine=62 (x86_64) sha256=92af8d5d2296ba528956b326ead37db8932d69e55a76691638bc97395c4d26d1\n"
+  }
+}

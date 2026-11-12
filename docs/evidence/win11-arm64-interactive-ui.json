@@ -1,0 +1,80 @@
+{
+  "target_platform": "Windows 11 ARM64 (24H2 / 25H2 build 26200.9974)",
+  "interactive_session": "Session 1 (editor_verify_tmp)",
+  "display": {
+    "virtual_resolution": "2560x1440",
+    "framebuffer_resolution": "5120x2880",
+    "system_dpi": 96,
+    "window_dpi": 192,
+    "dpi_scale": 2.0
+  },
+  "editor_window": {
+    "pid": 8148,
+    "hwnd_int": 1835716,
+    "hwnd_hex": "0x001C02C4",
+    "title": "Editor",
+    "class": "GPUI_Window",
+    "is_visible": true,
+    "window_rect": {
+      "left": 634,
+      "top": 269,
+      "right": 1927,
+      "bottom": 1125,
+      "width": 1293,
+      "height": 856
+    },
+    "client_rect": {
+      "left": 0,
+      "top": 0,
+      "right": 1280,
+      "bottom": 820,
+      "width": 1280,
+      "height": 820
+    }
+  },
+  "win32_physical_input": {
+    "ctrl_n_new_tab": true,
+    "typed_text": "Hello Windows 11 Native Save Dialog!\n",
+    "ctrl_shift_s_save_file_as": true,
+    "dialog_invoked": "IFileSaveDialog (native Windows COM Common Item Dialog)"
+  },
+  "native_save_dialog": {
+    "hwnd_int": 459644,
+    "hwnd_hex": "0x0007037C",
+    "class": "#32770",
+    "title": "Save As",
+    "owner_hwnd_int": 9240686,
+    "owner_hwnd_hex": "0x008D006E",
+    "is_visible": true,
+    "dialog_rect": {
+      "left": 1064,
+      "top": 573,
+      "right": 1484,
+      "bottom": 761,
+      "width": 420,
+      "height": 188
+    }
+  },
+  "clean_shutdown": {
+    "signal": "WM_CLOSE (0x0010)",
+    "clean_exit_observed": true,
+    "exit_code": 0,
+    "durable_sqlite_database": "C:\\Temp\\makeanotepad_verify\\interactive_data\\recovery.sqlite3",
+    "sqlite_database_bytes": 94208
+  },
+  "screenshots": {
+    "live_window": "evidence/win11-editor-live-window.png",
+    "save_dialog": "evidence/win11-editor-save-dialog.png",
+    "after_save": "evidence/win11-editor-after-save.png",
+    "note": "Cropped to the centered 2720x1920 Retina window+taskbar region (from 5120x2880 framebuffer) to exclude unrelated Public Desktop icons."
+  },
+  "verification_passed": true,
+  "save_as_publication": {
+    "completed_via_native_dialog": true,
+    "target_path": "C:\\Temp\\makeanotepad_verify\\dialog_roundtrip\\saved_via_native_dialog.txt",
+    "file_exists_after_dialog_accept": true,
+    "saved_bytes_len": 37,
+    "saved_utf8_text": "Hello Windows 11 Native Save Dialog!\n",
+    "clean_close_exited": true
+  }
+}

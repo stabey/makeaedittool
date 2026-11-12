@@ -15,13 +15,13 @@
 - macOS Apple Silicon，Mac16,10，32 GiB 内存。
 - Rust/Cargo 1.99.1；Xcode 路径 `/Applications/Xcode.app/Contents/Developer`。
 - 工作卷可用空间约 1.4 TiB（实施开始时）。
-- Parallels Windows 11为ARM64（当前处于`suspended`状态），不作为Windows x64原生性能验收环境，唤醒后可用于Windows ARM64桌面交互辅助验证。此前已通过GitHub原生Windows x64/ARM64及Linux x64的编译、测试和CLI验证；本轮已完成Linux/Windows原子安全保存与故障对账实现及本机验证（待推送触发五目标CI实跑），这些平台的桌面GUI与性能仍未验收。
+- Parallels Windows 11为ARM64（验收完成后已恢复`suspended`状态），不作为Windows x64裸机性能基线，但本轮已完成真实Windows 11 ARM64桌面GUI、快捷键、原生`IFileSaveDialog`另存为闭环、NTFS 5阶段崩溃保存及虚拟机帧缓冲截图验收。Windows x64、Linux x64与macOS Intel已通过GitHub原生CI编译、测试、原子保存与进程故障门禁，但尚未完成这些平台的桌面GUI与性能验收。
 - 用户提及的 `edtor-review` 不在已安装 agent 列表；本次由项目指定 `design-review` 承担独立设计讨论，未假称联系到不存在的 agent。
 
 ## 当前交付
 
 - 默认原生应用`target/release/editor`可在本机运行；Kit-only、无NSH默认依赖。本轮首次折行优化（ADR013）与跨平台安全保存（ADR014）通过165个工作区测试、25个vendor行布局私有测试、11个vendor IME历史私有测试、8个CI打包脚本单元测试及release构建；本机7项原生窗口场景（`startup`、`full`、`ime`、`usability`、`groups`、`splits`及跨进程`recovery_restart`）、服务层5阶段保存崩溃注入、恢复崩溃注入与两个隔离实验全部通过，正常退出均观察到durable ACK。
-- 公开仓库为[stabey/makeanotepad](https://github.com/stabey/makeanotepad)。上一已推送提交`4f3087f`的[五目标CI](https://github.com/stabey/makeanotepad/actions/runs/42845274569)全部通过并完成Mac ARM下载产物复验；本轮ADR013/ADR014代码与CI脚本（新增全平台`services_smoke`保存与故障注入门禁）已完成本机验证，待提交推送后获取五目标CI实跑记录。其他平台仍无桌面GUI或性能验收结论。
+- 公开仓库为[stabey/makeanotepad](https://github.com/stabey/makeanotepad)。合入ADR013/ADR014的提交`9a32ba8`在[五目标原生CI（43204649933）](https://github.com/stabey/makeanotepad/actions/runs/43204649933)全部6个job一次通过（含全平台`services_smoke`原子保存与故障验证、Mac ARM 25个行布局私有测试与11个IME历史私有测试，5份开发ZIP均不再携带`EXPERIMENTAL-CANNOT-SAVE.txt`）。下载并校验SHA-256后，Mac ARM产物复验`--smoke=ime`通过，Windows ARM64产物在Parallels Windows 11桌面完成全部7项原生窗口回归、NTFS 5阶段保存崩溃注入、原生`Save As`系统对话框保存闭环及帧缓冲截图取证。
 - 普通文档：唯一EditorState权威、版本化原子编辑、同步程序化提交与原生事件匹配、NoOp、后台普通搜索/替换、高亮、主题、保存与草稿恢复。格式仅元数据修改也进入dirty/恢复保护，保存期间再改格式不会被旧保存确认抹掉。
 - 日常界面：默认打开文档/最近文件侧栏、命令面板、快速切换、语言/编码/换行/缩进选择、折行与空白显示、活动选区行编辑/注释、偏好持久化。自定义行命令不是全多光标操作，侧栏不是项目目录树。
 - 标签组与不同文档分屏：最多8窗格，四方向拆分、标签跨窗格拖放、尺寸调整/均分、焦点切换、关闭合并、仅显示焦点窗格与重启恢复已实现。关闭窗格不关闭文档；关闭窗格内标签另走草稿保护确认。真实窗口内事件覆盖取消/保留、输入/撤销/保存隔离及空窗格恢复，不等同物理HID或像素呈现验收。同文档独立多视图尚未实现。
@@ -37,7 +37,7 @@
 | 任务 | 当前状态 |
 |---|---|
 | T01 仓库/工具链/记录 | 已建立；锁文件、运行说明、许可证与报告齐全 |
-| T02 原生窗口 | macOS Apple Silicon实际运行通过；Windows x64未验证 |
+| T02 原生窗口 | macOS Apple Silicon与Windows 11 ARM64（Parallels桌面）实际运行通过；Windows x64裸机与Linux桌面GUI未验证 |
 | T03 混合候选 | 已完成候选实验与回退决策；NSH采用门槛未通过 |
 | T04 文档适配/候选收敛 | 本轮事务及版本场景通过，默认Kit-only |
 | T05 打开/编码/保存 | UTF-8/BOM/LF/CRLF、安全保存与冲突核心场景通过；原生系统文件面板边界未穷尽 |
@@ -53,13 +53,13 @@
 | T15 图片查看器 | 未实施 |
 | T16 离线扩展包 | 未实施；已有依赖/资源许可清单不等于扩展包 |
 | T17 性能收敛 | 已有同机真实实验与原生提交基线；首帧、IME、全平台持续资源分布未完成 |
-| T18 两平台发布 | 已补齐macOS/Linux/Windows三平台原子安全保存与恢复对账实现（本机验证通过，待推送五目标CI实跑）；其他平台桌面GUI、签名/公证及安装包未交付 |
+| T18 两平台发布 | 五目标CI（`43204649933`）全部通过三平台原子安全保存与打包核验；Mac ARM与Windows 11 ARM64桌面GUI及原生`Save As`对话框实跑通过。Windows x64裸机/Linux/Mac Intel桌面GUI、签名/公证及安装包未交付 |
 
 ## 后续推进顺序
 
 1. 公开仓库与五目标CI开发构建已完成；后续保持构建、CLI、GUI和性能验收分开记录。
-2. 本体保持纯编辑器定位，不引入项目模型或LSP。标签组与不同文档分屏、单编辑器IME修复、普通加载Rope接管及首次折行快路径（ADR013）、三平台原子安全保存（ADR014）已在代码层交付。下一步先推送分支实跑五目标原生CI（核验Windows x64/ARM64与Linux x64上的保存/进程退出故障门禁），按需唤醒本机Parallels Windows 11 ARM64虚拟机补Windows桌面GUI与文件面板烟雾测试（不作x64性能基线）。
-3. 性能与多视图方向：针对缓存不利的百万唯一短行（当前仍需约2.27 GiB峰值、7.38秒首帧全量CoreText整形），评估视口优先或有界分块渐进折行及长期多文档常驻内存；先评估将`spikes/multiview-paged`只读共享源多视口接入主应用，再单独设计可编辑同文档多视图。恢复本机屏幕采集权限/显示器枚举（当前ScreenCaptureKit报`-3811`）后补真实系统IME候选窗、鼠标/快捷键、矩形选择、系统文件面板与屏幕首帧验收。
+2. 本体保持纯编辑器定位，不引入项目模型或LSP。标签组与不同文档分屏、单编辑器IME修复、普通加载Rope接管及首次折行快路径（ADR013）、三平台原子安全保存（ADR014）均已通过五目标CI及macOS ARM / Windows 11 ARM64真实桌面验收。Windows桌面实测记录到两项后续体验打磨点：独立启动`editor.exe`时保留了CLI所需的控制台子系统黑框，状态栏显示`canonicalize`产生的`\\?\C:\...`扩展路径前缀。
+3. 下一阶段性能与功能重点：针对缓存不利的百万唯一短行（macOS上仍约2.27 GiB峰值、7.38秒首帧全量同步整形），设计视口优先或有界分块渐进折行及长期多文档常驻内存治理；评估将`spikes/multiview-paged`只读共享源多视口接入主应用，再单独设计可编辑同文档多视图；补Windows细节打磨（去`\\?\`显示前缀、GUI/CLI双入口或`AttachConsole`）、物理系统输入法候选窗、矩形选择与Windows x64裸机/Linux桌面验收。
 4. NSH/SDK仍须通过兼容、IME、主题和焦点门槛，不绑定主编辑路径。平台构建产物不等于签名、公证、安装包或完整交互验收。
 
 ## 性能实验原则

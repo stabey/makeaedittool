@@ -1,6 +1,6 @@
 # Native text editor
 
-Rust + GPUI Kit 文本编辑器。产品与验收基线见 [交接文档](Rust_GPUI_Editor_Agent_Handoff_v1.0.md)，当前状态见 [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md)。默认应用与NSH候选实验隔离；本地原生GUI验收目前仅覆盖macOS Apple Silicon，CI构建不等于完整平台支持。
+Rust + GPUI Kit 文本编辑器。产品与验收基线见 [交接文档](Rust_GPUI_Editor_Agent_Handoff_v1.0.md)，当前状态见 [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md)。默认应用与NSH候选实验隔离；本地原生桌面GUI验收目前已覆盖macOS Apple Silicon与Windows 11 ARM64（Parallels虚拟机），其余CI目标的构建与无窗口验证不等于完整桌面支持。
 
 产品定位是接近Notepad++的纯文本编辑器：本体优先保证编辑、保存恢复、大文件、多文件、标签页组及单窗口分屏。项目模型和LSP不作为本体目标；未来如需这些能力，通过插件提供。当前已实现标签页组和不同文档的单窗口分屏；同一文档的独立多视图尚未实现。
 
@@ -26,7 +26,7 @@ cargo test --locked --workspace
 
 在成功运行的 **Artifacts** 中下载对应目标的ZIP，保留14天。产物含`editor`/`editor.exe`、服务CLI、构建身份、SHA-256、目标相关许可证清单及许可文件。它们是开发构建，不是安装包或正式签名/公证版本；系统运行库仍由目标环境提供。
 
-原子安全保存现支持macOS、Linux与Windows（其余未知平台产物仍会携带`EXPERIMENTAL-CANNOT-SAVE.txt`）。Windows与Linux产物虽具备服务层原子保存能力，但尚未完成原生桌面GUI、系统文件面板与输入法验收；草稿恢复仍不能替代显式保存文件。
+原子安全保存现支持macOS、Linux与Windows（其余未知平台产物仍会携带`EXPERIMENTAL-CANNOT-SAVE.txt`）。其中macOS ARM64与Windows 11 ARM64已完成真实桌面窗口及保存闭环验收（Windows 11含原生`IFileSaveDialog`另存为与帧缓冲截图）；Windows x64裸机、Linux x64与macOS Intel目前仅完成CI测试与无窗口服务验证，且全平台真实系统输入法候选窗仍待人工验收。草稿恢复仍不能替代显式保存文件。
 
 CI在五个原生目标上均运行无需窗口的`--help`、`--version`、100文档惰性会话验证及保存/故障注入服务验证（`services_smoke`）。它不执行GUI smoke，不证明真实IME、鼠标交互、GPU兼容或性能指标。具体状态以运行日志及ZIP中的`BUILD_IDENTITY.txt`、`HEADLESS_SMOKE.json`为准。
 

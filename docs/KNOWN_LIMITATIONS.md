@@ -4,9 +4,9 @@
 
 ## 平台与分发
 
-- 本地原生GUI验收环境为macOS Apple Silicon。其他目标的构建、测试及无窗口CLI状态以对应CI运行和产物`BUILD_IDENTITY.txt`为准；不等于Windows/Linux/macOS Intel完整GUI验收。
-- 尚无签名、公证、安装包或自动更新交付。macOS源码构建需要Rust及完整Xcode/Metal；Windows/Linux构建依赖见CI平台准备脚本，开发ZIP不自动安装系统运行库。
-- 原子安全保存支持macOS、Linux与Windows（其余未知目标显式返回`Unsupported`）。Windows与Linux仅在托管CI或无窗口服务命令下验证保存与故障注入，尚未完成原生桌面GUI、系统文件对话框与真实输入法验收，仍是未签名开发构建而非正式发行版。
+- 本地原生桌面GUI验收环境目前已覆盖macOS Apple Silicon与Windows 11 ARM64（Parallels Desktop虚拟机，WDDM显卡2.0x缩放）。Windows x64裸机、Linux x64及macOS Intel仍仅具CI编译、工作区测试与无窗口`services_smoke`证据，不等于完整桌面GUI或性能基线。
+- 尚无签名、公证、安装包或自动更新交付。macOS源码构建需要Rust及完整Xcode/Metal；Windows/Linux构建依赖见CI平台准备脚本，开发ZIP不自动安装系统运行库。Windows版`editor.exe`当前为兼顾`--help`/`--version`/`--smoke`标准输出保留了控制台子系统（直接双击或独立启动时会附带控制台窗口），且状态栏路径暂未剥离Windows `canonicalize`生成的`\\?\`前缀。
+- 原子安全保存支持macOS、Linux与Windows（其余未知目标显式返回`Unsupported`）。Windows 11 ARM64桌面已实测`Ctrl+Shift+S`调起原生COM `IFileSaveDialog`完成NTFS保存闭环，但尚未穷尽网络盘/UNC/UAC受限目录等所有系统文件对话框边界，真实中文输入法候选窗仍未验收，仍是未签名开发构建而非正式发行版。
 - NSH保留独立实验，不进入默认编辑器；真实IME、完整焦点/DPI/主题同步、正式SDK与插件生命周期门槛未通过。JSON扩展、LSP、图片查看器、离线扩展包尚未实现。
 
 ## 文件与预算

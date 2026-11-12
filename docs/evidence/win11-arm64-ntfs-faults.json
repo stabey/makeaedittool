@@ -1,0 +1,87 @@
+{
+  "target_platform": "Windows 11 ARM64 (NTFS Volume C:)",
+  "file_system": "NTFS",
+  "ntfs_atomic_save_mechanism": "MoveFileExW with MOVEFILE_WRITE_THROUGH | MOVEFILE_REPLACE_EXISTING",
+  "smoke": {
+    "exit_code": 0,
+    "scenarios": [
+      "open_bom_crlf",
+      "delta_recovery",
+      "save_temp_fault",
+      "atomic_save",
+      "cross_block_nonoverlap",
+      "discard_guard"
+    ],
+    "passed": true
+  },
+  "session_bench": {
+    "exit_code": 0,
+    "tabs": 100,
+    "passed": true
+  },
+  "crash_recovery": {
+    "crash_exit_code": 86,
+    "expected_crash_exit_code": 86,
+    "check_exit_code": 0,
+    "expected_check_exit_code": 0,
+    "durable_revision": 1,
+    "recovered_text": "durable baseline \u4e2d\u6587\ud83d\ude42",
+    "passed": true
+  },
+  "crash_save_stages": {
+    "before-write": {
+      "stage": "before-write",
+      "exit_code": 86,
+      "expected_exit_code": 86,
+      "actual_content": "original",
+      "expected_content": "original\n",
+      "tmp_files_remaining": 1,
+      "passed": true
+    },
+    "temp-sync": {
+      "stage": "temp-sync",
+      "exit_code": 86,
+      "expected_exit_code": 86,
+      "actual_content": "original",
+      "expected_content": "original\n",
+      "tmp_files_remaining": 1,
+      "passed": true
+    },
+    "before-rename": {
+      "stage": "before-rename",
+      "exit_code": 86,
+      "expected_exit_code": 86,
+      "actual_content": "original",
+      "expected_content": "original\n",
+      "tmp_files_remaining": 1,
+      "passed": true
+    },
+    "after-rename": {
+      "stage": "after-rename",
+      "exit_code": 86,
+      "expected_exit_code": 86,
+      "actual_content": "captured new text",
+      "expected_content": "captured new text\n",
+      "tmp_files_remaining": 0,
+      "passed": true
+    },
+    "recovery-ack": {
+      "stage": "recovery-ack",
+      "exit_code": 86,
+      "expected_exit_code": 86,
+      "actual_content": "captured new text",
+      "expected_content": "captured new text\n",
+      "tmp_files_remaining": 0,
+      "passed": true
+    }
+  },
+  "recovery_bench": {
+    "exit_code": 0,
+    "size": "1MiB",
+    "commits": 10,
+    "worker_replay_equality_included": true,
+    "sqlite_FULL_fsync": true,
+    "passed": true
+  },
+  "all_ntfs_fault_tests_passed": true
+}
