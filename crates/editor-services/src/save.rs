@@ -57,11 +57,12 @@ pub enum SaveOutcome {
 }
 struct TempFile {
     path: PathBuf,
-    file: File,
+    file: Option<File>,
     published: bool,
 }
 impl Drop for TempFile {
     fn drop(&mut self) {
+        drop(self.file.take());
         if !self.published {
             let _ = std::fs::remove_file(&self.path);
         }
@@ -69,26 +70,26 @@ impl Drop for TempFile {
 }
 
 /// Blocking worker operation. The captured rope is immutable and independent of future edits.
-/// Only macOS publication is a supported product path. Windows is deliberately not claimed.
+/// Atomic publication is supported on macOS, Linux, and Windows.
 pub fn save_document(
     request: &SaveRequest,
     recovery: Option<&RecoveryHandle>,
     faults: &FaultInjector,
 ) -> SaveOutcome {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     {
         let _ = (recovery, faults);
         SaveOutcome::Failed {
             doc_id: request.doc_id,
             error: ServiceError::new(
                 ErrorKind::Unsupported,
-                "atomic save is implemented and supported for macOS only",
+                "atomic save is supported on macOS, Linux, and Windows only",
             ),
         }
     }
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
-        match save_macos(request, recovery, faults, false) {
+        match save_supported(request, recovery, faults, false) {
             Ok(outcome) => outcome,
             Err(error) => SaveOutcome::Failed {
                 doc_id: request.doc_id,
@@ -101,9 +102,9 @@ pub fn save_document(
 /// Atomic, non-associating publication. Does not alter recovery metadata or the source draft.
 /// Like `save_document`, this is a blocking operation for a background executor.
 pub fn save_document_copy(request: &SaveRequest, faults: &FaultInjector) -> SaveOutcome {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
-        match save_macos(request, None, faults, true) {
+        match save_supported(request, None, faults, true) {
             Ok(outcome) => outcome,
             Err(error) => SaveOutcome::Failed {
                 doc_id: request.doc_id,
@@ -111,19 +112,22 @@ pub fn save_document_copy(request: &SaveRequest, faults: &FaultInjector) -> Save
             },
         }
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     {
         save_document(request, None, faults)
     }
 }
-#[cfg(target_os = "macos")]
-fn save_macos(
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+fn save_supported(
     request: &SaveRequest,
     recovery: Option<&RecoveryHandle>,
     faults: &FaultInjector,
     copy_only: bool,
 ) -> Result<SaveOutcome, ServiceError> {
+    #[cfg(unix)]
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+    #[cfg(windows)]
+    use {crate::types::windows_fs, std::os::windows::fs::OpenOptionsExt};
     static SAVE_SERIALIZER: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _save_guard = SAVE_SERIALIZER
         .lock()
@@ -144,6 +148,7 @@ fn save_macos(
             current_disk: before,
         });
     }
+    #[cfg(unix)]
     let original = if before.is_some() {
         let file = File::open(&target)?;
         let meta = file.metadata()?;
@@ -169,27 +174,72 @@ fn save_macos(
     } else {
         None
     };
+    #[cfg(windows)]
+    let preserved_attrs = if before.is_some() {
+        let file = OpenOptions::new()
+            .access_mode(0)
+            .share_mode(7)
+            .open(&target)?;
+        if Some(&FileFingerprint::of_file(&file)?) != before.as_ref() {
+            return Ok(SaveOutcome::ConflictDetected {
+                doc_id: request.doc_id,
+                current_disk: FileFingerprint::of_path(&target).ok(),
+            });
+        }
+        let info = windows_fs::file_information(&file)?;
+        if info.dwFileAttributes & windows_fs::FILE_ATTRIBUTE_DIRECTORY != 0 {
+            return Err(ServiceError::new(
+                ErrorKind::Unsupported,
+                "not a regular file",
+            ));
+        }
+        if info.nNumberOfLinks > 1 {
+            return Err(ServiceError::new(
+                ErrorKind::Unsupported,
+                "atomic replacement would break hard links; choose a new Save As path",
+            ));
+        }
+        if info.dwFileAttributes & windows_fs::FILE_ATTRIBUTE_READONLY != 0 {
+            return Err(ServiceError::new(
+                ErrorKind::Io,
+                "target is read-only; choose a writable Save As path",
+            ));
+        }
+        let attrs = info.dwFileAttributes
+            & (windows_fs::FILE_ATTRIBUTE_HIDDEN
+                | windows_fs::FILE_ATTRIBUTE_SYSTEM
+                | windows_fs::FILE_ATTRIBUTE_ARCHIVE
+                | windows_fs::FILE_ATTRIBUTE_NOT_CONTENT_INDEXED);
+        drop(file);
+        Some(attrs)
+    } else {
+        None
+    };
     let parent = target.parent().ok_or_else(|| {
         ServiceError::new(
             ErrorKind::InvalidInput,
             "save target has no parent directory",
         )
     })?;
+    #[cfg(unix)]
     let directory = File::open(parent)?;
     let temp_path = parent.join(format!(".editor-save-{}.tmp", uuid::Uuid::new_v4()));
-    let file = OpenOptions::new()
-        .write(true)
-        .read(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(&temp_path)?;
+    let mut options = OpenOptions::new();
+    options.write(true).read(true).create_new(true);
+    #[cfg(unix)]
+    options.mode(if before.is_some() { 0o600 } else { 0o666 });
+    let file = options.open(&temp_path)?;
     let mut temp = TempFile {
         path: temp_path,
-        file,
+        file: Some(file),
         published: false,
     };
+    #[cfg(unix)]
     if let Some(original) = &original {
-        copy_metadata(original, &temp.file)?;
+        copy_metadata(
+            original,
+            temp.file.as_ref().expect("temporary file is open"),
+        )?;
     }
     let identity = ContentIdentity::of_rope(&request.rope);
     let mut intent = SaveIntent {
@@ -210,7 +260,8 @@ fn save_macos(
     };
     faults.check(FaultPoint::SaveBeforeWrite)?;
     {
-        let mut writer = BufWriter::with_capacity(256 * 1024, &temp.file);
+        let temp_file = temp.file.as_ref().expect("temporary file is open");
+        let mut writer = BufWriter::with_capacity(256 * 1024, temp_file);
         encode_rope(
             &request.rope,
             request.encoding,
@@ -219,10 +270,39 @@ fn save_macos(
         )?;
         writer.flush()?;
     }
-    full_sync(&temp.file)?;
+    #[cfg(unix)]
+    full_sync(temp.file.as_ref().expect("temporary file is open"))?;
+    #[cfg(windows)]
+    {
+        if let Some(attrs) = preserved_attrs {
+            let path = windows_fs::wide_path(&temp.path)?;
+            let attrs = if attrs == 0 {
+                windows_fs::FILE_ATTRIBUTE_NORMAL
+            } else {
+                attrs
+            };
+            // SAFETY: path is a live NUL-terminated UTF-16 string; attrs includes
+            // only the preserved ordinary file attributes (or NORMAL).
+            if unsafe { windows_fs::SetFileAttributesW(path.as_ptr(), attrs) } == 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+        }
+        temp.file
+            .as_ref()
+            .expect("temporary file is open")
+            .sync_all()?;
+        // Close before fingerprinting: Windows finalizes last-write metadata at
+        // IRP_MJ_CLEANUP, and no open temp handle may obstruct MoveFileExW.
+        drop(temp.file.take());
+    }
     faults.check(FaultPoint::SaveAfterTempSync)?;
+    #[cfg(unix)]
+    let prepared_fingerprint =
+        FileFingerprint::of_file(temp.file.as_ref().expect("temporary file is open"))?;
+    #[cfg(windows)]
+    let prepared_fingerprint = FileFingerprint::of_path(&temp.path)?;
     intent.stage = SaveStage::Prepared;
-    intent.output_fingerprint = Some(FileFingerprint::of_metadata(&temp.file.metadata()?)?);
+    intent.output_fingerprint = Some(prepared_fingerprint.clone());
     if !copy_only {
         if let Err(error) = record_intent(recovery, &intent) {
             recovery_warning = Some(error);
@@ -239,10 +319,13 @@ fn save_macos(
     faults.check(FaultPoint::SaveBeforeRename)?;
     publish(&temp.path, &target, before.is_none())?;
     temp.published = true;
+    #[cfg(unix)]
     let durability = faults
         .check(FaultPoint::SaveAfterRename)
         .and_then(|_| directory.sync_all().map_err(ServiceError::from))
-        .and_then(|_| full_sync(&temp.file));
+        .and_then(|_| full_sync(temp.file.as_ref().expect("temporary file is open")));
+    #[cfg(windows)]
+    let durability = faults.check(FaultPoint::SaveAfterRename);
     let fingerprint = FileFingerprint::of_path(&target);
     if let Err(error) = durability {
         return Ok(SaveOutcome::PublishedNotDurable {
@@ -268,12 +351,12 @@ fn save_macos(
             });
         }
     };
-    let published_descriptor = temp
-        .file
-        .metadata()
-        .map_err(ServiceError::from)
-        .and_then(|meta| FileFingerprint::of_metadata(&meta));
-    if published_descriptor.as_ref().ok() != Some(&fingerprint) {
+    #[cfg(unix)]
+    let published_output =
+        FileFingerprint::of_file(temp.file.as_ref().expect("temporary file is open"));
+    #[cfg(windows)]
+    let published_output = Ok::<_, ServiceError>(prepared_fingerprint);
+    if published_output.as_ref().ok() != Some(&fingerprint) {
         return Ok(SaveOutcome::PublishedNotDurable {
             doc_id: request.doc_id,
             captured_rev: request.captured_rev,
@@ -332,7 +415,7 @@ fn record_intent(
             )
         })?
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 fn resolve_target(path: &Path) -> Result<(PathBuf, Option<FileFingerprint>), ServiceError> {
     match std::fs::symlink_metadata(path) {
         Ok(_) => {
@@ -370,17 +453,31 @@ fn copy_metadata(from: &File, to: &File) -> Result<(), ServiceError> {
     }
     Ok(())
 }
-#[cfg(target_os = "macos")]
-fn full_sync(file: &File) -> Result<(), ServiceError> {
-    use std::os::fd::AsRawFd;
-    file.sync_all()?;
-    // SAFETY: F_FULLFSYNC takes no third argument and the descriptor is live.
-    if unsafe { libc::fcntl(file.as_raw_fd(), libc::F_FULLFSYNC) } == -1 {
+#[cfg(target_os = "linux")]
+fn copy_metadata(from: &File, to: &File) -> Result<(), ServiceError> {
+    use std::os::{fd::AsRawFd, unix::fs::PermissionsExt};
+    let mode = (from.metadata()?.permissions().mode() & 0o7777) as libc::mode_t;
+    // SAFETY: the destination descriptor is live and mode contains permission bits only.
+    if unsafe { libc::fchmod(to.as_raw_fd(), mode) } != 0 {
         return Err(std::io::Error::last_os_error().into());
     }
     Ok(())
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn full_sync(file: &File) -> Result<(), ServiceError> {
+    #[cfg(target_os = "macos")]
+    use std::os::fd::AsRawFd;
+    file.sync_all()?;
+    #[cfg(target_os = "macos")]
+    {
+        // SAFETY: F_FULLFSYNC takes no third argument and the descriptor is live.
+        if unsafe { libc::fcntl(file.as_raw_fd(), libc::F_FULLFSYNC) } == -1 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+    }
+    Ok(())
+}
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn publish(temp: &Path, target: &Path, exclusive: bool) -> Result<(), ServiceError> {
     use std::os::unix::ffi::OsStrExt;
     let temp = std::ffi::CString::new(temp.as_os_str().as_bytes())
@@ -388,8 +485,9 @@ fn publish(temp: &Path, target: &Path, exclusive: bool) -> Result<(), ServiceErr
     let target = std::ffi::CString::new(target.as_os_str().as_bytes())
         .map_err(|_| ServiceError::new(ErrorKind::InvalidInput, "NUL in target path"))?;
     // SAFETY: both C strings are NUL-terminated and remain alive throughout the call.
-    // RENAME_EXCL closes the create-new race. Existing-file checks are advisory: POSIX
+    // Exclusive publication closes the create-new race. Existing-file checks are advisory: POSIX
     // has no compare-and-swap rename against an external writer's expected inode.
+    #[cfg(target_os = "macos")]
     let result = unsafe {
         libc::renamex_np(
             temp.as_ptr(),
@@ -397,7 +495,59 @@ fn publish(temp: &Path, target: &Path, exclusive: bool) -> Result<(), ServiceErr
             if exclusive { libc::RENAME_EXCL } else { 0 },
         )
     };
+    #[cfg(target_os = "linux")]
+    let result = if exclusive {
+        // SAFETY: both C strings are live; AT_FDCWD is valid for absolute paths.
+        let result = unsafe {
+            libc::renameat2(
+                libc::AT_FDCWD,
+                temp.as_ptr(),
+                libc::AT_FDCWD,
+                target.as_ptr(),
+                libc::RENAME_NOREPLACE,
+            )
+        };
+        if result != 0 {
+            let error = std::io::Error::last_os_error();
+            if !matches!(
+                error.raw_os_error(),
+                Some(libc::ENOSYS) | Some(libc::EINVAL) | Some(libc::EOPNOTSUPP)
+            ) {
+                return Err(error.into());
+            }
+            // SAFETY: both paths are live C strings on the same filesystem.
+            if unsafe { libc::link(temp.as_ptr(), target.as_ptr()) } != 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            // The target is already published. An unlink error must not be
+            // reported as "nothing saved"; leave cleanup best-effort.
+            // SAFETY: temp remains a live C string.
+            let _ = unsafe { libc::unlink(temp.as_ptr()) };
+        }
+        0
+    } else {
+        // SAFETY: both paths are live C strings.
+        unsafe { libc::rename(temp.as_ptr(), target.as_ptr()) }
+    };
     if result != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(())
+}
+#[cfg(target_os = "windows")]
+fn publish(temp: &Path, target: &Path, exclusive: bool) -> Result<(), ServiceError> {
+    use crate::types::windows_fs;
+    let temp = windows_fs::wide_path(temp)?;
+    let target = windows_fs::wide_path(target)?;
+    let flags = windows_fs::MOVEFILE_WRITE_THROUGH
+        | if exclusive {
+            0
+        } else {
+            windows_fs::MOVEFILE_REPLACE_EXISTING
+        };
+    // SAFETY: both paths are live NUL-terminated UTF-16 strings. No cross-volume
+    // copy fallback is requested; existing targets are never deleted first.
+    if unsafe { windows_fs::MoveFileExW(temp.as_ptr(), target.as_ptr(), flags) } == 0 {
         return Err(std::io::Error::last_os_error().into());
     }
     Ok(())

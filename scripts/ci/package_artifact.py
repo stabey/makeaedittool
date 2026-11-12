@@ -194,7 +194,7 @@ def main():
         or any(smoke.get(key) != "success" for key in ("editor_version_status", "editor_help_status", "session_bench_status"))
         or smoke.get("session_bench", {}).get("tabs") != "100"
         or smoke.get("session_bench", {}).get("hydrated_documents") != "1"
-        or (args.target.endswith("apple-darwin") and smoke.get("macos_services_smoke") != "success")
+        or (save_support(args.target) != "UNSUPPORTED" and smoke.get("services_smoke") != "success")
     ):
         raise RuntimeError("Missing or mismatched headless smoke evidence for these binaries")
     metadata = json.loads(subprocess.check_output(
@@ -229,13 +229,14 @@ def main():
         f"target={args.target}\ncommit={args.commit}\n"
         "build_status=SUCCESS (workspace tests, release build, and headless CLI checks)\n"
         f"atomic_save_support={save_support(args.target)}\ngui_smoke_executed=false\n"
-        f"macos_services_smoke={smoke['macos_services_smoke']}\n"
+        f"services_smoke={smoke['services_smoke']}\n"
     )
     disclaimer = (
         "UNSIGNED DEVELOPMENT BUILD — NOT A PRODUCTION RELEASE\n\n" + status + "\n"
         "No signing, notarization, installer, or automatic update is provided.\n"
-        "Hosted runtime evidence covers --help, --version and session-bench 100 only,\n"
-        "plus headless save/fault service smoke on macOS. No GUI smoke was executed.\n"
+        "Hosted runtime evidence covers --help, --version, session-bench 100,\n"
+        "and headless save/fault service smoke on supported save platforms.\n"
+        "No GUI smoke was executed.\n"
         "CLI startup does not establish interactive, IME, GPU, or desktop usability.\n"
         "Machine-header checks identify the encoded architecture. SHA-256 records\n"
         "file integrity, not a signature or cryptographic proof of native execution.\n"
@@ -244,9 +245,9 @@ def main():
     cannot_save = (
         "EXPERIMENTAL — CANNOT SAVE FILES\n\n"
         "atomic_save_support=UNSUPPORTED\ngui_smoke_executed=false\n\n"
-        "This Windows/Linux build cannot save user files: the current atomic-save\n"
-        "implementation returns Unsupported outside macOS. Do not use it for work\n"
-        "you need to save. SQLite draft recovery is NOT a saved user file.\n"
+        "This target cannot save user files: the atomic-save implementation is\n"
+        "unsupported on this platform. Do not use it for work you need to save.\n"
+        "SQLite draft recovery is NOT a saved user file.\n"
         "Passing workspace tests and headless CLI startup do not change this limit.\n"
         "Save-dependent service smoke and hosted GUI smoke were not run.\n"
         "This is an unsigned experimental development artifact, not a supported release.\n"
@@ -274,11 +275,11 @@ def main():
         "HEADLESS_SMOKE.json": json.dumps(smoke, indent=2) + "\n",
         "SHA256SUMS": "".join(f"{hashes[name]}  {binaries[name].name}\n" for name in binaries),
     }
-    if not args.target.endswith("apple-darwin"):
+    if save_support(args.target) == "UNSUPPORTED":
         generated["EXPERIMENTAL-CANNOT-SAVE.txt"] = cannot_save
         generated["UNSIGNED-DEVELOPMENT-BUILD.txt"] += "\n" + cannot_save
         if not generated.get("EXPERIMENTAL-CANNOT-SAVE.txt", "").strip():
-            raise RuntimeError("Non-macOS packages must contain a non-empty CANNOT-SAVE notice")
+            raise RuntimeError("Unsupported-save packages must contain a non-empty CANNOT-SAVE notice")
     editor = next(package for package in metadata["packages"] if package["id"] in metadata["workspace_members"] and package["name"] == "editor")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     archive = args.output_dir / f"makeaedittool-{editor['version']}-{args.target}-{args.commit[:12]}-unsigned-dev.zip"

@@ -1035,7 +1035,7 @@ fn process_exit_before_sqlite_commit_recovers_only_prior_complete_revision() {
     assert!(status.success());
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 fn save_request(path: &Path, text: &str) -> SaveRequest {
     SaveRequest {
         doc_id: DocumentId::new(),
@@ -1049,7 +1049,27 @@ fn save_request(path: &Path, text: &str) -> SaveRequest {
         force_overwrite: false,
     }
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+fn create_save_test_symlink(target: &Path, link: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, link).unwrap();
+        true
+    }
+    #[cfg(windows)]
+    {
+        match std::os::windows::fs::symlink_file(target, link) {
+            Ok(()) => true,
+            Err(error)
+                if error.raw_os_error() == Some(1314) && std::env::var_os("CI").is_none() =>
+            {
+                false
+            }
+            Err(error) => panic!("file symlink creation failed: {error}"),
+        }
+    }
+}
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn captured_save_normalizes_eol_preserves_bom_and_rescues_without_database() {
     let dir = TempDir::new().unwrap();
@@ -1081,7 +1101,7 @@ fn captured_save_normalizes_eol_preserves_bom_and_rescues_without_database() {
     ));
     assert_eq!(fs::read(path).unwrap(), b"line\nnew\n");
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn every_prepublication_save_fault_preserves_original_and_cleans_temp() {
     for point in [
@@ -1103,7 +1123,7 @@ fn every_prepublication_save_fault_preserves_original_and_cleans_temp() {
         assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
     }
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn publication_and_recovery_warning_are_not_reported_as_no_file_saved() {
     let dir = TempDir::new().unwrap();
@@ -1123,10 +1143,9 @@ fn publication_and_recovery_warning_are_not_reported_as_no_file_saved() {
     ));
     assert_eq!(fs::read(path).unwrap(), b"published again");
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
-fn save_detects_conflicts_and_preserves_symlink_target_and_permissions() {
-    use std::os::unix::fs::{PermissionsExt, symlink};
+fn save_detects_conflicts_and_rejects_hardlink_replacement() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("target");
     fs::write(&path, b"original").unwrap();
@@ -1137,9 +1156,74 @@ fn save_detects_conflicts_and_preserves_symlink_target_and_permissions() {
         SaveOutcome::ConflictDetected { .. }
     ));
     assert_eq!(fs::read(&path).unwrap(), b"external changed file");
+    let hardlink = dir.path().join("hardlink");
+    fs::hard_link(&path, &hardlink).unwrap();
+    let outcome = save_document(
+        &save_request(&path, "would break link"),
+        None,
+        &FaultInjector::default(),
+    );
+    assert!(
+        matches!(
+            outcome,
+            SaveOutcome::Failed {
+                error: ServiceError {
+                    kind: ErrorKind::Unsupported,
+                    ..
+                },
+                ..
+            }
+        ),
+        "{outcome:?}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), b"external changed file");
+    assert_eq!(fs::read(hardlink).unwrap(), b"external changed file");
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[test]
+fn save_rejects_read_only_targets_without_changing_them() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("read-only");
+    fs::write(&path, b"original").unwrap();
+    let original_permissions = fs::metadata(&path).unwrap().permissions();
+    let mut read_only = original_permissions.clone();
+    read_only.set_readonly(true);
+    fs::set_permissions(&path, read_only).unwrap();
+    let outcome = save_document(
+        &save_request(&path, "would overwrite"),
+        None,
+        &FaultInjector::default(),
+    );
+    assert!(fs::metadata(&path).unwrap().permissions().readonly());
+    fs::set_permissions(&path, original_permissions).unwrap();
+    assert!(
+        matches!(
+            outcome,
+            SaveOutcome::Failed {
+                error: ServiceError {
+                    kind: ErrorKind::Io,
+                    ref message,
+                },
+                ..
+            } if message == "target is read-only; choose a writable Save As path"
+        ),
+        "{outcome:?}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), b"original");
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+}
+
+#[cfg(all(unix, any(target_os = "macos", target_os = "linux")))]
+#[test]
+fn save_preserves_unix_symlink_target_and_existing_permissions_and_honors_umask() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("target");
+    fs::write(&path, b"original").unwrap();
     fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
     let link = dir.path().join("symlink");
-    symlink(&path, &link).unwrap();
+    assert!(create_save_test_symlink(&path, &link));
     assert!(matches!(
         save_document(
             &save_request(&link, "via symlink"),
@@ -1159,25 +1243,194 @@ fn save_detects_conflicts_and_preserves_symlink_target_and_permissions() {
         fs::metadata(&path).unwrap().permissions().mode() & 0o777,
         0o640
     );
-    let hardlink = dir.path().join("hardlink");
-    fs::hard_link(&path, &hardlink).unwrap();
+
+    let ordinary = dir.path().join("ordinary-new-file");
+    drop(fs::File::create(&ordinary).unwrap());
+    let expected_mode = fs::metadata(ordinary).unwrap().permissions().mode() & 0o777;
+    let saved = dir.path().join("saved-new-file");
     assert!(matches!(
         save_document(
-            &save_request(&path, "would break link"),
+            &save_request(&saved, "new file"),
             None,
             &FaultInjector::default()
         ),
-        SaveOutcome::Failed {
-            error: ServiceError {
-                kind: ErrorKind::Unsupported,
-                ..
-            },
-            ..
-        }
+        SaveOutcome::SavedWithRecoveryWarning { .. }
     ));
-    assert_eq!(fs::read(hardlink).unwrap(), b"via symlink");
+    let saved_mode = fs::metadata(saved).unwrap().permissions().mode() & 0o777;
+    assert_eq!(
+        saved_mode, expected_mode,
+        "new saves must honor the current umask"
+    );
+    if expected_mode & 0o044 != 0 {
+        assert_ne!(saved_mode, 0o600, "new files must not be forced private");
+    }
 }
-#[cfg(target_os = "macos")]
+
+#[cfg(windows)]
+#[test]
+fn windows_save_preserves_hidden_and_other_attributes_and_symlink_target() {
+    use std::os::windows::{ffi::OsStrExt, fs::MetadataExt};
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn SetFileAttributesW(path: *const u16, attributes: u32) -> i32;
+    }
+    const PRESERVED: u32 = 0x0000_0002 | 0x0000_0004 | 0x0000_0020 | 0x0000_2000;
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("hidden-target");
+    fs::write(&path, b"original").unwrap();
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    // SAFETY: wide is a live NUL-terminated UTF-16 path and the attribute mask
+    // contains only the supported ordinary file attributes.
+    assert_ne!(unsafe { SetFileAttributesW(wide.as_ptr(), PRESERVED) }, 0);
+    let faults = FaultInjector::default();
+    faults.arm(FaultPoint::SaveBeforeRename);
+    assert!(matches!(
+        save_document(&save_request(&path, "must not publish"), None, &faults),
+        SaveOutcome::Failed { .. }
+    ));
+    assert_eq!(fs::read(&path).unwrap(), b"original");
+    assert_eq!(
+        fs::metadata(&path).unwrap().file_attributes() & PRESERVED,
+        PRESERVED
+    );
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    let outcome = save_document(
+        &save_request(&path, "hidden replacement"),
+        None,
+        &FaultInjector::default(),
+    );
+    assert!(
+        matches!(outcome, SaveOutcome::SavedWithRecoveryWarning { .. }),
+        "{outcome:?}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), b"hidden replacement");
+    assert_eq!(
+        fs::metadata(&path).unwrap().file_attributes() & PRESERVED,
+        PRESERVED
+    );
+
+    let link = dir.path().join("symlink");
+    if create_save_test_symlink(&path, &link) {
+        let outcome = save_document(
+            &save_request(&link, "via Windows symlink"),
+            None,
+            &FaultInjector::default(),
+        );
+        assert!(
+            matches!(outcome, SaveOutcome::SavedWithRecoveryWarning { .. }),
+            "{outcome:?}"
+        );
+        assert!(
+            fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(fs::read(&path).unwrap(), b"via Windows symlink");
+        assert_eq!(
+            fs::metadata(&path).unwrap().file_attributes() & PRESERVED,
+            PRESERVED
+        );
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[test]
+fn save_rejects_dangling_symlink_without_replacing_it() {
+    let dir = TempDir::new().unwrap();
+    let missing_target = dir.path().join("missing-target");
+    let link = dir.path().join("dangling-symlink");
+    if create_save_test_symlink(&missing_target, &link) {
+        let outcome = save_document(
+            &save_request(&link, "must not replace link"),
+            None,
+            &FaultInjector::default(),
+        );
+        assert!(matches!(outcome, SaveOutcome::Failed { .. }), "{outcome:?}");
+        assert!(
+            fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert!(!missing_target.exists());
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[test]
+fn equal_length_same_tick_prepared_save_requires_file_identity_to_prove_publication() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("target");
+    fs::write(&path, b"original\n").unwrap();
+    let service = RecoveryHandle::start(dir.path().join("save.sqlite3")).unwrap();
+    let mut request = save_request(&path, "modified\n");
+    let faults = FaultInjector::default();
+    faults.arm(FaultPoint::SaveBeforeRename);
+    assert!(matches!(
+        save_document(&request, Some(&service), &faults),
+        SaveOutcome::Failed { .. }
+    ));
+    let intents = receive(service.request_save_intents().unwrap());
+    assert_eq!(intents.len(), 1);
+    assert_eq!(intents[0].stage, SaveStage::Prepared);
+    let prepared = intents[0].output_fingerprint.as_ref().unwrap();
+    // Force the worst case deterministically, without sleeping for another clock
+    // tick: old and prepared outputs have exactly the same length and write time.
+    let stamp = std::time::UNIX_EPOCH + Duration::from_nanos(prepared.mtime_ns.try_into().unwrap());
+    {
+        let old = fs::OpenOptions::new().write(true).open(&path).unwrap();
+        old.set_times(fs::FileTimes::new().set_modified(stamp))
+            .unwrap();
+    }
+    let current = FileFingerprint::of_path(&path).unwrap();
+    assert_eq!(current.len, prepared.len);
+    assert_eq!(current.mtime_ns, prepared.mtime_ns);
+    assert!(!intents[0].target_matches_prepared_output().unwrap());
+    assert_eq!(fs::read(&path).unwrap(), b"original\n");
+
+    request.expected_fingerprint = Some(current);
+    faults.arm(FaultPoint::SaveAfterRename);
+    assert!(matches!(
+        save_document(&request, Some(&service), &faults),
+        SaveOutcome::PublishedNotDurable { .. }
+    ));
+    let intents = receive(service.request_save_intents().unwrap());
+    assert_eq!(intents[0].stage, SaveStage::Prepared);
+    let prepared = intents[0].output_fingerprint.as_ref().unwrap();
+    assert_eq!(
+        intents[0].target_matches_prepared_output().unwrap(),
+        prepared.dev != 0 && prepared.ino != 0,
+        "published prepared output must match exactly when stable IDs are available"
+    );
+    assert_eq!(fs::read(&path).unwrap(), b"modified\n");
+    for (dev, ino) in [(0, prepared.ino), (prepared.dev, 0), (0, 0)] {
+        let mut unidentified = intents[0].clone();
+        let output = unidentified.output_fingerprint.as_mut().unwrap();
+        output.dev = dev;
+        output.ino = ino;
+        assert!(!unidentified.target_matches_prepared_output().unwrap());
+    }
+    let mut missing = intents[0].clone();
+    missing.target_path = dir.path().join("missing");
+    assert!(!missing.target_matches_prepared_output().unwrap());
+    receive(admit(|| service.shutdown()));
+}
+
+#[test]
+fn recovery_shutdown_acknowledges_after_releasing_database_handles() {
+    let dir = TempDir::new().unwrap();
+    for index in 0..8 {
+        let directory = dir.path().join(index.to_string());
+        let service = RecoveryHandle::start(directory.join("save.sqlite3")).unwrap();
+        let commit = snapshot(DocumentId::new(), 1, "force SQLite WAL and SHM handles");
+        admit(|| service.try_commit(commit.clone()));
+        receive(admit(|| service.shutdown()));
+        fs::remove_dir_all(&directory).unwrap();
+    }
+}
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn save_process_exit_stages_keep_either_complete_old_or_complete_new_file() {
     let binary = env!("CARGO_BIN_EXE_editor-services");
@@ -1213,6 +1466,10 @@ fn save_process_exit_stages_keep_either_complete_old_or_complete_new_file() {
         assert_eq!(
             intents[0].target_matches_prepared_output().unwrap(),
             matches!(stage, "after-rename" | "recovery-ack")
+                && intents[0]
+                    .output_fingerprint
+                    .as_ref()
+                    .is_some_and(|fingerprint| fingerprint.dev != 0 && fingerprint.ino != 0)
         );
         receive(admit(|| service.shutdown()));
     }
@@ -1245,7 +1502,7 @@ fn lossy_viewport_remains_bounded_and_reports_consumed_raw_bytes() {
     );
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn unmodified_supported_files_save_byte_identically() {
     let dir = TempDir::new().unwrap();
@@ -1861,7 +2118,7 @@ fn legacy_metadata_and_save_intents_keep_unknown_format_baselines() {
     receive(admit(|| service.shutdown()));
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn real_save_intent_captures_request_format_without_reverting_newer_metadata() {
     let dir = TempDir::new().unwrap();

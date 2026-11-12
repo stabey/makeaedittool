@@ -281,7 +281,7 @@ impl PagingService {
     ) -> Result<PagedDocHandle, ServiceError> {
         let path = std::path::absolute(path)?;
         let file = File::open(&path)?;
-        let fingerprint = FileFingerprint::of_metadata(&file.metadata()?)?;
+        let fingerprint = FileFingerprint::of_file(&file)?;
         if FileFingerprint::of_path(&path)? != fingerprint {
             return Err(ServiceError::new(
                 ErrorKind::SourceChanged,
@@ -383,12 +383,7 @@ impl PagedDocHandle {
     /// Metadata detects ordinary changes; it is not an adversarial filesystem snapshot.
     pub fn validate(&self, generation: SourceGeneration) -> Result<(), ServiceError> {
         self.ensure_generation(generation)?;
-        let current_handle = self
-            .inner
-            .file
-            .metadata()
-            .map_err(ServiceError::from)
-            .and_then(|m| FileFingerprint::of_metadata(&m));
+        let current_handle = FileFingerprint::of_file(&self.inner.file);
         let current_path = FileFingerprint::of_path(&self.inner.path);
         if current_handle.as_ref().ok() != Some(&self.inner.fingerprint)
             || current_path.as_ref().ok() != Some(&self.inner.fingerprint)

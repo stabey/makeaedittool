@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (Homebrew)",
+  "cargo": "cargo 1.99.1 (5f94df478 2026-08-27) (Homebrew)",
+  "binaries": {
+    "target/release/editor": "3d409f369905c6c2e55e319b3bfda9a4da52f88f3f8525cb1226fa68439ac2fd",
+    "target/release/editor-services": "1da9a18f8803023dba3f2fa8c99f4a644dc93e02f04797cce8a95720a89877f1",
+    "target/release/shared-text-feasibility": "888fda9f3556bdbdf51341c3576f96a957f83c8ddd375d422235863ed72c8b03",
+    "target/release/multiview-paged": "c8a9c5518839d3bf7673e4a3a8556f65993dfde95b752e6c06236009f6ed0483"
+  },
+  "vendor_patch_files": {
+    "vendor/gpui-base/NOTICE-IME-PATCH.json": "3cf947088ae33f6949da756afa394e968d01c32994fb7e5dab9cd1b732d0928c",
+    "vendor/gpui-base/src/input/base/state.rs": "080b14ff1421a5c4203a1b8e6cad690c53279416d06d6755008763537239a83e",
+    "vendor/gpui-base/src/input/base/undo_manager.rs": "a230ae3f1a099c0b82421b9921bd9922188968cf9b320448682ca7b371683b63",
+    "vendor/gpui-base/src/input/editor/display_map/text_wrapper.rs": "fddb9e6885973125a4570150938c4ce5f221f342c55c047f4ed4ec9418a23142",
+    "vendor/gpui-base/src/input/editor/display_map/text_wrapper/measurements.rs": "1adc41e960623c575854d3eb552d88ccb4607b13b085c54c2d8f739424aecd4a"
+  },
+  "workspace_test_counts": {
+    "editor_lib": 65,
+    "editor_bin": 1,
+    "editor_services_lib": 73,
+    "editor_services_bin": 0,
+    "layout_order_tests": 7,
+    "recovery_layout_tests": 19,
+    "total_workspace_passed": 165,
+    "vendor_private_text_wrapper_tests_passed": 25,
+    "vendor_private_ime_history_tests_passed": 11,
+    "ci_python_packaging_tests_passed": 8
+  }
+}

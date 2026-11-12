@@ -266,3 +266,29 @@ CI下载产物的额外运行见[报告](evidence/ime-ci-macos-native.json)、[O
 **仍未达终态：** 密集短行近64 MiB仍需约456 MiB进程峰值、1.43秒正文就绪。每行SumTree项、首次布局/折行及系统图形资源仍有成本；稳定绘制后的堆、长期多文档内存、冷盘和实体屏幕延迟尚未完成本轮验收。后续继续定位已绘制路径，不靠改为只读或取消恢复保护获得数字。
 
 下载的本轮CI Mac ARM产物另在本机运行，近64 MiB启动与IME场景均通过；其OS原始指标见[产物报告](evidence/load-ci-macos-native.json)。启动进程peak RSS为452.78 MiB，整套IME场景为672.73 MiB；二进制、工作量和采样时间不同，不并入旧/新本地均值或分解为IME额外占用。后台无draw证明及误用CLI的排除记录保留在[无效对照说明](evidence/load-excluded-observations.json)。
+
+## 首次折行快路径与行树无重叠替换：ADR013同夹具对照
+
+采用ADR013：全量无宽度复用重排前先释放旧`SumTree<LineItem>`消除双树峰值重叠，对字节长度不超过`2 * wrap_width`的行先以真实整形宽度检查整行容纳性以跳过无谓的grapheme/UAX#14扫描，并复用`WrapScratch`缓冲消除逐行`Vec<usize>`分配。维护文件仍限于`vendor/gpui-base`原三文件，不近似字形宽度，不改动64 MiB可编辑上限、恢复保护或持久化格式。
+
+### 同夹具串行交替对照
+
+平台为macOS 27.2（Darwin 27.2.0）、Apple Silicon Mac16,10、32 GiB内存；OS文件缓存未清空（warm/unspecified）。对比ADR013前的release基线（`adde34b0...`）与集成ADR013+ADR014的新release二进制（`3d409f36...`），每次使用全新`--data-dir`串行执行`--smoke=startup`，均确认`hydrated_editor_count = 1`、`hydrated_content_bytes = 67,108,860`、显式原生draw完成且观察到正常退出durable ACK。原始记录见[ADR013配对基准](evidence/adr013-startup-paired.json)。
+
+| 夹具形态 / 版本 | 样本数 | 平均正文就绪 ms | 平均场景总耗时 ms | 平均进程peak RSS MiB | 平均peak footprint MiB | 平均退休指令数 十亿 |
+|---|---:|---:|---:|---:|---:|---:|
+| 重复短行 `short_repeated` / 旧版 | 3 | 1416.78 | 1512.57 | 455.73 | 443.28 | 31.10 |
+| 重复短行 `short_repeated` / 新版 | 3 | 434.76 | 526.49 | 331.32 | 325.58 | 5.53 |
+| 全唯一短行 `short_unique` / 旧版 | 1 | 28582.15 | 28679.98 | 5305.00 | 5257.73 | 588.57 |
+| 全唯一短行 `short_unique` / 新版 | 1 | 7383.48 | 7481.50 | 2324.94 | 2172.61 | 152.84 |
+| 64 KiB长行 `long_64k` / 旧版 | 1 | 1228.93 | 1325.19 | 226.66 | 224.13 | 25.40 |
+| 64 KiB长行 `long_64k` / 新版 | 1 | 1224.21 | 1320.36 | 226.31 | 223.84 | 25.27 |
+
+- **重复短行（64 B周期行，各3次交替）**：平均peak RSS再降124.41 MiB（-27.3%，较ADR012前690.66 MiB累计下降52.0%），正文就绪下降69.3%至434.76 ms，含显式draw与durable退出的总耗时下降65.2%至526.49 ms，退休指令数下降82.2%。
+- **全唯一短行（1,048,575行唯一64 B ASCII + 60 B尾行，单次对照）**：用于暴露宽度缓存未命中上界。peak RSS从5305.00 MiB（5.18 GiB）降至2324.94 MiB（2.27 GiB，-56.2%），正文就绪从28.58秒降至7.38秒（-74.2%），退休指令数下降74.0%。
+- **64 KiB长行（1,024行，单次对照）**：超出`2 * wrap_width`阈值，按预期走原有折行路径，内存与耗时持平（差异在0.5%以内），无回退。
+
+### 采样热点与剩余边界
+
+- [ADR013绘制后启动采样](evidence/adr013-sample-after-draw.txt)绑定PID 28484（`short_repeated`夹具，[同进程报告](evidence/adr013-sampled-startup.json)确认exit 0与durable ACK）：主线程共613个样本，其中AppKit首次加载`+[NSTextInputContext initialize]`占233个样本，`TextElement::prepaint`降至124个样本（`DisplayMap::on_layout_changed` 78个、`ensure_prepared_for_layout`初始行树构建45个），`grapheme_indices`与`unicode_linebreak`均为0样本；`update_wrapped`内部剩余样本主要集中在`ropey::Lines`分片读取、宽度表哈希查找及`SumTree`节点分配。采样运行的计时不并入上方未插桩均值。
+- **剩余风险**：全唯一百万短行在首次`prepaint`仍同步对全部1,048,576行执行`TextSystem::shape_line`（底层CoreText `CTLineCreateWithAttributedString`），即使`WidthMeasurements`本体限制在32,768条/4 MiB，系统字体整形与百万行`SumTree`仍带来约2.27 GiB峰值与7.38秒首屏等待。后续需评估视口优先或分块渐进折行，以及多文档长期驻留堆分布；上述数据仍仅代表本机macOS ARM64 warm/unspecified状态，不代表冷盘、物理屏幕像素首帧或Windows/Linux性能。

@@ -7,11 +7,25 @@ import tempfile
 import unittest
 import zipfile
 
-from ci_common import TARGETS
+from ci_common import TARGETS, save_support
 from package_artifact import add_file, crate_notices, machine_header, resolved_dependencies, write_archive
 
 
 class PackagingTests(unittest.TestCase):
+    def test_save_support_matches_supported_platforms(self):
+        for target, expected in (
+            ("aarch64-apple-darwin", "SUPPORTED (macOS)"),
+            ("x86_64-apple-darwin", "SUPPORTED (macOS)"),
+            ("x86_64-pc-windows-msvc", "SUPPORTED (Windows)"),
+            ("aarch64-pc-windows-msvc", "SUPPORTED (Windows)"),
+            ("x86_64-unknown-linux-gnu", "SUPPORTED (Linux)"),
+            ("aarch64-unknown-linux-gnu", "SUPPORTED (Linux)"),
+            ("x86_64-unknown-freebsd", "UNSUPPORTED"),
+            ("wasm32-unknown-unknown", "UNSUPPORTED"),
+        ):
+            with self.subTest(target=target):
+                self.assertEqual(save_support(target), expected)
+
     def test_machine_headers_match_the_requested_architecture(self):
         with tempfile.TemporaryDirectory() as scratch:
             path = Path(scratch) / "binary"

@@ -79,7 +79,7 @@ jobs:
         run: cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-support --lib --target ${{ matrix.target }} --target-dir target -- input::undo_manager::tests::ime_pin_
       - name: Test maintained native row-layout invariants
         if: matrix.target == 'aarch64-apple-darwin'
-        run: "cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-support --lib --target ${{ matrix.target }} --target-dir target -- input::display_map::text_wrapper::tests::"
+        run: "cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-support --lib --target ${{ matrix.target }} --target-dir target -- input::display_map::text_wrapper::"
       - name: Remove successful test build trees before release
         run: ${{ matrix.python }} scripts/ci/clean_debug.py --target ${{ matrix.target }}
       - name: Build all workspace release binaries

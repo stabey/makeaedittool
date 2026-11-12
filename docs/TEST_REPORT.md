@@ -260,3 +260,16 @@ ADR012实现与复审无剩余阻塞；不改变IME事件/历史协议、应用�
 下载的本轮Mac ARM产物两个二进制SHA校验通过，携带原Apache LICENSE及与维护源一致的三文件NOTICE。[构建身份](evidence/load-ci-macos-build-identity.txt)中的`gui_smoke_executed=false`描述托管CI；下载后本机另行运行近64 MiB `--smoke=startup`及完整`--smoke=ime`，均exit 0、passed并取得durable ACK，见[产物运行报告](evidence/load-ci-macos-native.json)。其他平台没有新增GUI或性能验收。
 
 运行证据归档后，任务独占的`/tmp/runtime_verify_profile`及Mac ARM产物下载临时目录已清理；仅保留源码、release构建与证据，没有使用或删除默认用户数据目录。
+
+## 首次折行优化与跨平台安全保存（ADR013 / ADR014）本地验证
+
+本轮合入ADR013（`vendor/gpui-base`首次折行单行容纳快路径、`WrapScratch`复用与全量`SumTree`无重叠替换）与ADR014（macOS/Linux/Windows三平台原子安全保存、恢复对账与五目标CI脚本同步）。方案经独立`design-review`与`adversarial-check`前置评审，实施后再次通过`design-review`跨五目标契约与FFI/ABI复审（无剩余阻断项）。构建与源文件SHA见[本轮构建身份](evidence/adr013-014-build-identity.json)。
+
+- **编译、格式与单元/集成测试**：`cargo fmt --all -- --check`（以及`vendor/gpui-base`与`spikes/shared-text-feasibility`独立格式检查）通过；`cargo test --locked --workspace`共165个测试全部通过（`editor` 66、`editor-services` 73、`layout_order` 7、`recovery_layout` 19），新增跨平台保存权限保留、只读目标拒绝、悬空符号链接拒绝、硬链接拒绝、5阶段故障注入及`Prepared`稳定文件ID崩溃对账覆盖。
+- **vendor私有测试与CI脚本单测**：`vendor/gpui-base`下`input::display_map::text_wrapper::`模块25个私有测试全部通过（含6个新增单行快路径、窄阈值慢路径、`WrapScratch`复用、全量无重叠替换与参数setter边界用例），`input::undo_manager::tests::ime_pin_` 11个私有IME历史测试全部通过；`python3 -m unittest discover -s scripts/ci -p 'test_package_artifact.py'` 8个打包与能力矩阵测试全部通过。
+- **原生真窗口回归矩阵与跨进程恢复**：串行执行`startup`、`full`、`ime`（5项IME验收标志全为`true`）、`usability`、`groups`、`splits`及复用`ime`数据目录的新进程`recovery_restart`共7项场景，全部exit 0、`passed: true`并观察到正常退出durable ACK，汇总见[原生回归报告](evidence/adr013-014-native-regressions.json)。
+- **服务层保存/恢复进程崩溃注入**：release `editor-services`的`smoke`、`session-bench 100`、`crash-recovery`+`recover-check`（退出码86后恢复`durable_revision=1`与UTF-8正文）及`crash-save`全部5个故障点（`before-write`、`temp-sync`、`before-rename`保留原文件，`after-rename`、`recovery-ack`原子发布新正文）全部通过，见[服务故障检查](evidence/adr014-services-fault-checks.json)。
+- **隔离实验复验**：[分页8视口实验](evidence/adr013-paged-eight-view.json) exit 0、`passed: true`。重建`shared-text-feasibility`后发现旧报告（`load-shared-text-diagnostic.json`）曾误跑ADR012前的陈旧二进制；在ADR012直接接管`Rope`后，由同一`fixture.rope.clone()`初始化的两个独立`EditorAdapter`在首次编辑前按预期共享只读`Rope` `Arc`实例（`pair_native_rope_instance_equal == true`），首次编辑`A`即触发写时复制分叉（`pair_native_rope_instance_equal == false`）且不污染`B`。同步更新该诊断断言后，[共享文本诊断](evidence/adr013-shared-text-diagnostic.json)完成66阶段、exit 0，56个诊断边界与12个产品断言全部满足（`failed_assertions=0`）。
+- **未验证边界与环境探针**：[桌面截图探针](evidence/adr013-014-desktop-capture-probe.txt)记录本机`CGPreflightScreenCaptureAccess() == true`但`SCShareableContent`枚举显示器数为0、`SCScreenshotManager`报`-3811`、`screencapture -l`退出码1，故物理像素呈现与窗口外部截图仍标为未验证。本机Parallels Desktop存在`Windows 11 (1)` ARM64虚拟机（状态`suspended`），本轮未自动唤醒或改写客户机；Linux与Windows原生保存及进程故障门禁尚未在远端GitHub Actions实际跑完，需推送分支后核验五目标CI运行结果。
+
+所有64 MiB基准夹具、临时SQLite目录及`/tmp/adr013_*`工作目录均已清理，未触碰默认用户数据目录。

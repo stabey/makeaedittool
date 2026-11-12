@@ -1,0 +1,59 @@
+{
+  "smoke": {
+    "command": "/Volumes/macport/makeaedittool/target/release/editor-services smoke /tmp/adr013_smoke_work/services/smoke_test",
+    "returncode": 0,
+    "stdout": "smoke_passed directory=/tmp/adr013_smoke_work/services/smoke_test/smoke-5fc272e6-d03b-4718-82ad-b0a012c56da1 scenarios=open_bom_crlf,delta_recovery,save_temp_fault,atomic_save,cross_block_nonoverlap,discard_guard",
+    "stderr": "",
+    "passed": true
+  },
+  "session_bench": {
+    "command": "/Volumes/macport/makeaedittool/target/release/editor-services session-bench /tmp/adr013_smoke_work/services/session_test 100",
+    "returncode": 0,
+    "stdout": "metric=lazy_session tabs=100 views=100 worker_open_us=826 metadata_us=1899 active_hydrate_us=266 hydrated_documents=1 active_bytes=69632 inactive_hydrated=0 database=/tmp/adr013_smoke_work/services/session_test/session-45bfb737-b0be-46c5-8ec0-9aed5183f8b1.sqlite3",
+    "passed": true
+  },
+  "crash_recovery": {
+    "crash_returncode": 86,
+    "crash_stdout": "durable_revision=1 next_revision=2 exit_stage=RecoveryBeforeCommit expected_exit=86",
+    "recover_returncode": 0,
+    "recover_stdout": "crash_recovery_passed durable_revision=1 text=durable baseline \u4e2d\u6587\ud83d\ude42",
+    "passed": true
+  },
+  "crash_save": {
+    "before-write": {
+      "returncode": 86,
+      "stdout": "save_process_exit stage=SaveBeforeWrite expected_exit=86 target=/tmp/adr013_smoke_work/services/crash_save_before-write/crash-save.txt",
+      "file_content": "original\n",
+      "expected_content": "original\n",
+      "passed": true
+    },
+    "temp-sync": {
+      "returncode": 86,
+      "stdout": "save_process_exit stage=SaveAfterTempSync expected_exit=86 target=/tmp/adr013_smoke_work/services/crash_save_temp-sync/crash-save.txt",
+      "file_content": "original\n",
+      "expected_content": "original\n",
+      "passed": true
+    },
+    "before-rename": {
+      "returncode": 86,
+      "stdout": "save_process_exit stage=SaveBeforeRename expected_exit=86 target=/tmp/adr013_smoke_work/services/crash_save_before-rename/crash-save.txt",
+      "file_content": "original\n",
+      "expected_content": "original\n",
+      "passed": true
+    },
+    "after-rename": {
+      "returncode": 86,
+      "stdout": "save_process_exit stage=SaveAfterRename expected_exit=86 target=/tmp/adr013_smoke_work/services/crash_save_after-rename/crash-save.txt",
+      "file_content": "captured new text\n",
+      "expected_content": "captured new text\n",
+      "passed": true
+    },
+    "recovery-ack": {
+      "returncode": 86,
+      "stdout": "save_process_exit stage=SaveBeforeRecoveryAck expected_exit=86 target=/tmp/adr013_smoke_work/services/crash_save_recovery-ack/crash-save.txt",
+      "file_content": "captured new text\n",
+      "expected_content": "captured new text\n",
+      "passed": true
+    }
+  }
+}

@@ -789,7 +789,7 @@ fn reload_replaces_only_one_binding_with_no_checkpoint_and_rolls_back_failure() 
     );
     receive(admit(|| service.shutdown()));
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn saved_oversize_close_requires_current_full_identity_and_exact_published_proof() {
     let dir = TempDir::new().unwrap();
@@ -904,7 +904,7 @@ fn saved_oversize_close_requires_current_full_identity_and_exact_published_proof
     );
     receive(admit(|| service.shutdown()));
 }
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
 fn export_copy_publishes_without_changing_source_association_or_save_intents() {
     let dir = TempDir::new().unwrap();
@@ -999,7 +999,7 @@ fn durable_overflow_pages_reopen_and_platform_export_preserve_all_heads() {
     }
     assert_eq!(seen.len(), 1100);
     let overflow = overflow.unwrap();
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
         let draft = receive(
             service

@@ -1,0 +1,23 @@
+# Native Desktop Capture Probe Evidence
+Workstation: macOS 27.2.0 (arm64, Darwin 27.2.0, Apple Silicon)
+Date: 2026-11-12
+
+1. ScreenCaptureKit Display Enumeration:
+- CGPreflightScreenCaptureAccess(): true
+- SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+  - displays.count: 0 (no active displays enumerated)
+  - windows.count: 183
+
+2. ScreenCaptureKit Window Capture:
+- Target: Window ID 15656 (Title: "What's New", frame: (0.0, 30.0, 2560.0, 1327.0), onScreen: true)
+- SCContentFilter(desktopIndependentWindow: win)
+- SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+  - Result: Error Domain=com.apple.ScreenCaptureKit.SCStreamErrorDomain Code=-3811 "Failed to start stream due to audio/video capture failure"
+
+3. screencapture CLI:
+- screencapture -l 15656 /tmp/adr013_verify_evidence/win.png
+  - Exit code: 1
+  - Stderr: "could not create image from window"
+
+Conclusion:
+Display enumeration returns 0 displays, window capture via ScreenCaptureKit fails with error -3811, and screencapture -l fails with code 1. Pixel-level desktop capture remains UNVERIFIED on this workstation.

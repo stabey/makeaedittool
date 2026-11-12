@@ -2,6 +2,7 @@ use ropey::Rope;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
+    fs::File,
     ops::Range,
     path::{Path, PathBuf},
     sync::{
@@ -86,7 +87,77 @@ pub struct FileFingerprint {
 }
 impl FileFingerprint {
     pub fn of_path(path: &Path) -> Result<Self, ServiceError> {
-        Self::of_metadata(&std::fs::metadata(path)?)
+        #[cfg(not(windows))]
+        {
+            Self::of_metadata(&std::fs::metadata(path)?)
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            let meta = std::fs::metadata(path)?;
+            if !meta.is_file() {
+                return Self::of_metadata(&meta);
+            }
+            match std::fs::OpenOptions::new()
+                .access_mode(0)
+                .share_mode(7)
+                .open(path)
+            {
+                Ok(file) => Self::of_file(&file),
+                Err(_) => Self::of_metadata(&meta),
+            }
+        }
+    }
+    pub fn of_file(file: &File) -> Result<Self, ServiceError> {
+        #[cfg(not(windows))]
+        {
+            Self::of_metadata(&file.metadata()?)
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            if !file.metadata()?.is_file() {
+                return Err(ServiceError::new(
+                    ErrorKind::Unsupported,
+                    "not a regular file",
+                ));
+            }
+            let info = windows_fs::file_information(file)?;
+            let mut flags = 0;
+            // SAFETY: the file handle is live, flags is writable, and all optional
+            // output buffers are null with zero lengths.
+            let volume_known = unsafe {
+                windows_fs::GetVolumeInformationByHandleW(
+                    file.as_raw_handle(),
+                    std::ptr::null_mut(),
+                    0,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    &mut flags,
+                    std::ptr::null_mut(),
+                    0,
+                )
+            } != 0;
+            let file_index = ((info.nFileIndexHigh as u64) << 32) | info.nFileIndexLow as u64;
+            let (dev, ino) = if volume_known
+                && flags & windows_fs::FILE_SUPPORTS_OPEN_BY_FILE_ID != 0
+                && file_index != 0
+                && file_index != u64::MAX
+            {
+                (info.dwVolumeSerialNumber as u64, file_index)
+            } else {
+                (0, 0)
+            };
+            let ticks =
+                ((info.ftLastWriteTime.high as u64) << 32) | info.ftLastWriteTime.low as u64;
+            Ok(Self {
+                len: ((info.nFileSizeHigh as u64) << 32) | info.nFileSizeLow as u64,
+                mtime_ns: (ticks as i128 - 116_444_736_000_000_000) * 100,
+                ctime_ns: 0,
+                dev,
+                ino,
+            })
+        }
     }
     pub fn of_metadata(meta: &std::fs::Metadata) -> Result<Self, ServiceError> {
         if !meta.is_file() {
@@ -120,6 +191,95 @@ impl FileFingerprint {
                 ino: 0,
             })
         }
+    }
+}
+
+#[cfg(windows)]
+pub(crate) mod windows_fs {
+    use super::ServiceError;
+    use std::{ffi::c_void, fs::File, os::windows::io::AsRawHandle, path::Path};
+
+    pub(crate) const FILE_SUPPORTS_OPEN_BY_FILE_ID: u32 = 0x0100_0000;
+    pub(crate) const FILE_ATTRIBUTE_READONLY: u32 = 0x0000_0001;
+    pub(crate) const FILE_ATTRIBUTE_HIDDEN: u32 = 0x0000_0002;
+    pub(crate) const FILE_ATTRIBUTE_SYSTEM: u32 = 0x0000_0004;
+    pub(crate) const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x0000_0010;
+    pub(crate) const FILE_ATTRIBUTE_ARCHIVE: u32 = 0x0000_0020;
+    pub(crate) const FILE_ATTRIBUTE_NORMAL: u32 = 0x0000_0080;
+    pub(crate) const FILE_ATTRIBUTE_NOT_CONTENT_INDEXED: u32 = 0x0000_2000;
+    pub(crate) const MOVEFILE_REPLACE_EXISTING: u32 = 0x0000_0001;
+    pub(crate) const MOVEFILE_WRITE_THROUGH: u32 = 0x0000_0008;
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub(crate) struct FileTime {
+        pub(crate) low: u32,
+        pub(crate) high: u32,
+    }
+
+    #[repr(C)]
+    #[allow(non_camel_case_types, non_snake_case)]
+    pub(crate) struct BY_HANDLE_FILE_INFORMATION {
+        pub(crate) dwFileAttributes: u32,
+        pub(crate) ftCreationTime: FileTime,
+        pub(crate) ftLastAccessTime: FileTime,
+        pub(crate) ftLastWriteTime: FileTime,
+        pub(crate) dwVolumeSerialNumber: u32,
+        pub(crate) nFileSizeHigh: u32,
+        pub(crate) nFileSizeLow: u32,
+        pub(crate) nNumberOfLinks: u32,
+        pub(crate) nFileIndexHigh: u32,
+        pub(crate) nFileIndexLow: u32,
+    }
+    const _: () = assert!(std::mem::size_of::<BY_HANDLE_FILE_INFORMATION>() == 52);
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        pub(crate) fn GetFileInformationByHandle(
+            file: *mut c_void,
+            information: *mut BY_HANDLE_FILE_INFORMATION,
+        ) -> i32;
+        pub(crate) fn GetVolumeInformationByHandleW(
+            file: *mut c_void,
+            volume_name: *mut u16,
+            volume_name_len: u32,
+            serial_number: *mut u32,
+            max_component_len: *mut u32,
+            flags: *mut u32,
+            filesystem_name: *mut u16,
+            filesystem_name_len: u32,
+        ) -> i32;
+        pub(crate) fn MoveFileExW(existing: *const u16, target: *const u16, flags: u32) -> i32;
+        #[allow(dead_code)]
+        pub(crate) fn GetFileAttributesW(path: *const u16) -> u32;
+        pub(crate) fn SetFileAttributesW(path: *const u16, attributes: u32) -> i32;
+    }
+
+    pub(crate) fn file_information(
+        file: &File,
+    ) -> Result<BY_HANDLE_FILE_INFORMATION, ServiceError> {
+        let mut information = std::mem::MaybeUninit::uninit();
+        // SAFETY: the handle is live and the output points to a correctly sized,
+        // aligned BY_HANDLE_FILE_INFORMATION. Success initializes every field.
+        if unsafe { GetFileInformationByHandle(file.as_raw_handle(), information.as_mut_ptr()) }
+            == 0
+        {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        // SAFETY: GetFileInformationByHandle succeeded above.
+        Ok(unsafe { information.assume_init() })
+    }
+
+    pub(crate) fn wide_path(path: &Path) -> Result<Vec<u16>, ServiceError> {
+        use std::os::windows::ffi::OsStrExt;
+        let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+        if wide[..wide.len() - 1].contains(&0) {
+            return Err(ServiceError::new(
+                super::ErrorKind::InvalidInput,
+                "NUL in path",
+            ));
+        }
+        Ok(wide)
     }
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

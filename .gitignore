@@ -2,7 +2,7 @@
 /.omp/config.yml
 /.omp/agent-architect.json
 /target/
-/spikes/nsh-eval/target/
+/spikes/*/target/
 /vendor/gpui-base/target/
 /.bench-data/
 /.smoke-data/

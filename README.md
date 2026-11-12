@@ -26,9 +26,9 @@ cargo test --locked --workspace
 
 在成功运行的 **Artifacts** 中下载对应目标的ZIP，保留14天。产物含`editor`/`editor.exe`、服务CLI、构建身份、SHA-256、目标相关许可证清单及许可文件。它们是开发构建，不是安装包或正式签名/公证版本；系统运行库仍由目标环境提供。
 
-**Windows/Linux当前不能保存用户文件。** 安全保存实现仅支持macOS；其他平台产物显著携带`EXPERIMENTAL-CANNOT-SAVE.txt`，只用于构建与兼容性验证，不应作为日常编辑器使用。草稿恢复不能替代保存文件。
+原子安全保存现支持macOS、Linux与Windows（其余未知平台产物仍会携带`EXPERIMENTAL-CANNOT-SAVE.txt`）。Windows与Linux产物虽具备服务层原子保存能力，但尚未完成原生桌面GUI、系统文件面板与输入法验收；草稿恢复仍不能替代显式保存文件。
 
-CI运行无需窗口的`--help`、`--version`、100文档会话验证，并在macOS额外运行保存/故障服务验证。它不执行GUI smoke，不证明真实IME、鼠标交互、GPU兼容或性能指标。具体状态以运行日志及ZIP中的`BUILD_IDENTITY.txt`、`HEADLESS_SMOKE.json`为准。
+CI在五个原生目标上均运行无需窗口的`--help`、`--version`、100文档惰性会话验证及保存/故障注入服务验证（`services_smoke`）。它不执行GUI smoke，不证明真实IME、鼠标交互、GPU兼容或性能指标。具体状态以运行日志及ZIP中的`BUILD_IDENTITY.txt`、`HEADLESS_SMOKE.json`为准。
 
 ## 工程结构
 
@@ -119,9 +119,9 @@ IME结算、原子撤销及实际保存/关闭/重启恢复另有macOS原生场�
 target/release/editor --data-dir .smoke-data/ime-check --smoke=ime --smoke-report .smoke-data/ime-check.json
 ```
 
-本地维护`gpui-base 0.9.0`的三个源文件：IME结算/历史发布，以及普通文件加载与行布局优化；依赖版本和应用层提交屏障不变，新增仅用于新建EditorMode的Rope接管构造器。来源和维护边界见[vendor notice](vendor/gpui-base/NOTICE-IME-PATCH.json)与ADR012。该补丁不提供共享可编辑多视图，也不等于真实系统输入法候选窗口已验收。
+本地维护`gpui-base 0.9.0`的三个源文件：IME结算/历史发布，以及普通文件加载、行布局与首次折行优化；依赖版本和应用层提交屏障不变，新增仅用于新建EditorMode的Rope接管构造器。来源和维护边界见[vendor notice](vendor/gpui-base/NOTICE-IME-PATCH.json)与ADR011–ADR013。该补丁不提供共享可编辑多视图，也不等于真实系统输入法候选窗口已验收。
 
-同机旧/新release交替各3次的近64 MiB短行文件对照中，平均peak RSS从690.66降至456.16 MiB，正文就绪从2.33降至1.43秒；包含显式draw与正常退出的总耗时也下降。160个工作区测试、19个私有行布局测试、11个私有IME历史测试及真实窗口回归通过。仍有较高的行布局成本，不承诺常驻内存或任意文件达到相同比例；测量边界与原始证据见[性能记录](docs/PERFORMANCE_REPORT.md)。
+同机ADR013前后的release交替对照（67,108,860 B）中：常规重复短行（各3次）平均peak RSS从455.73降至331.32 MiB（相对ADR012前690.66 MiB累计下降52.0%），正文就绪从1.42降至0.43秒；缓存不利的1,048,576行全唯一短行（各1次）peak RSS从5305.00降至2324.94 MiB，正文就绪从28.58降至7.38秒。165个工作区测试、25个私有行布局测试、11个私有IME历史测试及真实窗口回归通过。全唯一百万短行因首帧全量CoreText整形仍有较高内存与耗时，不承诺任意文本形态达到相同数字；测量边界与原始证据见[性能记录](docs/PERFORMANCE_REPORT.md)。
 
 ## 候选运行时
 

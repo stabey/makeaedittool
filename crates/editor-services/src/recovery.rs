@@ -199,19 +199,30 @@ pub struct SaveIntent {
     pub output_fingerprint: Option<FileFingerprint>,
 }
 impl SaveIntent {
-    /// Worker-only crash reconciliation. Rename may change ctime, so the prepared
-    /// inode/device/length/mtime are compared. This is identity evidence, not a
-    /// cryptographic proof against arbitrary external writers. Never republishes.
+    /// Worker-only crash reconciliation. Rename may change ctime, so stable
+    /// file identity, length, and mtime are compared. Volumes without file IDs
+    /// fail closed. This is not proof against arbitrary writers. Never republishes.
     pub fn target_matches_prepared_output(&self) -> Result<bool, ServiceError> {
         let Some(expected) = &self.output_fingerprint else {
             return Ok(false);
         };
-        let metadata = match std::fs::metadata(&self.target_path) {
-            Ok(metadata) => metadata,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(error) => return Err(error.into()),
+        if expected.dev == 0 || expected.ino == 0 {
+            return Ok(false);
+        }
+        let current = match FileFingerprint::of_path(&self.target_path) {
+            Ok(current) => current,
+            Err(error) => {
+                // ServiceError deliberately has no platform-specific IO fields.
+                // Only on the error path, distinguish a missing target from an
+                // inaccessible or unsupported one without weakening fingerprinting.
+                if std::fs::metadata(&self.target_path)
+                    .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
+                {
+                    return Ok(false);
+                }
+                return Err(error);
+            }
         };
-        let current = FileFingerprint::of_metadata(&metadata)?;
         Ok(current.dev == expected.dev
             && current.ino == expected.ino
             && current.len == expected.len
@@ -369,7 +380,7 @@ impl RecoveryHandle {
         std::thread::Builder::new()
             .name("recovery-sqlite".into())
             .spawn(move || {
-                let mut conn = match layout_store::open_database(&path, &worker_faults) {
+                let conn = match layout_store::open_database(&path, &worker_faults) {
                     Ok(conn) => {
                         let _ = ready_tx.send(Ok(()));
                         conn
@@ -379,7 +390,7 @@ impl RecoveryHandle {
                         return;
                     }
                 };
-                worker(&mut conn, rx, event_tx, shared, errors, worker_faults);
+                worker(conn, rx, event_tx, shared, errors, worker_faults);
             })?;
         ready_rx.recv().map_err(|_| {
             ServiceError::new(
@@ -690,7 +701,7 @@ impl SnapshotCache {
     }
 }
 fn worker(
-    conn: &mut Connection,
+    mut conn: Connection,
     commands: Receiver<Command>,
     events: Sender<RecoveryEvent>,
     mailbox: Arc<Mutex<Mailbox>>,
@@ -707,7 +718,14 @@ fn worker(
             Ok(command) => Some(command),
             Err(crossbeam_channel::RecvTimeoutError::Timeout) => None,
             Err(crossbeam_channel::RecvTimeoutError::Disconnected) => {
-                let _ = drain(conn, &mailbox, &events, &last_error, &faults, &mut cache);
+                let _ = drain(
+                    &mut conn,
+                    &mailbox,
+                    &events,
+                    &last_error,
+                    &faults,
+                    &mut cache,
+                );
                 break;
             }
         };
@@ -720,7 +738,14 @@ fn worker(
             .sum::<usize>()
             >= 1024 * 1024;
         if last_batch.elapsed() >= Duration::from_millis(250) || urgent {
-            if let Err(error) = drain(conn, &mailbox, &events, &last_error, &faults, &mut cache) {
+            if let Err(error) = drain(
+                &mut conn,
+                &mailbox,
+                &events,
+                &last_error,
+                &faults,
+                &mut cache,
+            ) {
                 pending_error = Some(error);
             }
             last_batch = Instant::now();
@@ -728,7 +753,7 @@ fn worker(
         match command {
             Some(Command::Wake) | None => {}
             Some(Command::Manifest { reply }) => {
-                let result = layout_store::manifest(conn);
+                let result = layout_store::manifest(&mut conn);
                 if result.is_ok() {
                     mailbox
                         .lock()
@@ -742,20 +767,21 @@ fn worker(
                 limit,
                 reply,
             }) => {
-                let _ = reply.send(layout_store::recently_closed(conn, before, limit));
+                let _ = reply.send(layout_store::recently_closed(&conn, before, limit));
             }
             Some(Command::RecoveryPage { request, reply }) => {
-                let _ = reply.send(layout_store::recovery_page(conn, request));
+                let _ = reply.send(layout_store::recovery_page(&conn, request));
             }
             Some(Command::Hydrate { key, cancel, reply }) => {
-                let _ = reply.send(hydrate(conn, key, &cancel));
+                let _ = reply.send(hydrate(&conn, key, &cancel));
             }
             Some(Command::Layout {
                 write,
                 meta_seq,
                 reply,
             }) => {
-                let result = layout_store::write_session(conn, &write, meta_seq, &mailbox, &faults);
+                let result =
+                    layout_store::write_session(&mut conn, &write, meta_seq, &mailbox, &faults);
                 let mut box_ = mailbox.lock().unwrap_or_else(|e| e.into_inner());
                 for change in &write.document_changes {
                     let key = change.key();
@@ -771,8 +797,15 @@ fn worker(
                 let _ = reply.send(result);
             }
             Some(Command::Close { batch, reply }) => {
-                let result = drain(conn, &mailbox, &events, &last_error, &faults, &mut cache)
-                    .and_then(|_| layout_store::close_views(conn, &batch, &faults));
+                let result = drain(
+                    &mut conn,
+                    &mailbox,
+                    &events,
+                    &last_error,
+                    &faults,
+                    &mut cache,
+                )
+                .and_then(|_| layout_store::close_views(&mut conn, &batch, &faults));
                 if result.is_ok() {
                     for entry in &batch.entries {
                         cache.remove(entry.target.document.doc_id);
@@ -784,7 +817,7 @@ fn worker(
                 let _ = reply.send(result);
             }
             Some(Command::Replace { replacement, reply }) => {
-                let result = layout_store::replace_view_document(conn, &replacement, &faults);
+                let result = layout_store::replace_view_document(&mut conn, &replacement, &faults);
                 if result.is_ok() {
                     cache.remove(replacement.target.document.doc_id);
                 }
@@ -794,19 +827,30 @@ fn worker(
                 let _ = reply.send(result);
             }
             Some(Command::Flush { shutdown, reply }) => {
-                let result = drain(conn, &mailbox, &events, &last_error, &faults, &mut cache)
-                    .and_then(|_| pending_error.take().map_or(Ok(()), Err));
-                let success = result.is_ok();
-                let _ = reply.send(result);
-                if shutdown && success {
+                let result = drain(
+                    &mut conn,
+                    &mailbox,
+                    &events,
+                    &last_error,
+                    &faults,
+                    &mut cache,
+                )
+                .and_then(|_| pending_error.take().map_or(Ok(()), Err));
+                if shutdown && result.is_ok() {
+                    // The acknowledgement is also a handle-release barrier. On
+                    // Windows callers may immediately remove the database directory.
+                    drop(cache);
+                    drop(conn);
+                    let _ = reply.send(result);
                     break;
                 }
                 if shutdown {
                     mailbox.lock().unwrap_or_else(|e| e.into_inner()).accepting = true;
                 }
+                let _ = reply.send(result);
             }
             Some(Command::Intent { value, reply }) => {
-                let _ = reply.send(record_intent(conn, &value, &faults));
+                let _ = reply.send(record_intent(&mut conn, &value, &faults));
             }
             Some(Command::Intents { reply }) => {
                 let result = (|| {

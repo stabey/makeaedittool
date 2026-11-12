@@ -29,7 +29,13 @@ def binary_paths(target):
 
 
 def save_support(target):
-    return "SUPPORTED (macOS)" if target.endswith("apple-darwin") else "UNSUPPORTED"
+    if target.endswith("apple-darwin"):
+        return "SUPPORTED (macOS)"
+    if "windows" in target:
+        return "SUPPORTED (Windows)"
+    if "linux" in target:
+        return "SUPPORTED (Linux)"
+    return "UNSUPPORTED"
 
 
 def pinned_toolchain():

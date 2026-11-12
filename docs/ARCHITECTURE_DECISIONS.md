@@ -169,6 +169,25 @@ cargo test --locked --manifest-path vendor/gpui-base/Cargo.toml --features test-
 
 验收包括初始正文身份/无历史、Unicode与CRLF光标裁剪及首次绘制可见性、LF行语义、跨块文本、换行增删、宽度复用与续行绝对坐标。性能比较使用保留的旧release二进制和相同夹具；同时比较显式draw及正常退出在内的总耗时与进程峰值，不能把延迟布局或未绘制的后台窗口当作收益。实测与剩余风险见性能报告。
 
+## ADR 013：首次折行有界快路径与全量行树无重叠替换
+
+ADR012后的已绘制启动采样与存活分配组显示两项直接浪费：一是首次`prepaint`先按`wrap_width = None`构建完整`SumTree<LineItem>`，随后`on_layout_changed(Some(width))`全量重排时旧树与新树同时常驻（1,048,576行短行夹具单棵树约116.37 MiB）；二是`measured_wrap`在检查整行是否单行可容纳前，无条件对每行执行`grapheme_indices`、`unicode_linebreak`及两次`Vec<usize>`堆分配，并对零缩进行重复测量空串。
+
+- 保持`vendor/gpui-base`既有三个受维护文件范围不变，仅修改`text_wrapper.rs`并同步`NOTICE-IME-PATCH.json`，不近似字形宽度，不修改`element.rs`或持久化格式。
+- `TextWrapper::update_lines`在`!reuse_widths`且覆盖全量行范围时，先将`self.lines`重置为空树再执行`SumTree::from_iter`，消除全量重排期间的新旧双树内存重叠；未初始化且行树为空时，`set_font`、`set_tab_size`（仍返回`true`）、`set_wrap_width`、`set_wrapping_indent`仅更新参数并清空宽度缓存，不重复构造空树。
+- `measured_wrap`对空行直接返回空断点与全宽区间；对字节长度不超过`2 * wrap_width`的非空行先用真实整形宽度执行一次整行`WidthRange::fits`，若单行可容纳则直接返回，避免无谓的grapheme/断行扫描与缩进测量。需要折行的行复用同一次`update_wrapped`持有的`WrapScratch`缓冲，消除逐行`Vec<usize>`分配。
+- 边界约束：该单行快路径与既有`measured_wrap`对单Uax14词行的假设一致，要求词边界整形宽度非递减；极端负字距或合成非单调测量函数作为已知边界保留。实际收益与剩余开销以同机交替对照及采样为准。
+
+## ADR 014：Linux与Windows原子安全保存及恢复对账
+
+在不新增Cargo依赖、不改动`Cargo.lock`的前提下，将`save_document`与`save_document_copy`扩展至macOS、Linux与Windows；其他未知目标仍显式返回`Unsupported`。方案经`design-review`与`adversarial-check`双重审查并合入全部阻断项修复：
+
+- **跨平台共同契约**：进程内串行锁、拒绝只读编码/混合换行、解析现有符号链接以保留链接本身并替换目标文件（悬空符号链接显式失败，不走新建分支以免覆盖链接）、拒绝硬链接（`nlink > 1` / `nNumberOfLinks > 1`）与只读目标、同目录独占临时文件写入与刷盘、发布前重解析路径防符号链接改向与外部并发修改，完整保留五个`FaultPoint`与`SaveIntent`三阶段记录。
+- **TempFile与恢复句柄生命周期**：`TempFile::drop`先显式关闭文件句柄再删除未发布临时文件；`RecoveryHandle::shutdown`在回复调用方之前先释放缓存与SQLite连接，消除Windows下关闭后立即清理目录时的句柄占用竞争。
+- **Linux路径**：新建文件使用`0o666`交由内核原子应用`umask`，替换已有文件先以`0o600`创建再通过`fchmod`复制原文件`0o7777`权限位（不宣称保留POSIX ACL、xattr或非所属组owner）；独占新建优先使用`renameat2(..., RENAME_NOREPLACE)`，遇`ENOSYS`/`EINVAL`/`EOPNOTSUPP`回退至`link`加尽力`unlink`（一旦`link`成功即视为已发布，不误报未保存）；发布后同步父目录与文件描述符。
+- **Windows路径**：不打开父目录句柄（兼容盘符根目录与UNC根）；使用零额外依赖的`kernel32` FFI（静态断言`BY_HANDLE_FILE_INFORMATION`为52字节ABI布局）通过`GetVolumeInformationByHandleW`检查`FILE_SUPPORTS_OPEN_BY_FILE_ID`，在支持稳定文件ID的卷（NTFS/ReFS）上记录卷序列号与64位file index，避免同tick等长修改在`SaveBeforeRename`崩溃对账时误判。同时`SaveIntent::target_matches_prepared_output`要求`dev != 0 && ino != 0`，使FAT/exFAT等无稳定ID文件系统在崩溃对账时保守失败闭合。写入临时文件后复制安全属性（`HIDDEN | SYSTEM | ARCHIVE | NOT_CONTENT_INDEXED`，兼容替换隐藏/系统目标时的NTFS访问检查，绝不复制`READONLY`），`FlushFileBuffers`后先关闭临时文件句柄再采样指纹并调用`MoveFileExW(MOVEFILE_WRITE_THROUGH | MOVEFILE_REPLACE_EXISTING)`发布。Windows不提供非特权目录`FlushFileBuffers`，替代数据流（ADS）与自定义DACL不跨替换保留，外部无`FILE_SHARE_DELETE`占用返回明确保存失败并保留原文件与草稿；上述边界记入已知限制。
+- **CI与产物边界**：五平台原生CI统一运行`editor-services smoke`及跨平台保存/进程退出故障测试；`BUILD_IDENTITY.txt`与`HEADLESS_SMOKE.json`统一使用`services_smoke`字段，仅在`save_support == UNSUPPORTED`的目标中生成`EXPERIMENTAL-CANNOT-SAVE.txt`。托管CI通过仍不代表Windows/Linux桌面GUI、原生文件对话框或IME已验收。
+
 ## 审查来源与证据边界
 
 本轮由项目 `design-review` 评审并修订上述契约。其最初误将 macOS 描述为虚拟机，已纠正；最初建议 per-key Rope equality 与 checkpoint-only 的潜在性能风险也已明确排除。评审结论只许可实施；构建、数据可靠性及性能结论见实际验证记录。

@@ -39,18 +39,28 @@
 //!   Shutdown is asynchronous and returns an error instead of pretending failed
 //!   accepted recovery writes were flushed.
 //! - Save captures a rope, preserves BOM and uniform LF/CRLF, and never deletes an
-//!   existing target before publication. macOS uses same-directory exclusive temp
-//!   creation, metadata/ACL/xattr copying, F_FULLFSYNC, rename, and directory sync.
-//!   Symlinks resolve to their target; hard links require a separate Save As path.
-//!   Recovery failure permits explicit rescue-save, with a distinct warning.
+//!   existing target before publication. All supported platforms use an exclusive
+//!   same-directory temp file and reject hard-link replacement and read-only targets.
+//!   macOS copies metadata/ACLs/xattrs and uses F_FULLFSYNC, rename, and directory sync.
+//!   Linux preserves POSIX mode bits and uses fsync, atomic rename (exclusive rename
+//!   or link for new targets), and directory fsync; ACLs/xattrs/ownership are not copied.
+//!   Windows closes the flushed temp before MoveFileExW with WRITE_THROUGH, preserving
+//!   ordinary HIDDEN/SYSTEM/ARCHIVE/NOT_CONTENT_INDEXED attributes, not custom DACLs
+//!   or alternate streams; parent-directory flushing is not available to this path.
+//!   Symlinks resolve to their target, including on Windows. Recovery failure permits
+//!   explicit rescue-save with a distinct warning. Successful recovery shutdown
+//!   acknowledges only after closing the SQLite database handles.
 //! - UI preferences and recent paths use a separate 256 KiB JSON store with one
 //!   latest-state slot and one atomic-publication worker. `queue` is bounded UI-safe
 //!   admission, while `flush`/`shutdown` replies report writer failures independently
 //!   of draft recovery. Loading does not stat recent targets or rewrite input;
 //!   damaged settings are retained in a unique backup on the first queued change.
 //! - Filesystem identities detect ordinary changes, not adversarial writes preserving
-//!   metadata. Existing-target rename has an unavoidable external check/rename race;
-//!   Windows atomic replacement and real power-loss durability remain unverified.
+//!   metadata. Crash reconciliation fails closed without stable file IDs.
+//!   Existing-target rename has an unavoidable external check/rename race; Windows
+//!   handles without delete sharing can prevent replacement without deleting the old
+//!   target. Real power-loss durability and interactive platform behavior need separate
+//!   verification; headless save/fault checks are not GUI or power-cut evidence.
 //!
 //! The `editor-services` executable supplies generation, read-at baseline, both
 //! search kernels, storage viewport quantiles, multifile budgets, cancellation,

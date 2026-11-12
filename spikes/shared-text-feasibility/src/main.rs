@@ -239,11 +239,20 @@ fn independent_control(
             });
         },
     )?;
-    report.expect(&configured, "diagnostic_boundary", "Equal initial bytes belong to distinct native entities and nonshared mutable Rope instances",
+    report.expect(
+        &configured,
+        "diagnostic_boundary",
+        "Adapters hydrated from a cloned fixture Rope belong to distinct native entities and preserve zero-copy Rope adoption until edited",
         configured.control("A").entity_id != configured.control("B").entity_id
-            && configured.pair_native_byte_equal == Some(true) && configured.pair_native_rope_instance_equal == Some(false),
-        json!({"A": configured.control("A").entity_id, "B": configured.control("B").entity_id,
-            "byte_equal": configured.pair_native_byte_equal, "rope_instance_equal": configured.pair_native_rope_instance_equal}));
+            && configured.pair_native_byte_equal == Some(true)
+            && configured.pair_native_rope_instance_equal == Some(true),
+        json!({
+            "A": configured.control("A").entity_id,
+            "B": configured.control("B").entity_id,
+            "byte_equal": configured.pair_native_byte_equal,
+            "rope_instance_equal": configured.pair_native_rope_instance_equal,
+        }),
+    );
     let b_selection = configured.control("B").selection_bytes.clone();
     let b_scroll = configured.control("B").scroll_pixels;
     report.expect(
@@ -270,13 +279,27 @@ fn independent_control(
             });
         },
     )?;
-    report.expect(&edited, "diagnostic_boundary", "Editing A does not mutate B's text/history/selection/wrap/scroll: NONSHARING control",
-        edited.control("A").visible_revision == 2 && edited.control("B").visible_revision == 1
-            && !edited.control("B").dirty && edited.edit_events("B") == 0
-            && edited.pair_native_byte_equal == Some(false) && edited.control("B").native.byte_len == fixture.rope.len()
-            && edited.control("B").selection_bytes == b_selection && edited.control("B").scroll_pixels == b_scroll
+    report.expect(
+        &edited,
+        "diagnostic_boundary",
+        "Editing A forks A's Rope instance and does not mutate B's text/history/selection/wrap/scroll: NONSHARING control",
+        edited.control("A").visible_revision == 2
+            && edited.control("B").visible_revision == 1
+            && !edited.control("B").dirty
+            && edited.edit_events("B") == 0
+            && edited.pair_native_byte_equal == Some(false)
+            && edited.pair_native_rope_instance_equal == Some(false)
+            && edited.control("B").native.byte_len == fixture.rope.len()
+            && edited.control("B").selection_bytes == b_selection
+            && edited.control("B").scroll_pixels == b_scroll
             && !edited.control("B").applied_soft_wrap,
-        json!({"A": edited.control("A"), "B": edited.control("B"), "B_edit_events": edited.edit_events("B")}));
+        json!({
+            "A": edited.control("A"),
+            "B": edited.control("B"),
+            "B_edit_events": edited.edit_events("B"),
+            "rope_instance_equal": edited.pair_native_rope_instance_equal,
+        }),
+    );
     let a_revision = edited.control("A").visible_revision;
     let a_byte_len = edited.control("A").native.byte_len;
     report.phases.push(edited);

@@ -18,10 +18,10 @@ def main():
         "",
         f"- atomic_save_support={save_support(args.target)}",
         "- gui_smoke_executed=false (no hosted GUI/compositor smoke)",
-        "- Runtime evidence is CLI startup and a 100-document lazy-session benchmark only.",
+        "- Runtime evidence covers headless CLI/service checks, not interactive desktop behavior.",
     ]
-    if args.target.endswith("apple-darwin"):
-        lines.append("- The headless runtime step also runs the macOS service save/fault smoke.")
+    if save_support(args.target) != "UNSUPPORTED":
+        lines.append("- The headless runtime step runs CLI startup, a 100-document lazy-session benchmark, and service save/fault smoke.")
     else:
         lines.extend([
             "- **EXPERIMENTAL — CANNOT SAVE FILES.** Atomic saving is unsupported.",

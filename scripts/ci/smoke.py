@@ -49,12 +49,12 @@ def main():
         ]
         if len(metrics) != 1 or metrics[0].get("tabs") != "100" or metrics[0].get("hydrated_documents") != "1":
             raise RuntimeError("Expected metric=lazy_session tabs=100 with hydrated_documents=1")
-        macos_smoke = "not-run: unsupported atomic saving on this platform"
-        if args.target.endswith("apple-darwin"):
+        services_smoke = "not-run: unsupported atomic saving on this platform"
+        if save_support(args.target) != "UNSUPPORTED":
             output = run_cli(binaries["editor-services"], "smoke", directory / "services")
             if not any(line.startswith("smoke_passed ") for line in output.splitlines()):
-                raise RuntimeError("Missing successful macOS service smoke marker")
-            macos_smoke = "success"
+                raise RuntimeError("Missing successful service smoke marker")
+            services_smoke = "success"
     # Only a fully successful run writes a report. Packaging binds it to these binaries.
     report = {
         "target": args.target,
@@ -64,7 +64,7 @@ def main():
         "editor_version": version,
         "session_bench_status": "success",
         "session_bench": metrics[0],
-        "macos_services_smoke": macos_smoke,
+        "services_smoke": services_smoke,
         "atomic_save_support": save_support(args.target),
         "gui_smoke_executed": False,
         "binary_sha256": hashes,
